@@ -8,13 +8,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { useDispatch } from 'react-redux';
 import { updateDesign, deleteDesign, fetchDesigns } from '@/store/slices/designLibrarySlice';
+import type { AppDispatch } from '@/store/store';
 
 interface DataViewProps<T> {
   data: T[];
   columns: {
     header: string;
     accessor: keyof T;
-    render?: (value: any) => React.ReactNode;
+    render?: (value: any, row: T) => React.ReactNode;
   }[];
   onSort?: (column: keyof T) => void;
   onSearch?: (query: string) => void;
@@ -34,7 +35,7 @@ export default function DataView<T>({
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedTag, setSelectedTag] = useState<string>('');
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   // Extract all unique tags from data
   const allTags = useMemo(() => {
@@ -103,15 +104,10 @@ export default function DataView<T>({
           {tableData.map((item, index) => (
             <tr key={index}>
               {columns.map((column) => {
-                let value;
-                if (typeof column.accessor === 'function') {
-                  value = column.accessor(item);
-                } else {
-                  value = item[column.accessor];
-                }
+                const value = item[column.accessor];
                 return (
                   <td key={String(column.header)} className="px-6 py-4 whitespace-nowrap">
-                    {column.render ? column.render(value) : String(value)}
+                    {column.render ? column.render(value, item) : String(value)}
                   </td>
                 );
               })}
@@ -138,8 +134,8 @@ export default function DataView<T>({
             >
               <div className="relative w-32 h-32">
                 {imageColumn && imageColumn.render
-                  ? imageColumn.render(item[imageColumn.accessor])
-                  : item[imageColumn?.accessor as keyof T] && (
+                  ? imageColumn.render(item[imageColumn.accessor], item)
+                  : (imageColumn && item[imageColumn.accessor]) && (
                       <img
                         src={String(item[imageColumn.accessor])}
                         alt="Design"
@@ -165,7 +161,7 @@ export default function DataView<T>({
                 <div key={String(column.accessor)} className="mb-2">
                   <span className="font-medium text-gray-500">{column.header}: </span>
                   {column.render
-                    ? column.render(selectedItem[column.accessor])
+                    ? column.render(selectedItem[column.accessor], selectedItem)
                     : String(selectedItem[column.accessor])}
                 </div>
               ))}
@@ -198,41 +194,34 @@ export default function DataView<T>({
               </button>
               <h2 className="text-xl font-bold mb-6">Edit Design</h2>
               <form
-                onSubmit={e => {
+                onSubmit={(e) => {
                   e.preventDefault();
                   handleEditSave();
                 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
               >
                 {columns.map((column) => (
-                  <div key={String(column.accessor)} className="flex flex-col col-span-1">
-                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                  <div key={String(column.accessor)} className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       {column.header}
                     </label>
                     <input
-                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-400"
-                      value={editForm[column.accessor] ?? ''}
-                      onChange={e => handleEditChange(String(column.accessor), e.target.value)}
-                      disabled={
-                        String(column.accessor) === 'uid' ||
-                        String(column.accessor).toLowerCase().includes('image')
-                      }
+                      type="text"
+                      value={editForm[column.accessor] || ''}
+                      onChange={(e) => handleEditChange(String(column.accessor), e.target.value)}
+                      className="input w-full"
                     />
                   </div>
                 ))}
-                <div className="md:col-span-2 flex gap-2 mt-4 justify-end">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold transition"
-                  >
-                    Save
-                  </button>
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded font-semibold transition"
+                    className="btn btn-secondary"
                     onClick={() => setEditItem(null)}
                   >
                     Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save
                   </button>
                 </div>
               </form>
@@ -248,16 +237,17 @@ export default function DataView<T>({
       <div className="space-y-4 p-4">
         {cardData.map((item, index) => (
           <div key={index} className="bg-white p-6 rounded-lg shadow">
-            {columns.map((column) => (
-              <div key={String(column.accessor)} className="mb-4">
-                <h3 className="text-lg font-medium text-gray-900">{column.header}</h3>
-                <div className="mt-1">
-                  {column.render
-                    ? column.render(item[column.accessor])
-                    : String(item[column.accessor])}
+            {columns.map((column) => {
+              const value = item[column.accessor];
+              return (
+                <div key={String(column.header)} className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">{column.header}</h3>
+                  <div className="mt-1">
+                    {column.render ? column.render(value, item) : String(value)}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
       </div>

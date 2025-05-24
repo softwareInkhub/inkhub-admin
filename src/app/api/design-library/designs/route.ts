@@ -22,8 +22,9 @@ export async function GET() {
     return NextResponse.json(response.Items || []);
   } catch (error) {
     console.error('Error fetching designs:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to fetch designs', details: error.message },
+      { error: 'Failed to fetch designs', details: errorMessage },
       { status: 500 }
     );
   }
@@ -39,7 +40,8 @@ export async function POST(request: Request) {
     await docClient.send(command);
     return NextResponse.json({ message: 'Design created successfully' });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create design', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ error: 'Failed to create design', details: errorMessage }, { status: 500 });
   }
 }
 
@@ -62,7 +64,8 @@ export async function PUT(request: Request) {
     const result = await docClient.send(command);
     return NextResponse.json(result.Attributes);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to update design', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ error: 'Failed to update design', details: errorMessage }, { status: 500 });
   }
 }
 
@@ -77,6 +80,7 @@ export async function DELETE(request: Request) {
     await docClient.send(command);
     return NextResponse.json({ message: 'Design deleted successfully' });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete design', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ error: 'Failed to delete design', details: errorMessage }, { status: 500 });
   }
 } 

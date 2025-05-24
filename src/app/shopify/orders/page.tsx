@@ -15,7 +15,7 @@ const tabs = [
   { name: 'Abandoned Checkouts', key: 'abandoned' },
 ];
 
-export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyticsOptions }) {
+export default function ShopifyOrders() {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.shopify);
 
@@ -36,64 +36,61 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
 
   // Filter orders
   let filteredOrders = orders;
-  if (analytics && analytics.filter !== 'all') {
-    filteredOrders = orders.filter((order) => order.financial_status === analytics.filter);
-  }
 
   // Grouping and aggregation
   let tableData = filteredOrders;
   let columns = [
-    { header: 'Order #', accessor: (row: any) => row.order_number?.toString() ?? '' },
-    { header: 'Customer', accessor: (row: any) => `${row.customer?.first_name || ''} ${row.customer?.last_name || ''}`.trim() },
-    { header: 'Email', accessor: (row: any) => row.email ?? '' },
-    { header: 'Phone', accessor: (row: any) => row.phone ?? '' },
-    { header: 'Total', accessor: (row: any) => row.currency && row.total_price ? `${row.currency} ${row.total_price}` : '' },
-    { header: 'Status', accessor: (row: any) => row.financial_status ?? '' },
-    { header: 'Fulfillment', accessor: (row: any) => row.fulfillment_status ?? '' },
-    { header: 'Items', accessor: (row: any) => Array.isArray(row.line_items) ? row.line_items.length : 0 },
-    { header: 'Created', accessor: (row: any) => row.created_at ? format(new Date(row.created_at), 'MMM d, yyyy') : '' },
-    { header: 'Updated', accessor: (row: any) => row.updated_at ? format(new Date(row.updated_at), 'MMM d, yyyy') : '' },
+    { 
+      header: 'Order #', 
+      accessor: 'order_number',
+      render: (value: any) => value?.toString() ?? ''
+    },
+    { 
+      header: 'Customer', 
+      accessor: 'customer',
+      render: (value: any) => `${value?.first_name || ''} ${value?.last_name || ''}`.trim()
+    },
+    { 
+      header: 'Email', 
+      accessor: 'email',
+      render: (value: any) => value ?? ''
+    },
+    { 
+      header: 'Phone', 
+      accessor: 'phone',
+      render: (value: any) => value ?? ''
+    },
+    { 
+      header: 'Total', 
+      accessor: 'total_price',
+      render: (value: any, row: any) => row.currency && value ? `${row.currency} ${value}` : ''
+    },
+    { 
+      header: 'Status', 
+      accessor: 'financial_status',
+      render: (value: any) => value ?? ''
+    },
+    { 
+      header: 'Fulfillment', 
+      accessor: 'fulfillment_status',
+      render: (value: any) => value ?? ''
+    },
+    { 
+      header: 'Items', 
+      accessor: 'line_items',
+      render: (value: any) => Array.isArray(value) ? value.length : 0
+    },
+    { 
+      header: 'Created', 
+      accessor: 'created_at',
+      render: (value: any) => value ? format(new Date(value), 'MMM d, yyyy') : ''
+    },
+    { 
+      header: 'Updated', 
+      accessor: 'updated_at',
+      render: (value: any) => value ? format(new Date(value), 'MMM d, yyyy') : ''
+    },
   ];
-
-  if (analytics && analytics.groupBy !== 'none') {
-    // Group by selected field
-    const grouped = lodashGroupBy(filteredOrders, (order) => {
-      if (analytics.groupBy === 'created_at') {
-        return format(new Date(order.created_at), 'yyyy-MM-dd');
-      }
-      if (analytics.groupBy === 'customer') {
-        return `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`;
-      }
-      return order[analytics.groupBy];
-    });
-
-    // Aggregate
-    tableData = Object.entries(grouped).map(([group, items]) => {
-      let value = 0;
-      if (analytics.aggregate === 'count') value = items.length;
-      if (analytics.aggregate === 'sum') value = items.reduce((sum, o) => sum + parseFloat(o.total_price), 0);
-      if (analytics.aggregate === 'average') value = items.reduce((sum, o) => sum + parseFloat(o.total_price), 0) / items.length;
-      if (analytics.aggregate === 'items') value = items.reduce((sum, o) => sum + (o.line_items?.length || 0), 0);
-      return {
-        group,
-        value: analytics.aggregate === 'average' ? value.toFixed(2) : value,
-        items,
-      };
-    });
-
-    columns = [
-      { header: analytics.groupBy === 'created_at' ? 'Date' : 
-                analytics.groupBy === 'customer' ? 'Customer' : 
-                analytics.groupBy === 'financial_status' ? 'Status' : 
-                analytics.groupBy === 'fulfillment_status' ? 'Fulfillment' : 'Group', 
-        accessor: 'group' },
-      { header: analytics.aggregate === 'count' ? 'Count' :
-                analytics.aggregate === 'sum' ? 'Total Amount' :
-                analytics.aggregate === 'average' ? 'Average Amount' :
-                'Total Items',
-        accessor: 'value' },
-    ];
-  }
 
   if (loading) {
     return (
@@ -113,15 +110,7 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
 
   return (
     <div className="h-full flex flex-col">
-      {/* Analytics options summary */}
-      <div className="flex-none">
-        {analytics && (
-          <div className="mb-2 text-sm text-primary-700 font-semibold">
-            Filter: {analytics.filter}, Group By: {analytics.groupBy}, Aggregate: {analytics.aggregate}
-          </div>
-        )}
-      </div>
-      {/* Data Table - Scrollable */}
+      {/* Removed analytics options summary */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView

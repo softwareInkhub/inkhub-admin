@@ -34,11 +34,11 @@ export default function PinterestPins() {
     {
       header: 'Image',
       accessor: 'Item.media.images.600x.url',
-      render: (_: any, row: any) => (
+      render: (value: any) => (
         <div className="relative w-20 h-20">
-          {row && row.Item && row.Item.media?.images?.['600x']?.url ? (
+          {value ? (
             <Image
-              src={row.Item.media.images['600x'].url}
+              src={value}
               alt="Pin"
               fill
               className="object-cover rounded-lg"

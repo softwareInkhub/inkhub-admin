@@ -2,6 +2,23 @@ import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+// Helper function to create a user-friendly error message
+function getErrorMessage(error: any): string {
+  if (error.code === 'ENOTFOUND') {
+    return 'Unable to connect to AWS DynamoDB. Please check your internet connection and AWS configuration.';
+  }
+  if (error.code === 'CredentialsProviderError') {
+    return 'AWS credentials are missing or invalid. Please check your AWS configuration.';
+  }
+  if (error.code === 'ResourceNotFoundException') {
+    return 'The specified DynamoDB table does not exist. Please check your table name configuration.';
+  }
+  if (error.code === 'AccessDeniedException') {
+    return 'Access denied to DynamoDB. Please check your AWS permissions.';
+  }
+  return 'An error occurred while fetching products. Please try again later.';
+}
+
 const client = new DynamoDBClient({ 
   region: process.env.AWS_REGION,
   credentials: {
@@ -39,6 +56,20 @@ function transformProduct(item: any) {
 
 export async function GET() {
   try {
+    if (!process.env.AWS_REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      return NextResponse.json(
+        { error: 'AWS configuration is missing. Please check your environment variables.' },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.SHOPIFY_PRODUCTS_TABLE) {
+      return NextResponse.json(
+        { error: 'Shopify products table name is not configured. Please check your environment variables.' },
+        { status: 500 }
+      );
+    }
+
     const command = new ScanCommand({
       TableName: process.env.SHOPIFY_PRODUCTS_TABLE,
     });
@@ -48,10 +79,11 @@ export async function GET() {
     }
     const items = (response.Items || []).map(transformProduct);
     return NextResponse.json(items);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching Shopify products:', error);
+    const errorMessage = getErrorMessage(error);
     return NextResponse.json(
-      { error: 'Failed to fetch Shopify products' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

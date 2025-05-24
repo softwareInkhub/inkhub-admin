@@ -8,6 +8,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchOrders, fetchProducts } from '@/store/slices/shopifySlice';
 
+interface Tab {
+  name: string;
+  key: string;
+  path: string;
+}
+
 const SHOPIFY_TABS = [
   { name: "Orders", key: "orders", path: "/shopify/orders" },
   { name: "Products", key: "products", path: "/shopify/products" },
@@ -16,9 +22,7 @@ const SHOPIFY_TABS = [
 export default function ShopifyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [tabs, setTabs] = useState([
-    // Optionally, open the current route as the first tab
-  ]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTab, setActiveTab] = useState<string>("");
   const [ordersAnalytics, setOrdersAnalytics] = useState<OrdersAnalyticsOptions>({
     filter: 'all',

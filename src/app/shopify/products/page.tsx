@@ -7,7 +7,7 @@ import DataView from '@/components/common/DataView';
 import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 
-export default function ShopifyProducts({ analytics }: { analytics?: ProductsAnalyticsOptions }) {
+export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
   const { products, loading, error } = useSelector((state: RootState) => state.shopify);
 
@@ -17,9 +17,6 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
 
   // Filter products
   let filteredProducts = products;
-  if (analytics && analytics.filter !== 'all') {
-    filteredProducts = products.filter((product) => product.status === analytics.filter);
-  }
 
   // Grouping and aggregation
   let tableData = filteredProducts;
@@ -29,28 +26,10 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
     { header: 'Vendor', accessor: 'vendor' },
     { header: 'Product Type', accessor: 'product_type' },
     { header: 'Status', accessor: 'status' },
-    { header: 'Tags', accessor: 'tags' },
+    { header: 'Tags', accessor: 'tags', render: (value: any) => Array.isArray(value) ? value.join(', ') : value ?? '' },
     { header: 'Created At', accessor: 'created_at' },
     { header: 'Updated At', accessor: 'updated_at' },
   ];
-
-  if (analytics && analytics.groupBy !== 'none') {
-    const grouped = lodashGroupBy(filteredProducts, analytics.groupBy);
-    tableData = Object.entries(grouped).map(([group, items]) => {
-      let value = 0;
-      if (analytics.aggregate === 'count') value = items.length;
-      if (analytics.aggregate === 'sum_variants') value = items.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
-      return {
-        group,
-        value,
-        items,
-      };
-    });
-    columns = [
-      { header: analytics.groupBy.charAt(0).toUpperCase() + analytics.groupBy.slice(1), accessor: 'group' },
-      { header: analytics.aggregate === 'sum_variants' ? 'Total Variants' : 'Count', accessor: 'value' },
-    ];
-  }
 
   if (loading) {
     return (
@@ -70,11 +49,6 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
 
   return (
     <div className="space-y-6">
-      {analytics && (
-        <div className="mb-2 text-sm text-primary-700 font-semibold">
-          Filter: {analytics.filter}, Group By: {analytics.groupBy}, Aggregate: {analytics.aggregate}
-        </div>
-      )}
       <div className="bg-white p-6 rounded-lg shadow">
         <DataView
           data={tableData}
