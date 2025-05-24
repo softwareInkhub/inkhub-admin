@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   TableCellsIcon,
   Squares2X2Icon,
@@ -33,7 +33,27 @@ export default function DataView<T>({
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [selectedTag, setSelectedTag] = useState<string>('');
   const dispatch = useDispatch();
+
+  // Extract all unique tags from data
+  const allTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    data.forEach((item: any) => {
+      if (Array.isArray(item.designTags)) {
+        item.designTags.forEach((tag: string) => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet);
+  }, [data]);
+
+  // Filter data by selected tag
+  const filteredData = useMemo(() => {
+    if (!selectedTag) return data;
+    return data.filter((item: any) =>
+      Array.isArray(item.designTags) && item.designTags.includes(selectedTag)
+    );
+  }, [data, selectedTag]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -63,7 +83,7 @@ export default function DataView<T>({
     dispatch(fetchDesigns());
   };
 
-  const renderTableView = () => (
+  const renderTableView = (tableData: T[] = filteredData) => (
     <div className="overflow-auto flex-1 min-h-0 max-h-96">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50 sticky top-0">
@@ -80,7 +100,7 @@ export default function DataView<T>({
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {data.map((item, index) => (
+          {tableData.map((item, index) => (
             <tr key={index}>
               {columns.map((column) => (
                 <td key={String(column.accessor)} className="px-6 py-4 whitespace-nowrap">
@@ -96,7 +116,7 @@ export default function DataView<T>({
     </div>
   );
 
-  const renderGridView = () => {
+  const renderGridView = (gridData: T[] = filteredData) => {
     // Find the image column accessor
     const imageColumn = columns.find(
       (col) => col.header.toLowerCase().includes('image')
@@ -104,7 +124,7 @@ export default function DataView<T>({
     return (
       <div className="overflow-auto flex-1 min-h-0 max-h-96">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
-          {data.map((item, index) => (
+          {gridData.map((item, index) => (
             <div
               key={index}
               className="bg-white p-2 rounded-lg shadow cursor-pointer flex items-center justify-center"
@@ -217,10 +237,10 @@ export default function DataView<T>({
     );
   };
 
-  const renderCardView = () => (
+  const renderCardView = (cardData: T[] = filteredData) => (
     <div className="overflow-auto flex-1 min-h-0 max-h-96">
       <div className="space-y-4 p-4">
-        {data.map((item, index) => (
+        {cardData.map((item, index) => (
           <div key={index} className="bg-white p-6 rounded-lg shadow">
             {columns.map((column) => (
               <div key={String(column.accessor)} className="mb-4">
@@ -240,8 +260,21 @@ export default function DataView<T>({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Fixed Controls Section */}
-      <div className="flex justify-between items-center p-4 bg-white border-b">
+      {/* Tag Filter and Search */}
+      <div className="flex flex-wrap gap-4 justify-between items-center p-4 bg-white border-b">
+        <div className="flex items-center gap-2">
+          <label className="font-medium text-gray-700">Filter by Tag:</label>
+          <select
+            className="px-3 py-2 border rounded"
+            value={selectedTag}
+            onChange={e => setSelectedTag(e.target.value)}
+          >
+            <option value="">All</option>
+            {allTags.map(tag => (
+              <option key={tag} value={tag}>{tag}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex-1 max-w-sm">
           <input
             type="text"
@@ -281,9 +314,9 @@ export default function DataView<T>({
 
       {/* Scrollable Content Section */}
       <div className="flex-1 min-h-0">
-        {viewType === 'table' && renderTableView()}
-        {viewType === 'grid' && renderGridView()}
-        {viewType === 'card' && renderCardView()}
+        {viewType === 'table' && renderTableView(filteredData)}
+        {viewType === 'grid' && renderGridView(filteredData)}
+        {viewType === 'card' && renderCardView(filteredData)}
       </div>
     </div>
   );
