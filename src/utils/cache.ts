@@ -1,66 +1,66 @@
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
+import { LRUCache } from 'lru-cache';
+
+interface CacheOptions {
+  max?: number;
+  ttl?: number;
 }
 
 class Cache {
+  private cache: LRUCache<string, any>;
   private static instance: Cache;
-  private cache: Map<string, CacheItem<any>>;
-  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-  private constructor() {
-    this.cache = new Map();
+  private constructor(options: CacheOptions = {}) {
+    this.cache = new LRUCache({
+      max: options.max || 500, // Maximum number of items to store
+      ttl: options.ttl || 1000 * 60 * 5, // Default TTL: 5 minutes
+    });
   }
 
-  public static getInstance(): Cache {
+  public static getInstance(options?: CacheOptions): Cache {
     if (!Cache.instance) {
-      Cache.instance = new Cache();
+      Cache.instance = new Cache(options);
     }
     return Cache.instance;
   }
 
-  public set<T>(key: string, data: T, ttl: number = this.DEFAULT_TTL): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now() + ttl,
-    });
+  public get<T>(key: string): T | undefined {
+    try {
+      return this.cache.get(key) as T;
+    } catch (error) {
+      console.error(`Cache get error for key ${key}:`, error);
+      return undefined;
+    }
   }
 
-  public get<T>(key: string): T | null {
-    const item = this.cache.get(key);
-    
-    if (!item) {
-      return null;
+  public set<T>(key: string, value: T, ttl?: number): void {
+    try {
+      this.cache.set(key, value, { ttl });
+    } catch (error) {
+      console.error(`Cache set error for key ${key}:`, error);
     }
-
-    if (Date.now() > item.timestamp) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return item.data as T;
   }
 
   public delete(key: string): void {
-    this.cache.delete(key);
+    try {
+      this.cache.delete(key);
+    } catch (error) {
+      console.error(`Cache delete error for key ${key}:`, error);
+    }
   }
 
   public clear(): void {
-    this.cache.clear();
+    try {
+      this.cache.clear();
+    } catch (error) {
+      console.error('Cache clear error:', error);
+    }
   }
 
-  public has(key: string): boolean {
-    const item = this.cache.get(key);
-    if (!item) {
-      return false;
-    }
-
-    if (Date.now() > item.timestamp) {
-      this.cache.delete(key);
-      return false;
-    }
-
-    return true;
+  public getStats(): { size: number; max: number } {
+    return {
+      size: this.cache.size,
+      max: this.cache.max,
+    };
   }
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { cache } from '@/utils/cache';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {
@@ -79,8 +80,17 @@ function transformOrder(item: any) {
   };
 }
 
+const CACHE_KEY = 'shopify_orders';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function GET() {
   try {
+    // Check cache first
+    const cachedData = cache.get(CACHE_KEY);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
+
     if (!process.env.AWS_REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
       return NextResponse.json(
         { error: 'AWS configuration is missing. Please check your environment variables.' },
@@ -99,10 +109,11 @@ export async function GET() {
       TableName: process.env.SHOPIFY_ORDERS_TABLE,
     });
     const response = await docClient.send(command);
-    if (response.Items && response.Items.length > 0) {
-      console.log('First order item:', JSON.stringify(response.Items[0], null, 2));
-    }
     const items = (response.Items || []).map(transformOrder);
+
+    // Store in cache
+    cache.set(CACHE_KEY, items, CACHE_TTL);
+
     return NextResponse.json(items);
   } catch (error: any) {
     console.error('Error fetching Shopify orders:', error);
