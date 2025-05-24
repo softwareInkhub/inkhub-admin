@@ -90,9 +90,9 @@ export default function DataView<T>({
           <tr>
             {columns.map((column) => (
               <th
-                key={String(column.accessor)}
+                key={String(column.header)}
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                onClick={() => onSort?.(column.accessor)}
+                onClick={() => onSort?.(column.accessor as any)}
               >
                 {column.header}
               </th>
@@ -102,13 +102,19 @@ export default function DataView<T>({
         <tbody className="bg-white divide-y divide-gray-200">
           {tableData.map((item, index) => (
             <tr key={index}>
-              {columns.map((column) => (
-                <td key={String(column.accessor)} className="px-6 py-4 whitespace-nowrap">
-                  {column.render
-                    ? column.render(item[column.accessor])
-                    : String(item[column.accessor])}
-                </td>
-              ))}
+              {columns.map((column) => {
+                let value;
+                if (typeof column.accessor === 'function') {
+                  value = column.accessor(item);
+                } else {
+                  value = item[column.accessor];
+                }
+                return (
+                  <td key={String(column.header)} className="px-6 py-4 whitespace-nowrap">
+                    {column.render ? column.render(value) : String(value)}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

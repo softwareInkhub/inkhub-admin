@@ -26,10 +26,12 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
   let columns = [
     { header: 'Product ID', accessor: 'id' },
     { header: 'Title', accessor: 'title' },
-    { header: 'Type', accessor: 'type' },
     { header: 'Vendor', accessor: 'vendor' },
+    { header: 'Product Type', accessor: 'product_type' },
     { header: 'Status', accessor: 'status' },
-    { header: 'Inventory', accessor: 'inventory' },
+    { header: 'Tags', accessor: 'tags' },
+    { header: 'Created At', accessor: 'created_at' },
+    { header: 'Updated At', accessor: 'updated_at' },
   ];
 
   if (analytics && analytics.groupBy !== 'none') {
@@ -37,7 +39,7 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
     tableData = Object.entries(grouped).map(([group, items]) => {
       let value = 0;
       if (analytics.aggregate === 'count') value = items.length;
-      if (analytics.aggregate === 'sum_inventory') value = items.reduce((sum, p) => sum + (p.inventory || 0), 0);
+      if (analytics.aggregate === 'sum_variants') value = items.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
       return {
         group,
         value,
@@ -46,7 +48,7 @@ export default function ShopifyProducts({ analytics }: { analytics?: ProductsAna
     });
     columns = [
       { header: analytics.groupBy.charAt(0).toUpperCase() + analytics.groupBy.slice(1), accessor: 'group' },
-      { header: analytics.aggregate === 'sum_inventory' ? 'Sum Inventory' : 'Count', accessor: 'value' },
+      { header: analytics.aggregate === 'sum_variants' ? 'Total Variants' : 'Count', accessor: 'value' },
     ];
   }
 

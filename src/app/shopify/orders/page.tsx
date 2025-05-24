@@ -23,6 +23,17 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
     dispatch(fetchOrders());
   }, [dispatch]);
 
+  // Debug: log the date fields for the first few orders
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      console.log('Order date fields sample:', orders.slice(0, 5).map(o => ({
+        order_number: o.order_number,
+        created_at: o.created_at,
+        updated_at: o.updated_at,
+      })));
+    }
+  }, [orders]);
+
   // Filter orders
   let filteredOrders = orders;
   if (analytics && analytics.filter !== 'all') {
@@ -32,11 +43,16 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
   // Grouping and aggregation
   let tableData = filteredOrders;
   let columns = [
-    { header: 'Order ID', accessor: 'id' },
-    { header: 'Customer', accessor: 'customer.email' },
-    { header: 'Total', accessor: 'total_price' },
-    { header: 'Status', accessor: 'financial_status' },
-    { header: 'Created At', accessor: 'created_at' },
+    { header: 'Order #', accessor: (row: any) => row.order_number?.toString() ?? '' },
+    { header: 'Customer', accessor: (row: any) => `${row.customer?.first_name || ''} ${row.customer?.last_name || ''}`.trim() },
+    { header: 'Email', accessor: (row: any) => row.email ?? '' },
+    { header: 'Phone', accessor: (row: any) => row.phone ?? '' },
+    { header: 'Total', accessor: (row: any) => row.currency && row.total_price ? `${row.currency} ${row.total_price}` : '' },
+    { header: 'Status', accessor: (row: any) => row.financial_status ?? '' },
+    { header: 'Fulfillment', accessor: (row: any) => row.fulfillment_status ?? '' },
+    { header: 'Items', accessor: (row: any) => Array.isArray(row.line_items) ? row.line_items.length : 0 },
+    { header: 'Created', accessor: (row: any) => row.created_at ? format(new Date(row.created_at), 'MMM d, yyyy') : '' },
+    { header: 'Updated', accessor: (row: any) => row.updated_at ? format(new Date(row.updated_at), 'MMM d, yyyy') : '' },
   ];
 
   if (analytics && analytics.groupBy !== 'none') {
@@ -44,6 +60,9 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
     const grouped = lodashGroupBy(filteredOrders, (order) => {
       if (analytics.groupBy === 'created_at') {
         return format(new Date(order.created_at), 'yyyy-MM-dd');
+      }
+      if (analytics.groupBy === 'customer') {
+        return `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`;
       }
       return order[analytics.groupBy];
     });
@@ -54,6 +73,7 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
       if (analytics.aggregate === 'count') value = items.length;
       if (analytics.aggregate === 'sum') value = items.reduce((sum, o) => sum + parseFloat(o.total_price), 0);
       if (analytics.aggregate === 'average') value = items.reduce((sum, o) => sum + parseFloat(o.total_price), 0) / items.length;
+      if (analytics.aggregate === 'items') value = items.reduce((sum, o) => sum + (o.line_items?.length || 0), 0);
       return {
         group,
         value: analytics.aggregate === 'average' ? value.toFixed(2) : value,
@@ -63,12 +83,14 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
 
     columns = [
       { header: analytics.groupBy === 'created_at' ? 'Date' : 
-                analytics.groupBy === 'customer.email' ? 'Customer' : 
-                analytics.groupBy === 'financial_status' ? 'Status' : 'Group', 
+                analytics.groupBy === 'customer' ? 'Customer' : 
+                analytics.groupBy === 'financial_status' ? 'Status' : 
+                analytics.groupBy === 'fulfillment_status' ? 'Fulfillment' : 'Group', 
         accessor: 'group' },
       { header: analytics.aggregate === 'count' ? 'Count' :
                 analytics.aggregate === 'sum' ? 'Total Amount' :
-                'Average Amount',
+                analytics.aggregate === 'average' ? 'Average Amount' :
+                'Total Items',
         accessor: 'value' },
     ];
   }
