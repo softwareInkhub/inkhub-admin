@@ -98,27 +98,6 @@ export default function ShopifyOrders({ analytics }: { analytics?: OrdersAnalyti
             Filter: {analytics.filter}, Group By: {analytics.groupBy}, Aggregate: {analytics.aggregate}
           </div>
         )}
-        {/* Summary Cards */}
-        <div className="bg-white p-6 rounded-lg shadow mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-blue-600">Total Orders</h3>
-              <p className="text-2xl font-bold">{filteredOrders.length}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-green-600">Total Revenue</h3>
-              <p className="text-2xl font-bold">
-                ${filteredOrders.reduce((sum, order) => sum + parseFloat(order.total_price), 0).toFixed(2)}
-              </p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-purple-600">Average Order Value</h3>
-              <p className="text-2xl font-bold">
-                ${(filteredOrders.reduce((sum, order) => sum + parseFloat(order.total_price), 0) / filteredOrders.length || 0).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
       {/* Data Table - Scrollable */}
       <div className="flex-1 min-h-0">

@@ -1,7 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['pinterest.com', 'cdn.shopify.com'], // Add domains for Pinterest and Shopify images
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'pinterest.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.pinimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'admin-design-image.s3.amazonaws.com',
+      },
+    ],
   },
   async headers() {
     return [

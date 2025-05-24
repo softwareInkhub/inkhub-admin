@@ -24,7 +24,7 @@ export async function GET() {
 
     // If not in cache, fetch from DynamoDB
     const command = new ScanCommand({
-      TableName: 'pinterest_pins',
+      TableName: process.env.PINTEREST_PINS_TABLE,
     });
 
     const response = await docClient.send(command);

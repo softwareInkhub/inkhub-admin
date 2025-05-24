@@ -30,7 +30,7 @@ export default function DataViewSection({ activeTab, analytics, data, columns }:
 
   // Render table view
   const renderTable = () => (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-96">
       <table className="min-w-full border rounded-lg">
         <thead>
           <tr>
