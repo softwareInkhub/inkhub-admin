@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Sidebar from '@/components/layout/Sidebar';
 import SecondarySidebar from '@/components/layout/SecondarySidebar';
 import { usePathname } from 'next/navigation';
 import {
@@ -50,7 +49,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar onSectionSelect={handleSectionSelect} />
+      {/* <Sidebar onSectionSelect={handleSectionSelect} /> */}
       {isSecondarySidebarOpen && selectedSection && (
         <SecondarySidebar section={selectedSection} />
       )}

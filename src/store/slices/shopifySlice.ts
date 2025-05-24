@@ -4,7 +4,6 @@ import axios from 'axios';
 interface ShopifyState {
   orders: any[];
   products: any[];
-  collections: any[];
   loading: boolean;
   error: string | null;
 }
@@ -12,7 +11,6 @@ interface ShopifyState {
 const initialState: ShopifyState = {
   orders: [],
   products: [],
-  collections: [],
   loading: false,
   error: null,
 };
@@ -30,14 +28,6 @@ export const fetchProducts = createAsyncThunk(
   'shopify/fetchProducts',
   async () => {
     const response = await axios.get('/api/shopify/products');
-    return response.data;
-  }
-);
-
-export const fetchCollections = createAsyncThunk(
-  'shopify/fetchCollections',
-  async () => {
-    const response = await axios.get('/api/shopify/collections');
     return response.data;
   }
 );
@@ -77,19 +67,6 @@ const shopifySlice = createSlice({
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch products';
-      })
-      // Collections
-      .addCase(fetchCollections.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchCollections.fulfilled, (state, action) => {
-        state.loading = false;
-        state.collections = action.payload;
-      })
-      .addCase(fetchCollections.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch collections';
       });
   },
 });

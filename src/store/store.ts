@@ -11,6 +11,12 @@ export const store = configureStore({
     designLibrary: designLibraryReducer,
     brhm: brhmReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        warnAfter: 100,
+      },
+    }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

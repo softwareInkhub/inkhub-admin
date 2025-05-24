@@ -31,7 +31,6 @@ export default function Sidebar({ onSectionSelect }: SidebarProps) {
     <div className={`bg-white h-screen shadow-lg transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
       <div className="p-4">
         <div className="flex items-center justify-between mb-8">
-          {!isCollapsed && <h1 className="text-xl font-bold">Inkhub Admin</h1>}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="p-2 rounded-lg hover:bg-gray-100"

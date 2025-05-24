@@ -2,16 +2,15 @@
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import ShopifyAnalyticsBar, { OrdersAnalyticsOptions, ProductsAnalyticsOptions, CollectionsAnalyticsOptions } from "./ShopifyAnalyticsBar";
+import ShopifyAnalyticsBar, { OrdersAnalyticsOptions, ProductsAnalyticsOptions } from "./ShopifyAnalyticsBar";
 import ShopifyOperationBar from "./ShopifyOperationBar";
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
-import { fetchOrders, fetchProducts, fetchCollections } from '@/store/slices/shopifySlice';
+import { fetchOrders, fetchProducts } from '@/store/slices/shopifySlice';
 
 const SHOPIFY_TABS = [
   { name: "Orders", key: "orders", path: "/shopify/orders" },
   { name: "Products", key: "products", path: "/shopify/products" },
-  { name: "Collections", key: "collections", path: "/shopify/collections" },
 ];
 
 export default function ShopifyLayout({ children }: { children: React.ReactNode }) {
@@ -31,18 +30,12 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
     groupBy: 'none',
     aggregate: 'count',
   });
-  const [collectionsAnalytics, setCollectionsAnalytics] = useState<CollectionsAnalyticsOptions>({
-    filter: 'all',
-    groupBy: 'none',
-    aggregate: 'count',
-  });
 
   const dispatch = useDispatch<AppDispatch>();
-  const { orders, products, collections } = useSelector((state: RootState) => state.shopify);
+  const { orders, products } = useSelector((state: RootState) => state.shopify);
   useEffect(() => {
     dispatch(fetchOrders());
     dispatch(fetchProducts());
-    dispatch(fetchCollections());
   }, [dispatch]);
 
   // Open/focus tab when route changes
@@ -95,12 +88,6 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
     { header: 'Status', accessor: 'status' },
     { header: 'Inventory', accessor: 'inventory' },
   ];
-  const collectionsColumns = [
-    { header: 'Collection ID', accessor: 'id' },
-    { header: 'Title', accessor: 'title' },
-    { header: 'Type', accessor: 'type' },
-    { header: 'Products Count', accessor: 'products_count' },
-  ];
   // Select data/columns/analytics for the active tab
   let data = [];
   let columns = [];
@@ -113,10 +100,6 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
     data = products;
     columns = productsColumns;
     analytics = productsAnalytics;
-  } else if (activeTab === 'collections') {
-    data = collections;
-    columns = collectionsColumns;
-    analytics = collectionsAnalytics;
   }
 
   return (
@@ -152,7 +135,6 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
           activeTab={activeTab}
           onOrdersAnalyticsChange={setOrdersAnalytics}
           onProductsAnalyticsChange={setProductsAnalytics}
-          onCollectionsAnalyticsChange={setCollectionsAnalytics}
         />
         <ShopifyOperationBar
           activeTab={activeTab}
@@ -165,8 +147,6 @@ export default function ShopifyLayout({ children }: { children: React.ReactNode 
           ? React.cloneElement(children as any, { analytics: ordersAnalytics })
           : activeTab === 'products'
           ? React.cloneElement(children as any, { analytics: productsAnalytics })
-          : activeTab === 'collections'
-          ? React.cloneElement(children as any, { analytics: collectionsAnalytics })
           : children}
       </div>
     </div>
