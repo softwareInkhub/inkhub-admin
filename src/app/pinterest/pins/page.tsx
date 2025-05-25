@@ -108,25 +108,7 @@ export default function PinterestPins() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Analytics/filter/group bar */}
-      <div className="flex items-center space-x-4 p-4 bg-white border-b">
-        <span className="font-medium text-gray-700">Filter by Board:</span>
-        <select className="input w-40" value={filter} onChange={e => setFilter(e.target.value)}>
-          <option value="all">All</option>
-          {uniqueBoards.map(board => (
-            <option key={board} value={board}>{board}</option>
-          ))}
-        </select>
-        <span className="font-medium text-gray-700">Group By:</span>
-        <select className="input w-32" value={groupBy} onChange={e => setGroupBy(e.target.value)}>
-          <option value="none">None</option>
-          <option value="board">Board</option>
-        </select>
-        <span className="font-medium text-gray-700">Aggregate:</span>
-        <select className="input w-32" value={aggregate} onChange={e => setAggregate(e.target.value)}>
-          <option value="count">Count</option>
-        </select>
-      </div>
+      
       {/* Data Table - Scrollable */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
