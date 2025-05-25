@@ -21,6 +21,20 @@ export default function ShopifyProducts() {
   // Grouping and aggregation
   let tableData = filteredProducts;
   let columns = [
+    {
+      header: 'Image',
+      accessor: 'image',
+      render: (value: any, row: any) =>
+        row.image && row.image.src ? (
+          <img
+            src={row.image.src}
+            alt={row.title}
+            className="w-16 h-16 object-cover rounded"
+          />
+        ) : (
+          <span>No Image</span>
+        ),
+    },
     { header: 'Product ID', accessor: 'id' },
     { header: 'Title', accessor: 'title' },
     { header: 'Vendor', accessor: 'vendor' },
