@@ -288,9 +288,9 @@ export default function DataView<T>({
         )}
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 max-h-96">
-            <div className="space-y-2 md:space-y-4 p-2 md:p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 p-2 md:p-4">
               {filteredData.map((item, index) => (
-                <div key={index} className="bg-white p-2 md:p-6 rounded-lg shadow">
+                <div key={index} className="bg-white p-2 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
                   {columns.map((column) => {
                     const value = item[column.accessor];
                     return (
