@@ -105,96 +105,90 @@ export default function ShopifyAnalyticsBar({ openTabs, activeTab, onOrdersAnaly
   }, [ordersOptions, productsOptions, collectionsOptions, activeTab, onOrdersAnalyticsChange, onProductsAnalyticsChange, onCollectionsAnalyticsChange]);
 
   return (
-    <div className="bg-gray-50 border-b px-2 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row sm:flex-wrap sm:space-x-6 items-stretch sm:items-center min-h-[56px] gap-2 sm:gap-0 overflow-x-auto">
+    <div className="bg-gray-50 border-b px-2 sm:px-4 py-2 sm:py-3 flex flex-row flex-wrap items-center min-h-[56px] gap-2 overflow-x-auto">
       {activeTab === 'orders' && (
-        <div className="flex flex-col font-bold text-primary-700 w-full min-w-0">
-          <span className="text-sm sm:text-base">Orders Analytics</span>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 mt-1 w-full min-w-0">
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={ordersOptions.filter}
-              onChange={e => setOrdersOptions(o => ({ ...o, filter: e.target.value }))}
-            >
-              {filterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={ordersOptions.groupBy}
-              onChange={e => setOrdersOptions(o => ({ ...o, groupBy: e.target.value }))}
-            >
-              {groupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={ordersOptions.aggregate}
-              onChange={e => setOrdersOptions(o => ({ ...o, aggregate: e.target.value }))}
-            >
-              {aggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
+        <div className="flex flex-row items-center font-bold text-primary-700 gap-2">
+          <span className="text-sm sm:text-base whitespace-nowrap">Orders Analytics</span>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={ordersOptions.filter}
+            onChange={e => setOrdersOptions(o => ({ ...o, filter: e.target.value }))}
+          >
+            {filterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={ordersOptions.groupBy}
+            onChange={e => setOrdersOptions(o => ({ ...o, groupBy: e.target.value }))}
+          >
+            {groupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={ordersOptions.aggregate}
+            onChange={e => setOrdersOptions(o => ({ ...o, aggregate: e.target.value }))}
+          >
+            {aggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
         </div>
       )}
       {activeTab === 'products' && (
-        <div className="flex flex-col font-bold text-primary-700 w-full min-w-0">
-          <span className="text-sm sm:text-base">Products Analytics</span>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 mt-1 w-full min-w-0">
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={productsOptions.filter}
-              onChange={e => setProductsOptions(o => ({ ...o, filter: e.target.value }))}
-            >
-              {productFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={productsOptions.groupBy}
-              onChange={e => setProductsOptions(o => ({ ...o, groupBy: e.target.value }))}
-            >
-              {productGroupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={productsOptions.aggregate}
-              onChange={e => setProductsOptions(o => ({ ...o, aggregate: e.target.value }))}
-            >
-              {productAggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
+        <div className="flex flex-row items-center font-bold text-primary-700 gap-2">
+          <span className="text-sm sm:text-base whitespace-nowrap">Products Analytics</span>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={productsOptions.filter}
+            onChange={e => setProductsOptions(o => ({ ...o, filter: e.target.value }))}
+          >
+            {productFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={productsOptions.groupBy}
+            onChange={e => setProductsOptions(o => ({ ...o, groupBy: e.target.value }))}
+          >
+            {productGroupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={productsOptions.aggregate}
+            onChange={e => setProductsOptions(o => ({ ...o, aggregate: e.target.value }))}
+          >
+            {productAggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
         </div>
       )}
       {activeTab === 'collections' && (
-        <div className="flex flex-col font-bold text-primary-700 w-full min-w-0">
-          <span className="text-sm sm:text-base">Collections Analytics</span>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 mt-1 w-full min-w-0">
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={collectionsOptions.filter}
-              onChange={e => setCollectionsOptions(o => ({ ...o, filter: e.target.value }))}
-            >
-              {collectionFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={collectionsOptions.groupBy}
-              onChange={e => setCollectionsOptions(o => ({ ...o, groupBy: e.target.value }))}
-            >
-              {collectionGroupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select
-              className="input text-xs sm:text-sm w-full min-w-0"
-              value={collectionsOptions.aggregate}
-              onChange={e => setCollectionsOptions(o => ({ ...o, aggregate: e.target.value }))}
-            >
-              {collectionAggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-          </div>
+        <div className="flex flex-row items-center font-bold text-primary-700 gap-2">
+          <span className="text-sm sm:text-base whitespace-nowrap">Collections Analytics</span>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={collectionsOptions.filter}
+            onChange={e => setCollectionsOptions(o => ({ ...o, filter: e.target.value }))}
+          >
+            {collectionFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={collectionsOptions.groupBy}
+            onChange={e => setCollectionsOptions(o => ({ ...o, groupBy: e.target.value }))}
+          >
+            {collectionGroupByOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select
+            className="input text-xs sm:text-sm w-auto min-w-[90px]"
+            value={collectionsOptions.aggregate}
+            onChange={e => setCollectionsOptions(o => ({ ...o, aggregate: e.target.value }))}
+          >
+            {collectionAggregateOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
         </div>
       )}
       {/* Placeholder for future: filters, grouping, aggregation, etc. */}
-      <div className="flex flex-col sm:flex-row gap-2 ml-auto w-full sm:w-auto min-w-0">
-        <button className="btn btn-secondary text-xs sm:text-sm w-full sm:w-auto min-w-0">Filter</button>
-        <button className="btn btn-secondary text-xs sm:text-sm w-full sm:w-auto min-w-0">Group</button>
-        <button className="btn btn-secondary text-xs sm:text-sm w-full sm:w-auto min-w-0">Aggregate</button>
+      <div className="flex flex-row gap-2 ml-auto min-w-0">
+        <button className="btn btn-secondary text-xs sm:text-sm w-auto min-w-[80px]">Filter</button>
+        <button className="btn btn-secondary text-xs sm:text-sm w-auto min-w-[80px]">Group</button>
+        <button className="btn btn-secondary text-xs sm:text-sm w-auto min-w-[80px]">Aggregate</button>
       </div>
     </div>
   );

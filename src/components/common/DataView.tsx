@@ -126,7 +126,7 @@ export default function DataView<T>({
               viewType === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
             }`}
           >
-            <Squares2X2Icon className="h-4 w-4 md:h-5 md:w-5" />
+            <ViewColumnsIcon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
           <button
             onClick={() => setViewType('card')}
@@ -134,7 +134,7 @@ export default function DataView<T>({
               viewType === 'card' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
             }`}
           >
-            <ViewColumnsIcon className="h-4 w-4 md:h-5 md:w-5" />
+            <Squares2X2Icon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
         </div>
       </div>
@@ -176,61 +176,64 @@ export default function DataView<T>({
         )}
         {viewType === 'grid' && (
           <div className="overflow-auto flex-1 min-h-0 max-h-96">
-            {(() => {
-              const imageColumn = columns.find((col) => col.header.toLowerCase().includes('image'));
-              return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 p-2 md:p-4">
-                  {filteredData.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-white p-1 md:p-2 rounded-lg shadow cursor-pointer flex items-center justify-center"
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <div className="relative w-20 h-20 md:w-32 md:h-32">
-                        {imageColumn && imageColumn.render
-                          ? imageColumn.render(item[imageColumn.accessor], item)
-                          : (imageColumn && item[imageColumn.accessor]) && (
-                              <img
-                                src={String(item[imageColumn.accessor])}
-                                alt="Design"
-                                className="object-contain w-full h-full rounded-lg"
-                              />
-                            )}
-                      </div>
-                    </div>
-                  ))}
+            <div className="grid grid-cols-2 gap-2 p-2">
+              {filteredData.map((item, index) => (
+                <div key={index} className="flex flex-col items-center gap-2 p-4">
+                  {/* Image - clickable for modal */}
+                  <div className="flex justify-center w-full cursor-pointer" onClick={() => setSelectedItem(item)}>
+                    {columns[0].render
+                      ? columns[0].render(item[columns[0].accessor], item)
+                      : <img src={String(item[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
+                    }
+                  </div>
+                  {/* Title */}
+                  <div className="font-semibold text-base line-clamp-2 w-full text-center">
+                    {columns[1].render
+                      ? columns[1].render(item[columns[1].accessor], item)
+                      : String(item[columns[1].accessor])}
+                  </div>
+                  {/* Description */}
+                  <div className="text-gray-600 text-sm line-clamp-3 w-full text-center">
+                    {columns[2].render
+                      ? columns[2].render(item[columns[2].accessor], item)
+                      : String(item[columns[2].accessor])}
+                  </div>
+                  {/* Date */}
+                  <div className="text-xs text-gray-400 mt-auto w-full text-center">
+                    {columns[4] && (columns[4].render
+                      ? columns[4].render(item[columns[4].accessor], item)
+                      : String(item[columns[4].accessor]))}
+                  </div>
                 </div>
-              );
-            })()}
-            {/* Details Modal */}
+              ))}
+            </div>
+            {/* Modal for Edit/Delete options */}
             {selectedItem && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+                <div className="bg-white rounded-lg shadow-lg p-6 max-w-xs w-full relative flex flex-col items-center">
                   <button
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
                     onClick={() => setSelectedItem(null)}
                   >
                     &times;
                   </button>
-                  {/* Show all details */}
-                  {columns.map((column) => (
-                    <div key={String(column.accessor)} className="mb-2">
-                      <span className="font-medium text-gray-500">{column.header}: </span>
-                      {column.render
-                        ? column.render(selectedItem[column.accessor], selectedItem)
-                        : String(selectedItem[column.accessor])}
-                    </div>
-                  ))}
-                  <div className="flex gap-2 mt-4">
+                  {/* Show image and options */}
+                  <div className="mb-4">
+                    {columns[0].render
+                      ? columns[0].render(selectedItem[columns[0].accessor], selectedItem)
+                      : <img src={String(selectedItem[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
+                    }
+                  </div>
+                  <div className="flex flex-col gap-2 w-full">
                     <button
                       className="bg-blue-500 text-white px-4 py-2 rounded"
-                      onClick={() => handleEditClick(selectedItem)}
+                      onClick={() => { setEditItem(selectedItem); setEditForm({ ...selectedItem }); setSelectedItem(null); }}
                     >
                       Edit
                     </button>
                     <button
                       className="bg-red-500 text-white px-4 py-2 rounded"
-                      onClick={() => handleDelete((selectedItem as any).uid)}
+                      onClick={() => { handleDelete((selectedItem as any).uid); setSelectedItem(null); }}
                     >
                       Delete
                     </button>
@@ -240,8 +243,8 @@ export default function DataView<T>({
             )}
             {/* Edit Modal */}
             {editItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg md:max-w-2xl relative">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
+                <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg md:max-w-xl relative max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                   <button
                     className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
                     onClick={() => setEditItem(null)}
@@ -288,20 +291,13 @@ export default function DataView<T>({
         )}
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 max-h-96">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-4 p-2 md:p-4">
+            <div className="grid grid-cols-2 gap-2 p-2">
               {filteredData.map((item, index) => (
-                <div key={index} className="bg-white p-2 md:p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
-                  {columns.map((column) => {
-                    const value = item[column.accessor];
-                    return (
-                      <div key={String(column.header)} className="mb-2 md:mb-4">
-                        <h3 className="text-base md:text-lg font-medium text-gray-900">{column.header}</h3>
-                        <div className="mt-1">
-                          {column.render ? column.render(value, item) : String(value)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div key={index} className="flex justify-center items-center p-2">
+                  {columns[0].render
+                    ? columns[0].render(item[columns[0].accessor], item)
+                    : <img src={String(item[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
+                  }
                 </div>
               ))}
             </div>

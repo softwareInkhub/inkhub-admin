@@ -16,7 +16,6 @@ export default function PinterestPins() {
   const [filter, setFilter] = useState('all');
   const [groupBy, setGroupBy] = useState('none');
   const [aggregate, setAggregate] = useState('count');
-  const [viewType, setViewType] = useState<'table' | 'grid' | 'card'>('table');
 
   useEffect(() => {
     dispatch(fetchPins());
@@ -34,11 +33,11 @@ export default function PinterestPins() {
     {
       header: 'Image',
       accessor: 'Item.media.images.600x.url',
-      render: (value: any) => (
+      render: (value: any, row: any) => (
         <div className="relative w-20 h-20">
-          {value ? (
+          {row.Item?.media?.images?.['600x']?.url ? (
             <Image
-              src={value}
+              src={row.Item.media.images['600x'].url}
               alt="Pin"
               fill
               className="object-cover rounded-lg"
@@ -49,10 +48,26 @@ export default function PinterestPins() {
         </div>
       ),
     },
-    { header: 'Title', accessor: 'Item.title' },
-    { header: 'Description', accessor: 'Item.description' },
-    { header: 'Board', accessor: 'Item.board_owner.username' },
-    { header: 'Created At', accessor: 'Item.created_at' },
+    {
+      header: 'Title',
+      accessor: 'Item.title',
+      render: (_: any, row: any) => row.Item?.title || '—',
+    },
+    {
+      header: 'Description',
+      accessor: 'Item.description',
+      render: (_: any, row: any) => row.Item?.description || '—',
+    },
+    {
+      header: 'Board',
+      accessor: 'Item.board_owner.username',
+      render: (_: any, row: any) => row.Item?.board_owner?.username || '—',
+    },
+    {
+      header: 'Created At',
+      accessor: 'Item.created_at',
+      render: (_: any, row: any) => row.Item?.created_at || '—',
+    },
   ];
 
   if (groupBy !== 'none') {
@@ -67,36 +82,10 @@ export default function PinterestPins() {
       };
     });
     columns = [
-      { header: 'Board', accessor: 'group' },
-      { header: 'Count', accessor: 'value' },
+      { header: 'Board', accessor: 'group', render: (value: any, row: any) => row.group || '—' },
+      { header: 'Count', accessor: 'value', render: (value: any, row: any) => row.value ?? '—' },
     ];
   }
-
-  // For card view, show image as main content
-  const renderCardView = () => (
-    <div className="flex flex-wrap gap-4">
-      {filteredPins.map((pin, i) => (
-        <div key={i} className="bg-white rounded-lg shadow p-6 min-w-[220px] flex flex-col items-center">
-          <div className="relative w-40 h-40 mb-4">
-            {pin.Item?.media?.images?.['600x']?.url ? (
-              <Image
-                src={pin.Item.media.images['600x'].url}
-                alt="Pin"
-                fill
-                className="object-cover rounded-lg"
-              />
-            ) : (
-              <span>No Image</span>
-            )}
-          </div>
-          <div className="font-semibold text-lg mb-2">{pin.Item?.title || 'No Title'}</div>
-          <div className="text-gray-500 mb-2">{pin.Item?.description || 'No Description'}</div>
-          <div className="text-sm text-blue-600 mb-1">Board: {pin.Item?.board_owner?.username || 'Unknown'}</div>
-          <div className="text-xs text-gray-400">{pin.Item?.created_at || 'Unknown'}</div>
-        </div>
-      ))}
-    </div>
-  );
 
   if (loading) {
     return (
@@ -137,22 +126,16 @@ export default function PinterestPins() {
         <select className="input w-32" value={aggregate} onChange={e => setAggregate(e.target.value)}>
           <option value="count">Count</option>
         </select>
-        <span className="ml-auto font-medium text-gray-700">View:</span>
-        <button className={`btn btn-secondary ${viewType === 'table' ? 'bg-primary-100 text-primary-700' : ''}`} onClick={() => setViewType('table')}>Table</button>
-        <button className={`btn btn-secondary ${viewType === 'grid' ? 'bg-primary-100 text-primary-700' : ''}`} onClick={() => setViewType('grid')}>Grid</button>
-        <button className={`btn btn-secondary ${viewType === 'card' ? 'bg-primary-100 text-primary-700' : ''}`} onClick={() => setViewType('card')}>Card</button>
       </div>
       {/* Data Table - Scrollable */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-          {viewType === 'card' ? renderCardView() : (
-            <DataView
-              data={tableData}
-              columns={columns}
-              onSort={() => {}}
-              onSearch={() => {}}
-            />
-          )}
+          <DataView
+            data={tableData}
+            columns={columns}
+            onSort={() => {}}
+            onSearch={() => {}}
+          />
         </div>
       </div>
     </div>
