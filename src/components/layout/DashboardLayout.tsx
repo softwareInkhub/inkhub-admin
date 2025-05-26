@@ -10,6 +10,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import SecondarySidebar from './SecondarySidebar';
+import { useTabContext } from "@/components/layout/TabContext";
 
 interface NavItem {
   name: string;
@@ -21,7 +22,6 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-  { name: 'BRHM', href: '/brhm', icon: BookOpenIcon },
   { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
@@ -79,6 +79,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [secondarySidebarOpen, setSecondarySidebarOpen] = useState(false);
   const [mobileSubmenu, setMobileSubmenu] = useState<string | null>(null);
+
+  const { openTabs, activeTab, setActiveTab, closeTab } = useTabContext();
 
   // Close secondary sidebar after navigation
   useEffect(() => {
@@ -280,6 +282,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </header>
         )}
+        {/* Global Tab Bar */}
+        <div className="flex-none flex space-x-2 border-b bg-white px-4 pt-4">
+          {openTabs.map(tab => (
+            <div
+              key={tab.key}
+              className={`flex items-center px-4 py-2 rounded-t-md border-t border-l border-r border-b-0 cursor-pointer mr-2 bg-gray-50 ${
+                activeTab === tab.key ? "border-primary-600 bg-white" : "border-gray-200"
+              }`}
+              style={{ marginBottom: "-1px" }}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <span className="mr-2">{tab.label}</span>
+              <button
+                className="ml-1 text-gray-400 hover:text-red-500"
+                onClick={e => {
+                  e.stopPropagation();
+                  closeTab(tab.key);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
         {/* Page content */}
         <main className="mx-auto max-w-7xl px-2 sm:px-4 py-4 sm:py-6 lg:px-8">
           {children}
