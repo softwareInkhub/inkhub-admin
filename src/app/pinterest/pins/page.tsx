@@ -7,15 +7,15 @@ import { fetchPins } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
 import Image from 'next/image';
 import lodashGroupBy from 'lodash/groupBy';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
   const { pins, loading, error } = useSelector((state: RootState) => state.pinterest);
 
   // Analytics/filter/group state
-  const [filter, setFilter] = useState('all');
-  const [groupBy, setGroupBy] = useState('none');
-  const [aggregate, setAggregate] = useState('count');
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
 
   useEffect(() => {
     dispatch(fetchPins());
@@ -23,8 +23,8 @@ export default function PinterestPins() {
 
   // Filter out pins without Item
   let filteredPins = pins.filter(pin => pin.Item);
-  if (filter !== 'all') {
-    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === filter);
+  if (analytics.filter && analytics.filter !== 'All') {
+    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.filter);
   }
 
   // Grouping and aggregation
@@ -70,11 +70,11 @@ export default function PinterestPins() {
     },
   ];
 
-  if (groupBy !== 'none') {
+  if (analytics.groupBy && analytics.groupBy !== 'None') {
     const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
     tableData = Object.entries(grouped).map(([group, items]) => {
       let value = 0;
-      if (aggregate === 'count') value = items.length;
+      if (analytics.aggregate === 'Count') value = items.length;
       return {
         group,
         value,
@@ -103,12 +103,10 @@ export default function PinterestPins() {
     );
   }
 
-  // Get unique boards for filter dropdown
-  const uniqueBoards = Array.from(new Set(pins.map(pin => pin.Item?.board_owner?.username).filter(Boolean)));
-
   return (
     <div className="h-full flex flex-col">
-      
+      <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} />
+      <UniversalOperationBar section="pinterest" tabKey="pins" analytics={analytics} data={tableData} />
       {/* Data Table - Scrollable */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">

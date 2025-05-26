@@ -1,24 +1,29 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchProducts } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
 import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
   const { products, loading, error } = useSelector((state: RootState) => state.shopify);
 
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
 
-  // Filter products
   let filteredProducts = products;
+  if (analytics.filter && analytics.filter !== 'All') {
+    filteredProducts = filteredProducts.filter(product => product.status === analytics.filter || product.product_type === analytics.filter || product.vendor === analytics.filter);
+  }
 
-  // Grouping and aggregation
   let tableData = filteredProducts;
   let columns = [
     {
@@ -45,6 +50,9 @@ export default function ShopifyProducts() {
     { header: 'Updated At', accessor: 'updated_at' },
   ];
 
+  // Example grouping/aggregation (can be extended as needed)
+  // For now, just pass through data as grouping/aggregation is not defined for products
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -63,6 +71,8 @@ export default function ShopifyProducts() {
 
   return (
     <div className="space-y-6">
+      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
+      <UniversalOperationBar section="shopify" tabKey="products" analytics={analytics} data={tableData} />
       <div className="bg-white p-6 rounded-lg shadow">
         <DataView
           data={tableData}

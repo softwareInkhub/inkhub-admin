@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import SecondarySidebar from './SecondarySidebar';
 import { useTabContext } from "@/components/layout/TabContext";
+import UniversalAnalyticsBar from "@/components/common/UniversalAnalyticsBar";
 
 interface NavItem {
   name: string;
@@ -306,6 +307,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           ))}
         </div>
+        {/* Universal Analytics Bar */}
+        <UniversalAnalyticsBar section={section || ''} tabKey={activeTab} />
         {/* Page content */}
         <main className="mx-auto max-w-7xl px-2 sm:px-4 py-4 sm:py-6 lg:px-8">
           {children}

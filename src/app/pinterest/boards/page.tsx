@@ -1,20 +1,30 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchBoards } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
   const { boards, loading, error } = useSelector((state: RootState) => state.pinterest);
 
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+
   useEffect(() => {
     dispatch(fetchBoards());
   }, [dispatch]);
 
-  const columns = [
+  let filteredBoards = boards.filter(board => board.Item);
+  if (analytics.filter && analytics.filter !== 'All') {
+    filteredBoards = filteredBoards.filter(board => board.Item?.owner?.username === analytics.filter);
+  }
+
+  let tableData = filteredBoards;
+  let columns = [
     {
       header: 'Cover',
       accessor: 'Item.media.image_cover_url',
@@ -37,13 +47,18 @@ export default function PinterestBoards() {
     { header: 'Created At', accessor: 'Item.created_at', render: (_: any, row: any) => row.Item?.created_at || '—' },
   ];
 
+  // Example grouping/aggregation (can be extended as needed)
+  // For now, just pass through data as grouping/aggregation is not defined for boards
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="h-full flex flex-col">
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} />
+      <UniversalOperationBar section="pinterest" tabKey="boards" analytics={analytics} data={tableData} />
       <DataView
-        data={boards}
+        data={tableData}
         columns={columns}
       />
     </div>

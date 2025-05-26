@@ -8,6 +8,8 @@ import DataView from '@/components/common/DataView';
 import { OrdersAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 import { format } from 'date-fns';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 const tabs = [
   { name: 'All Orders', key: 'all' },
@@ -18,6 +20,8 @@ const tabs = [
 export default function ShopifyOrders() {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.shopify);
+
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
 
   useEffect(() => {
     dispatch(fetchOrders());
@@ -36,6 +40,9 @@ export default function ShopifyOrders() {
 
   // Filter orders
   let filteredOrders = orders;
+  if (analytics.filter && analytics.filter !== 'All') {
+    filteredOrders = filteredOrders.filter(order => order.financial_status === analytics.filter);
+  }
 
   // Grouping and aggregation
   let tableData = filteredOrders;
@@ -92,6 +99,9 @@ export default function ShopifyOrders() {
     },
   ];
 
+  // Example grouping/aggregation (can be extended as needed)
+  // For now, just pass through data as grouping/aggregation is not defined for orders
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -110,7 +120,8 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Removed analytics options summary */}
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} />
+      <UniversalOperationBar section="shopify" tabKey="orders" analytics={analytics} data={tableData} />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
