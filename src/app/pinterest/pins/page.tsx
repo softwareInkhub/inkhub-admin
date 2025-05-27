@@ -7,24 +7,41 @@ import { fetchPins } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
 import Image from 'next/image';
 import lodashGroupBy from 'lodash/groupBy';
+// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
-  const { pins, loading, error } = useSelector((state: RootState) => state.pinterest);
+  const { pins, loading, error, pinsLastEvaluatedKey } = useSelector((state: RootState) => state.pinterest);
 
   // Analytics/filter/group state
-  const [filter, setFilter] = useState('all');
-  const [groupBy, setGroupBy] = useState('none');
-  const [aggregate, setAggregate] = useState('count');
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchPins());
+    const fetchData = async () => {
+      setIsInitialLoad(true);
+      await dispatch(fetchPins({ limit: 100 }));
+      setIsInitialLoad(false);
+    };
+    fetchData();
   }, [dispatch]);
+
+  const handleNextPage = async () => {
+    if (!pinsLastEvaluatedKey || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      await dispatch(fetchPins({ limit: 100, lastKey: pinsLastEvaluatedKey }));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Filter out pins without Item
   let filteredPins = pins.filter(pin => pin.Item);
-  if (filter !== 'all') {
-    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === filter);
+  if (analytics.filter && analytics.filter !== 'All') {
+    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.filter);
   }
 
   // Grouping and aggregation
@@ -70,11 +87,11 @@ export default function PinterestPins() {
     },
   ];
 
-  if (groupBy !== 'none') {
+  if (analytics.groupBy && analytics.groupBy !== 'None') {
     const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
     tableData = Object.entries(grouped).map(([group, items]) => {
       let value = 0;
-      if (aggregate === 'count') value = items.length;
+      if (analytics.aggregate === 'Count') value = items.length;
       return {
         group,
         value,
@@ -87,7 +104,7 @@ export default function PinterestPins() {
     ];
   }
 
-  if (loading) {
+  if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -103,12 +120,10 @@ export default function PinterestPins() {
     );
   }
 
-  // Get unique boards for filter dropdown
-  const uniqueBoards = Array.from(new Set(pins.map(pin => pin.Item?.board_owner?.username).filter(Boolean)));
-
   return (
     <div className="h-full flex flex-col">
-      
+      {/* <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} /> */}
+      {/* <UniversalOperationBar section="pinterest" tabKey="pins" analytics={analytics} data={tableData} /> */}
       {/* Data Table - Scrollable */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
@@ -118,6 +133,19 @@ export default function PinterestPins() {
             onSort={() => {}}
             onSearch={() => {}}
           />
+          {/* Pagination Controls */}
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
+              onClick={handleNextPage}
+              disabled={!pinsLastEvaluatedKey || isLoadingMore}
+            >
+              {isLoadingMore && (
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              )}
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   TableCellsIcon,
   Squares2X2Icon,
@@ -19,6 +19,10 @@ interface DataViewProps<T> {
   }[];
   onSort?: (column: keyof T) => void;
   onSearch?: (query: string) => void;
+  onSelectionChange?: (selectedRows: T[]) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 type ViewType = 'table' | 'grid' | 'card';
@@ -28,6 +32,10 @@ export default function DataView<T>({
   columns,
   onSort,
   onSearch,
+  onSelectionChange,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: DataViewProps<T>) {
   const [viewType, setViewType] = useState<ViewType>('table');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +43,7 @@ export default function DataView<T>({
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedTag, setSelectedTag] = useState<string>('');
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const dispatch = useDispatch<AppDispatch>();
 
   // Extract all unique tags from data
@@ -56,6 +65,30 @@ export default function DataView<T>({
     );
   }, [data, selectedTag]);
 
+  // Handle select all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIndices = new Set(filteredData.map((_, index) => index));
+      setSelectedRows(allIndices);
+      onSelectionChange?.(filteredData);
+    } else {
+      setSelectedRows(new Set());
+      onSelectionChange?.([]);
+    }
+  };
+
+  // Handle individual row selection
+  const handleRowSelect = (index: number, checked: boolean) => {
+    const newSelectedRows = new Set(selectedRows);
+    if (checked) {
+      newSelectedRows.add(index);
+    } else {
+      newSelectedRows.delete(index);
+    }
+    setSelectedRows(newSelectedRows);
+    onSelectionChange?.(filteredData.filter((_, i) => newSelectedRows.has(i)));
+  };
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
@@ -75,14 +108,37 @@ export default function DataView<T>({
     await dispatch(updateDesign(editForm));
     setEditItem(null);
     setSelectedItem(null);
-    dispatch(fetchDesigns());
   };
 
   const handleDelete = async (uid: string) => {
     await dispatch(deleteDesign(uid));
     setSelectedItem(null);
-    dispatch(fetchDesigns());
   };
+
+  // Add intersection observer for infinite scroll
+  useEffect(() => {
+    if (!onLoadMore || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const loadMoreTrigger = document.getElementById('load-more-trigger');
+    if (loadMoreTrigger) {
+      observer.observe(loadMoreTrigger);
+    }
+
+    return () => {
+      if (loadMoreTrigger) {
+        observer.unobserve(loadMoreTrigger);
+      }
+    };
+  }, [onLoadMore, hasMore, isLoadingMore]);
 
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
@@ -140,16 +196,34 @@ export default function DataView<T>({
       </div>
 
       {/* Scrollable Content Section */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto relative">
+        {/* Loading Overlay - Only show for initial load */}
+        {data.length === 0 && !isLoadingMore && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
         {viewType === 'table' && (
           <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 max-h-96">
             <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm md:text-base">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
+                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      checked={selectedRows.size === filteredData.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
+                  </th>
+                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    #
+                  </th>
                   {columns.map((column) => (
                     <th
                       key={String(column.header)}
-                      className="px-2 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
+                      className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
                       onClick={() => onSort?.(column.accessor as any)}
                     >
                       {column.header}
@@ -159,11 +233,36 @@ export default function DataView<T>({
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredData.map((item, index) => (
-                  <tr key={index}>
+                  <tr key={index} className={selectedRows.has(index) ? 'bg-blue-50' : ''} style={{ height: '32px' }}>
+                    <td className="px-2 py-1 whitespace-nowrap text-xs">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        checked={selectedRows.has(index)}
+                        onChange={(e) => handleRowSelect(index, e.target.checked)}
+                      />
+                    </td>
+                    <td className="px-2 py-1 whitespace-nowrap text-xs">
+                      {index + 1}
+                    </td>
                     {columns.map((column) => {
                       const value = item[column.accessor];
+                      // If this is an image column, render a smaller image
+                      if (column.header.toLowerCase().includes('image')) {
+                        let src: string | undefined = undefined;
+                        if (typeof value === 'string') {
+                          src = value;
+                        } else if (value && typeof value === 'object' && 'src' in value) {
+                          src = (value as any).src;
+                        }
+                        return (
+                          <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
+                            {src ? <img src={src} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} /> : null}
+                          </td>
+                        );
+                      }
                       return (
-                        <td key={String(column.header)} className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">
+                        <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
                           {column.render ? column.render(value, item) : String(value)}
                         </td>
                       );
@@ -176,11 +275,11 @@ export default function DataView<T>({
         )}
         {viewType === 'grid' && (
           <div className="overflow-auto flex-1 min-h-0 max-h-96">
-            <div className="grid grid-cols-2 gap-2 p-2">
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 p-1 gap-1">
               {filteredData.map((item, index) => (
-                <div key={index} className="flex flex-col items-center gap-2 p-4">
+                <div key={index} className="flex flex-col items-center gap-1 p-1 border border-blue-400 bg-white text-xs shadow-md">
                   {/* Image - clickable for modal */}
-                  <div className="flex justify-center w-full cursor-pointer" onClick={() => setSelectedItem(item)}>
+                  <div className="flex justify-center w-full">
                     {columns[0].render
                       ? columns[0].render(item[columns[0].accessor], item)
                       : <img src={String(item[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
@@ -207,100 +306,42 @@ export default function DataView<T>({
                 </div>
               ))}
             </div>
-            {/* Modal for Edit/Delete options */}
-            {selectedItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white rounded-lg shadow-lg p-6 max-w-xs w-full relative flex flex-col items-center">
-                  <button
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
-                    onClick={() => setSelectedItem(null)}
-                  >
-                    &times;
-                  </button>
-                  {/* Show image and options */}
-                  <div className="mb-4">
-                    {columns[0].render
-                      ? columns[0].render(selectedItem[columns[0].accessor], selectedItem)
-                      : <img src={String(selectedItem[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
-                    }
-                  </div>
-                  <div className="flex flex-col gap-2 w-full">
-                    <button
-                      className="bg-blue-500 text-white px-4 py-2 rounded"
-                      onClick={() => { setEditItem(selectedItem); setEditForm({ ...selectedItem }); setSelectedItem(null); }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="bg-red-500 text-white px-4 py-2 rounded"
-                      onClick={() => { handleDelete((selectedItem as any).uid); setSelectedItem(null); }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Edit Modal */}
-            {editItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2">
-                <div className="bg-white rounded-lg shadow-lg w-full max-w-md sm:max-w-lg md:max-w-xl relative max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-                  <button
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
-                    onClick={() => setEditItem(null)}
-                  >
-                    &times;
-                  </button>
-                  <h2 className="text-xl font-bold mb-6">Edit Design</h2>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleEditSave();
-                    }}
-                  >
-                    {columns.map((column) => (
-                      <div key={String(column.accessor)} className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {column.header}
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm[column.accessor] || ''}
-                          onChange={(e) => handleEditChange(String(column.accessor), e.target.value)}
-                          className="input w-full"
-                        />
-                      </div>
-                    ))}
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setEditItem(null)}
-                      >
-                        Cancel
-                      </button>
-                      <button type="submit" className="btn btn-primary">
-                        Save
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
           </div>
         )}
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 max-h-96">
-            <div className="grid grid-cols-2 gap-2 p-2">
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 p-2">
               {filteredData.map((item, index) => (
-                <div key={index} className="flex justify-center items-center p-2">
+                <div key={index} className="flex flex-col items-center p-1 bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer">
+                  {/* Smaller image for compact card view */}
                   {columns[0].render
                     ? columns[0].render(item[columns[0].accessor], item)
-                    : <img src={String(item[columns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
+                    : <img src={String(item[columns[0].accessor])} alt="" className="w-8 h-8 object-cover rounded-lg" />
                   }
+                  {/* Optional: show a label or title below the image */}
+                  {columns[1] && (
+                    <div className="text-xs text-center mt-1 truncate w-full">
+                      {columns[1].render
+                        ? columns[1].render(item[columns[1].accessor], item)
+                        : String(item[columns[1].accessor])}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {/* Place the load more trigger at the end of the content for infinite scroll */}
+        {hasMore && (
+          <div id="load-more-trigger" className="w-full flex justify-center py-4">
+            {isLoadingMore ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                <span className="text-sm text-gray-500">Loading more...</span>
+              </div>
+            ) : (
+              <span className="text-sm text-gray-500">Scroll to load more</span>
+            )}
           </div>
         )}
       </div>

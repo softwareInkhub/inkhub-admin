@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { cache } from '@/utils/cache';
+import { diskCache } from '@/utils/disk-cache';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {
@@ -55,14 +55,19 @@ function transformProduct(item: any) {
   };
 }
 
-const CACHE_KEY = 'shopify_products';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Check cache first
-    const cachedData = cache.get(CACHE_KEY);
+    const { searchParams } = new URL(req.url);
+    const limit = Number(searchParams.get('limit')) || 100;
+    const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')!) : undefined;
+    const CACHE_KEY = `shopify_products:${limit}:${lastKey ? JSON.stringify(lastKey) : ''}`;
+
+    // Check disk cache first
+    const cachedData = await diskCache.get(CACHE_KEY);
     if (cachedData) {
+      console.log('[Disk Cache] Returning products from disk cache');
       return NextResponse.json(cachedData);
     }
 
@@ -82,15 +87,20 @@ export async function GET() {
 
     const command = new ScanCommand({
       TableName: process.env.SHOPIFY_PRODUCTS_TABLE,
+      Limit: limit,
+      ExclusiveStartKey: lastKey,
     });
     const response = await docClient.send(command);
     const items = (response.Items || []).map(transformProduct);
+    const result = { items, lastEvaluatedKey: response.LastEvaluatedKey || null };
 
-    // Store in cache
-    cache.set(CACHE_KEY, items, CACHE_TTL);
-
-    return NextResponse.json(items);
+    await diskCache.set(CACHE_KEY, result, CACHE_TTL);
+    console.log('[Disk Cache] Returning products from API and caching');
+    return NextResponse.json(result);
   } catch (error: any) {
+    if (error?.message?.includes('cache has expired')) {
+      console.log('[Disk Cache] EXPIRED: Cache expired and deleted for key', CACHE_KEY);
+    }
     console.error('Error fetching Shopify products:', error);
     const errorMessage = getErrorMessage(error);
     return NextResponse.json(
