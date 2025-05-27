@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import { cache } from '@/utils/cache';
+import { diskCache } from '@/utils/disk-cache';
 
 const client = new DynamoDBClient({ 
   region: process.env.AWS_REGION,
@@ -11,33 +11,40 @@ const client = new DynamoDBClient({
   }
 });
 const docClient = DynamoDBDocumentClient.from(client);
-
-const CACHE_KEY = 'design_library_designs';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const limit = Number(searchParams.get('limit')) || 50;
+  const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')!) : undefined;
+  const CACHE_KEY = `design_library_designs:${limit}:${lastKey ? JSON.stringify(lastKey) : ''}`;
+
   try {
-    // Check cache first
-    const cachedData = cache.get(CACHE_KEY);
+    // Disk cache check
+    const cachedData = await diskCache.get(CACHE_KEY);
     if (cachedData) {
+      console.log('[Disk Cache] Returning designs from disk cache');
       return NextResponse.json(cachedData);
     }
 
+    // DynamoDB scan with pagination
     const command = new ScanCommand({
       TableName: process.env.DESIGN_TABLE,
+      Limit: limit,
+      ExclusiveStartKey: lastKey,
     });
     const response = await docClient.send(command);
     const items = response.Items || [];
+    const result = { items, lastEvaluatedKey: response.LastEvaluatedKey || null };
 
-    // Store in cache
-    cache.set(CACHE_KEY, items, CACHE_TTL);
-    
-    return NextResponse.json(items);
+    // Store in disk cache
+    await diskCache.set(CACHE_KEY, result, CACHE_TTL);
+    console.log('[Disk Cache] Returning designs from API and caching');
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching designs:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return NextResponse.json(
-      { error: 'Failed to fetch designs', details: errorMessage },
+      { error: 'Failed to fetch designs' },
       { status: 500 }
     );
   }

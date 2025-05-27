@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { cache } from '@/utils/cache';
+import { diskCache } from '@/utils/disk-cache';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {
@@ -80,47 +80,36 @@ function transformOrder(item: any) {
   };
 }
 
-const CACHE_KEY = 'shopify_orders';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Check cache first
-    const cachedData = cache.get(CACHE_KEY);
+    const { searchParams } = new URL(req.url);
+    const limit = Number(searchParams.get('limit')) || 100;
+    const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')!) : undefined;
+    const CACHE_KEY = `shopify_orders:${limit}:${lastKey ? JSON.stringify(lastKey) : ''}`;
+
+    // Check disk cache first
+    const cachedData = await diskCache.get(CACHE_KEY);
     if (cachedData) {
+      console.log('[Disk Cache] Returning orders from disk cache');
       return NextResponse.json(cachedData);
-    }
-
-    if (!process.env.AWS_REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      return NextResponse.json(
-        { error: 'AWS configuration is missing. Please check your environment variables.' },
-        { status: 500 }
-      );
-    }
-
-    if (!process.env.SHOPIFY_ORDERS_TABLE) {
-      return NextResponse.json(
-        { error: 'Shopify orders table name is not configured. Please check your environment variables.' },
-        { status: 500 }
-      );
     }
 
     const command = new ScanCommand({
       TableName: process.env.SHOPIFY_ORDERS_TABLE,
+      Limit: limit,
+      ExclusiveStartKey: lastKey,
     });
     const response = await docClient.send(command);
     const items = (response.Items || []).map(transformOrder);
+    const result = { items, lastEvaluatedKey: response.LastEvaluatedKey || null };
 
-    // Store in cache
-    cache.set(CACHE_KEY, items, CACHE_TTL);
-
-    return NextResponse.json(items);
-  } catch (error: any) {
-    console.error('Error fetching Shopify orders:', error);
+    await diskCache.set(CACHE_KEY, result, CACHE_TTL);
+    console.log('[Disk Cache] Returning orders from API and caching');
+    return NextResponse.json(result);
+  } catch (error) {
     const errorMessage = getErrorMessage(error);
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { cache } from '@/utils/cache';
 
 interface BRHMState {
   data: any[];
@@ -16,7 +17,15 @@ const initialState: BRHMState = {
 export const fetchBRHMData = createAsyncThunk(
   'brhm/fetchData',
   async () => {
+    const cacheKey = 'brhm_data';
+    const cached = cache.get<any[]>(cacheKey);
+    if (cached) {
+      console.log('[LRU] Returning BRHM data from cache');
+      return cached;
+    }
     const response = await axios.get('/api/brhm/data');
+    cache.set(cacheKey, response.data);
+    console.log('[LRU] Returning BRHM data from API and caching');
     return response.data;
   }
 );

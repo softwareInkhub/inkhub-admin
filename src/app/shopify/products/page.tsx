@@ -6,18 +6,35 @@ import { fetchProducts } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
 import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
-import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
-  const { products, loading, error } = useSelector((state: RootState) => state.shopify);
+  const { products, loading, error, productsLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchProducts());
+    const fetchData = async () => {
+      setIsInitialLoad(true);
+      await dispatch(fetchProducts({ limit: 100 }));
+      setIsInitialLoad(false);
+    };
+    fetchData();
   }, [dispatch]);
+
+  const handleNextPage = async () => {
+    if (!productsLastEvaluatedKey || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      await dispatch(fetchProducts({ limit: 100, lastKey: productsLastEvaluatedKey }));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   let filteredProducts = products;
   if (analytics.filter && analytics.filter !== 'All') {
@@ -53,7 +70,7 @@ export default function ShopifyProducts() {
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for products
 
-  if (loading) {
+  if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -71,8 +88,8 @@ export default function ShopifyProducts() {
 
   return (
     <div className="space-y-6">
-      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
-      <UniversalOperationBar section="shopify" tabKey="products" analytics={analytics} data={tableData} />
+      {/* <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} /> */}
+      {/* <UniversalOperationBar section="shopify" tabKey="products" analytics={analytics} data={tableData} /> */}
       <div className="bg-white p-6 rounded-lg shadow">
         <DataView
           data={tableData}
@@ -80,6 +97,19 @@ export default function ShopifyProducts() {
           onSort={() => {}}
           onSearch={() => {}}
         />
+        {/* Pagination Controls */}
+        <div className="flex justify-end mt-4">
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
+            onClick={handleNextPage}
+            disabled={!productsLastEvaluatedKey || isLoadingMore}
+          >
+            {isLoadingMore && (
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+            )}
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );

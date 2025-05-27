@@ -109,13 +109,6 @@ export default function SecondarySidebar({ section }: SecondarySidebarProps) {
           <div key={section.key} className="mb-6 relative group">
             <div className="flex items-center justify-between mb-2">
               <h2 className={`text-base font-semibold capitalize ${lastActiveKey === section.key ? 'text-blue-600' : 'text-gray-700'}`}>{section.title}</h2>
-              <button
-                className="ml-2 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-red-500 transition-colors text-xs"
-                aria-label={`Remove ${section.title}`}
-                onClick={() => handleRemoveSection(section.key)}
-              >
-                &times;
-              </button>
             </div>
             <nav className="space-y-1">
               {section.items.map(item => {

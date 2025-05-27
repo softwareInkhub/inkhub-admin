@@ -24,7 +24,7 @@ export default function UniversalOperationBar({ section, tabKey, analytics, data
   };
 
   return (
-    <div className="bg-gray-100 border-b px-4 py-3 flex space-x-4 items-center min-h-[48px]">
+    <div className="bg-gray-100 border-b px-4 py-1 flex space-x-4 items-center min-h-[48px]">
       <span className="font-medium text-gray-700">
         {tabKey.charAt(0).toUpperCase() + tabKey.slice(1)} Operations
       </span>
