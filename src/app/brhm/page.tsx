@@ -1,6 +1,3 @@
-import { redirect } from 'next/navigation';
-
-export default function BrhmIndexRedirect() {
-  redirect('/brhm/dashboard');
-  return null;
-} 
+// ... existing code ...
+// Remove redirect to '/brhm/dashboard'.
+// ... existing code ... 

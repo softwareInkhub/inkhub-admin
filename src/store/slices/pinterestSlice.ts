@@ -1,11 +1,14 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { cache } from '@/utils/cache';
 
 interface PinterestState {
   pins: any[];
   boards: any[];
   loading: boolean;
   error: string | null;
+  pinsLastEvaluatedKey: any | null;
+  boardsLastEvaluatedKey: any | null;
 }
 
 const initialState: PinterestState = {
@@ -13,21 +16,35 @@ const initialState: PinterestState = {
   boards: [],
   loading: false,
   error: null,
+  pinsLastEvaluatedKey: null,
+  boardsLastEvaluatedKey: null,
 };
 
 export const fetchPins = createAsyncThunk(
   'pinterest/fetchPins',
-  async () => {
-    const response = await axios.get('/api/pinterest/pins');
-    return response.data;
+  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
+      const response = await axios.get(`/api/pinterest/pins?${params}`);
+      return response.data; // { items, lastEvaluatedKey }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch pins');
+    }
   }
 );
 
 export const fetchBoards = createAsyncThunk(
   'pinterest/fetchBoards',
-  async () => {
-    const response = await axios.get('/api/pinterest/boards');
-    return response.data;
+  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
+      const response = await axios.get(`/api/pinterest/boards?${params}`);
+      return response.data; // { items, lastEvaluatedKey }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch boards');
+    }
   }
 );
 
@@ -48,7 +65,15 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchPins.fulfilled, (state, action) => {
         state.loading = false;
-        state.pins = action.payload;
+        const { items = [], lastEvaluatedKey } = action.payload || {};
+        if (action.meta.arg && action.meta.arg.lastKey) {
+          // Pagination: append
+          state.pins = [...state.pins, ...(items || [])];
+        } else {
+          // First page: replace
+          state.pins = items || [];
+        }
+        state.pinsLastEvaluatedKey = lastEvaluatedKey || null;
       })
       .addCase(fetchPins.rejected, (state, action) => {
         state.loading = false;
@@ -61,7 +86,15 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchBoards.fulfilled, (state, action) => {
         state.loading = false;
-        state.boards = action.payload;
+        const { items = [], lastEvaluatedKey } = action.payload || {};
+        if (action.meta.arg && action.meta.arg.lastKey) {
+          // Pagination: append
+          state.boards = [...state.boards, ...(items || [])];
+        } else {
+          // First page: replace
+          state.boards = items || [];
+        }
+        state.boardsLastEvaluatedKey = lastEvaluatedKey || null;
       })
       .addCase(fetchBoards.rejected, (state, action) => {
         state.loading = false;

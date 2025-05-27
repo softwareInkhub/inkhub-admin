@@ -1,46 +1,77 @@
-# Inkhub Admin - Shopify & Design Library Analytics
+# Inkhub Admin - Shopify, Pinterest, Design Library Analytics
 
-This project is a [Next.js](https://nextjs.org) admin dashboard for Inkhub, featuring advanced analytics for Shopify data and a full-featured Design Library. It is bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This project is a [Next.js](https://nextjs.org) admin dashboard for Inkhub, featuring advanced analytics, universal navigation, and a full-featured Design Library. It is bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Features Implemented
 
+### Universal Navigation & Layout
+- **Universal Tab System**: Persistent, global tab bar for all major sections (Shopify, Pinterest, Design Library, etc.), with open/close/switch and state saved in localStorage.
+- **Universal Analytics Bar**: Reusable analytics controls (filter, group, aggregate) that adapt to the current section/tab, fully wired to DataView for live analytics.
+- **Universal Operation Bar**: Reusable operation/action bar below analytics, with context-aware actions (Download, Upload, etc.) and access to filtered/grouped data.
+- **Secondary Sidebar**: Context-sensitive, collapsible sidebar for section navigation, with support for removing sections and redirecting when the last is closed.
+
+### DataView Component
+- **Highly Customizable**: Table, grid, and card views, with easy-to-modify layout, effects, and spacing via props.
+- **Responsive**: All views and modals are mobile-friendly and adapt to large screens.
+- **Tag Filtering & Search**: Filter by tags and search by any field.
+- **Edit/Delete Modals**: Responsive modals for editing and deleting items, with clean UX.
+- **Paginated View**: Supports paginated data loading with a Next button for all major sections.
+
 ### Shopify Section
-- **Tabbed Interface**: Orders, Products, and Collections, with tab management (open, close, switch).
+- **Tabbed Interface**: Orders, Products, and Collections, managed by the universal tab system.
 - **Analytics Bar**: Dynamic controls for filtering, grouping, and aggregation, adapting to the active tab.
-- **Orders Analytics**:
-  - Filter by status (paid, pending, refunded, etc.)
-  - Group by status, customer, or date
-  - Aggregate by count, sum, or average
-  - Data fetched from DynamoDB (`shopify_inkhub_get_orders` table, configurable via env)
-- **Products Analytics**:
-  - Filter by status (active, draft)
-  - Group by type or vendor
-  - Aggregate by count or sum inventory
-  - Data fetched from DynamoDB (`shopify_inkhub_get_products` table, configurable via env)
+- **Orders Analytics**: Filter by status, group by status/customer/date, aggregate by count/sum/average.
+- **Products Analytics**: Filter by status, group by type/vendor, aggregate by count/sum inventory.
 - **Collections Analytics**: (Implementation pending)
-- **Redux Integration**: Centralized state management for Shopify data
-- **Lodash**: Used for grouping and aggregation logic
-- **Modern UI**: Responsive, scrollable DataView with search, sorting, and multiple view types (table, grid, card)
+- **Redux Integration**: Centralized state management for Shopify data.
+- **Modern UI**: Responsive, scrollable DataView with search, sorting, and multiple view types.
+- **Disk Cache & Pagination**: Orders and Products use disk-based caching and paginated API with a Next button for efficient data loading.
+
+### Pinterest Section
+- **Boards & Pins**: DataView for boards and pins, with analytics and operations.
+- **Analytics Bar**: Filter/group/aggregate pins and boards.
+- **Redux Integration**: Centralized state management for Pinterest data.
+- **Disk Cache & Pagination**: Boards and Pins use disk-based caching and paginated API with a Next button for efficient data loading.
 
 ### Design Library Section
-- **CRUD Operations**: Create, Read, Update, and Delete designs stored in DynamoDB (`admin-design-image` table, configurable via env)
-- **Image Support**: Upload and display design images from S3, with public read access
-- **Table, Grid, and Card Views**: Switch between table, grid (image-only with modal details), and card layouts
-- **Responsive Modals**: Click an image in grid view to open a details modal, with options to edit or delete
-- **Edit Modal**: Separate, responsive edit modal with a two-column layout on desktop
-- **Tag Filtering**: Filter designs by tags using a dropdown above the search bar
-- **Search**: Search designs by any field
-- **Redux Integration**: Centralized state management for design data
-- **Modern, Responsive UI**: All views and modals are mobile-friendly and adapt to large screens
+- **CRUD Operations**: Create, Read, Update, and Delete designs stored in DynamoDB.
+- **Image Support**: Upload and display design images from S3, with public read access.
+- **Table, Grid, and Card Views**: Switch between layouts, with modals for details and editing.
+- **Tag Filtering & Search**: Filter by tags and search by any field.
+- **Redux Integration**: Centralized state management for design data.
+- **Disk Cache & Pagination**: Design Library uses disk-based caching and paginated API with a Next button for efficient data loading.
 
 ### AWS & DynamoDB Integration
-- Uses AWS SDK v3 for DynamoDB access
+- Uses AWS SDK v3 for DynamoDB access.
 - Table names are configurable via environment variables:
   - `SHOPIFY_ORDERS_TABLE`
   - `SHOPIFY_PRODUCTS_TABLE`
   - `DESIGN_TABLE` (for design library)
-- Credentials and region are loaded from `.env.local` (see below)
-- S3 bucket policy must allow public read for images
+- Credentials and region are loaded from `.env.local` (see below).
+- S3 bucket policy must allow public read for images.
+
+### Powerful Disk Caching System (NEW)
+- **Disk-Based Cache**: All major API routes (orders, products, pins, boards, designs) use a disk-based cache for fast, persistent, and scalable data access.
+- **How It Works:**
+  - Each API request checks the disk cache before querying DynamoDB.
+  - If cached data is found and not expired, it is returned immediately (no DynamoDB call).
+  - If not found or expired, data is fetched from DynamoDB, stored in the disk cache, and returned.
+- **Cache Key Structure:**
+  - Cache keys are based on the resource, page size (`limit`), and pagination key (`lastKey`).
+  - Example: `shopify_orders:100:{"id":"12345"}` for the second page of orders with a limit of 100.
+- **TTL (Time-to-Live):**
+  - Default TTL is **5 minutes** (300,000 ms) for all cache entries.
+  - Configurable per resource or globally in the cache utility.
+- **Cache Invalidation:**
+  - On any mutation (create/update/delete), the relevant cache keys are invalidated (deleted) to ensure fresh data on the next fetch.
+  - The cache utility provides methods for `.get(key)`, `.set(key, value, ttl)`, `.delete(key)`, and `.clear()`.
+- **Pagination Support:**
+  - Each page of data is cached separately using its own cache key (based on `limit` and `lastKey`).
+  - The frontend uses a Next button to load more data, which triggers a paginated API call and checks the cache for that page.
+- **Why Disk Cache?**
+  - Survives server restarts and scales better than in-memory cache for large datasets.
+  - Reduces DynamoDB read costs and latency for repeated queries.
+  - Enables efficient, persistent caching for paginated data.
 
 ### Environment Setup
 Create a `.env.local` file in the project root:

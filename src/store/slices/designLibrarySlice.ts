@@ -1,23 +1,32 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { cache } from '@/utils/cache';
 
 interface DesignLibraryState {
   designs: any[];
   loading: boolean;
   error: string | null;
+  lastEvaluatedKey: any | null;
 }
 
 const initialState: DesignLibraryState = {
   designs: [],
   loading: false,
   error: null,
+  lastEvaluatedKey: null,
 };
 
 export const fetchDesigns = createAsyncThunk(
   'designLibrary/fetchDesigns',
-  async () => {
-    const response = await axios.get('/api/design-library/designs');
-    return response.data;
+  async ({ limit = 50, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
+      const response = await axios.get(`/api/design-library/designs?${params}`);
+      return response.data; // { items, lastEvaluatedKey }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch designs');
+    }
   }
 );
 
@@ -56,6 +65,10 @@ const designLibrarySlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    resetDesigns: (state) => {
+      state.designs = [];
+      state.lastEvaluatedKey = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -66,11 +79,19 @@ const designLibrarySlice = createSlice({
       })
       .addCase(fetchDesigns.fulfilled, (state, action) => {
         state.loading = false;
-        state.designs = action.payload;
+        const { items, lastEvaluatedKey } = action.payload || {};
+        if (action.meta.arg && action.meta.arg.lastKey) {
+          // Pagination: append
+          state.designs = [...state.designs, ...(items || [])];
+        } else {
+          // First page: replace
+          state.designs = items || [];
+        }
+        state.lastEvaluatedKey = lastEvaluatedKey || null;
       })
       .addCase(fetchDesigns.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch designs';
+        state.error = action.payload as string || 'Failed to fetch designs';
       })
       // Upload Design
       .addCase(uploadDesign.pending, (state) => {
@@ -114,5 +135,5 @@ const designLibrarySlice = createSlice({
   },
 });
 
-export const { clearError } = designLibrarySlice.actions;
+export const { clearError, resetDesigns } = designLibrarySlice.actions;
 export default designLibrarySlice.reducer; 

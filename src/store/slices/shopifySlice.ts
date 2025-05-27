@@ -1,11 +1,14 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { diskCache } from '@/utils/disk-cache';
 
 interface ShopifyState {
   orders: any[];
   products: any[];
   loading: boolean;
   error: string | null;
+  ordersLastEvaluatedKey: any | null;
+  productsLastEvaluatedKey: any | null;
 }
 
 const initialState: ShopifyState = {
@@ -13,22 +16,35 @@ const initialState: ShopifyState = {
   products: [],
   loading: false,
   error: null,
+  ordersLastEvaluatedKey: null,
+  productsLastEvaluatedKey: null,
 };
 
-// Async thunks for fetching data
 export const fetchOrders = createAsyncThunk(
   'shopify/fetchOrders',
-  async () => {
-    const response = await axios.get('/api/shopify/orders');
-    return response.data;
+  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
+      const response = await axios.get(`/api/shopify/orders?${params}`);
+      return response.data; // { items, lastEvaluatedKey }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch orders');
+    }
   }
 );
 
 export const fetchProducts = createAsyncThunk(
   'shopify/fetchProducts',
-  async () => {
-    const response = await axios.get('/api/shopify/products');
-    return response.data;
+  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
+      const response = await axios.get(`/api/shopify/products?${params}`);
+      return response.data; // { items, lastEvaluatedKey }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch products');
+    }
   }
 );
 
@@ -49,7 +65,15 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload;
+        const { items = [], lastEvaluatedKey } = action.payload || {};
+        if (action.meta.arg && action.meta.arg.lastKey) {
+          // Pagination: append
+          state.orders = [...state.orders, ...(items || [])];
+        } else {
+          // First page: replace
+          state.orders = items || [];
+        }
+        state.ordersLastEvaluatedKey = lastEvaluatedKey || null;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
@@ -62,7 +86,15 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload;
+        const { items = [], lastEvaluatedKey } = action.payload || {};
+        if (action.meta.arg && action.meta.arg.lastKey) {
+          // Pagination: append
+          state.products = [...state.products, ...(items || [])];
+        } else {
+          // First page: replace
+          state.products = items || [];
+        }
+        state.productsLastEvaluatedKey = lastEvaluatedKey || null;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;

@@ -16,7 +16,6 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
   { name: 'BRHM', href: '/brhm', icon: PencilSquareIcon },

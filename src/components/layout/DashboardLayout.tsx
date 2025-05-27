@@ -10,6 +10,8 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import SecondarySidebar from './SecondarySidebar';
+import { useTabContext } from "@/components/layout/TabContext";
+import UniversalAnalyticsBar from "@/components/common/UniversalAnalyticsBar";
 
 interface NavItem {
   name: string;
@@ -18,12 +20,9 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-  { name: 'BRHM', href: '/brhm', icon: BookOpenIcon },
   { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 interface DashboardLayoutProps {
@@ -80,6 +79,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [secondarySidebarOpen, setSecondarySidebarOpen] = useState(false);
   const [mobileSubmenu, setMobileSubmenu] = useState<string | null>(null);
 
+  const { openTabs, activeTab, setActiveTab, closeTab } = useTabContext();
+
   // Close secondary sidebar after navigation
   useEffect(() => {
     setSecondarySidebarOpen(false);
@@ -88,202 +89,213 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [pathname]);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {/* Mobile Hamburger for Main Sidebar */}
-      <button
-        className="fixed top-4 left-4 z-40 md:hidden bg-white border border-gray-200 rounded-lg p-2 shadow"
-        onClick={() => setSidebarOpen(true)}
-        aria-label="Open sidebar"
-        type="button"
-      >
-        <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {/* Sidebar */}
-      {/* Desktop */}
-      <div className="hidden md:fixed md:inset-y-0 md:left-0 md:w-64 md:bg-white md:shadow-lg md:z-20 md:flex md:flex-col">
-        <div className="flex h-16 items-center justify-center border-b">
-          <h1 className="text-xl font-bold text-primary-600">Inkhub Admin</h1>
-        </div>
-        <nav className="mt-5 px-2">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                  isActive
-                    ? 'bg-primary-100 text-primary-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <item.icon
-                  className={`mr-3 h-6 w-6 flex-shrink-0 ${
-                    isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Top Header */}
+      <header className="w-full h-16 flex items-center justify-center border-b bg-white shadow sticky top-0 z-50">
+        <h1 className="text-xl font-bold text-primary-600">Inkhub Admin</h1>
+      </header>
+      <div className="flex flex-1">
+        {/* Mobile Hamburger for Main Sidebar */}
+        <button
+          className="fixed top-16 left-4 z-40 md:hidden bg-white border border-gray-200 rounded-lg p-2 shadow"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open sidebar"
+          type="button"
+        >
+          <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        {/* Sidebar - now attached to header, not fixed */}
+        <div className="hidden md:flex md:flex-col md:w-64 md:bg-white md:z-20 border-r border-gray-200">
+          <nav className="mt-5 px-2">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                    isActive
+                      ? 'bg-primary-100 text-primary-600'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
-                  aria-hidden="true"
-                />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black bg-opacity-30 md:hidden" onClick={() => { setSidebarOpen(false); setMobileSubmenu(null); }} />
-          <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col md:hidden animate-slide-in">
-            <div className="flex h-16 items-center justify-between border-b px-4">
-              <h1 className="text-xl font-bold text-primary-600">Inkhub Admin</h1>
-              <button onClick={() => { setSidebarOpen(false); setMobileSubmenu(null); }} aria-label="Close sidebar" className="p-2 rounded hover:bg-gray-100">
-                <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            {/* Main menu or submenu */}
-            {!mobileSubmenu ? (
-              <nav className="mt-5 px-2">
-                {navigation.map((item) => {
-                  const sectionKey = getSectionFromPath(item.href);
-                  const hasSecondary = !!(sectionKey && secondaryNavMap[sectionKey]);
-                  const isActive = pathname === item.href;
-                  return (
+                >
+                  <item.icon
+                    className={`mr-3 h-6 w-6 flex-shrink-0 ${
+                      isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black bg-opacity-30 md:hidden" style={{ top: '4rem' }} onClick={() => { setSidebarOpen(false); setMobileSubmenu(null); }} />
+            <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col md:hidden animate-slide-in">
+              <div className="flex h-16 items-center justify-between border-b px-4">
+                <h1 className="text-xl font-bold text-primary-600">Inkhub Admin</h1>
+                <button onClick={() => { setSidebarOpen(false); setMobileSubmenu(null); }} aria-label="Close sidebar" className="p-2 rounded hover:bg-gray-100">
+                  <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Main menu or submenu */}
+              {!mobileSubmenu ? (
+                <nav className="mt-5 px-2">
+                  {navigation.map((item) => {
+                    const sectionKey = getSectionFromPath(item.href);
+                    const hasSecondary = !!(sectionKey && secondaryNavMap[sectionKey]);
+                    const isActive = pathname === item.href;
+                    return (
+                      <button
+                        key={item.name}
+                        className={`w-full text-left group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                          isActive
+                            ? 'bg-primary-100 text-primary-600'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                        onClick={() => {
+                          if (hasSecondary && sectionKey) {
+                            setMobileSubmenu(sectionKey);
+                          } else {
+                            router.push(item.href);
+                            setSidebarOpen(false);
+                          }
+                        }}
+                      >
+                        <item.icon
+                          className={`mr-3 h-6 w-6 flex-shrink-0 ${
+                            isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {item.name}
+                      </button>
+                    );
+                  })}
+                </nav>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 px-2 py-2 border-b">
                     <button
-                      key={item.name}
-                      className={`w-full text-left group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        isActive
-                          ? 'bg-primary-100 text-primary-600'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                      onClick={() => {
-                        if (hasSecondary && sectionKey) {
-                          setMobileSubmenu(sectionKey);
-                        } else {
+                      className="p-2 rounded hover:bg-gray-100"
+                      onClick={() => setMobileSubmenu(null)}
+                      aria-label="Back to main menu"
+                    >
+                      <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <span className="font-bold text-base capitalize">{mobileSubmenu}</span>
+                  </div>
+                  <nav className="mt-2 px-2">
+                    {(secondaryNavMap[mobileSubmenu] || []).map((item: { name: string; href: string }) => (
+                      <button
+                        key={item.name}
+                        className={`w-full text-left group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                          pathname === item.href
+                            ? 'bg-primary-100 text-primary-600'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                        onClick={() => {
                           router.push(item.href);
                           setSidebarOpen(false);
-                        }
-                      }}
-                    >
-                      <item.icon
-                        className={`mr-3 h-6 w-6 flex-shrink-0 ${
-                          isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
-                        }`}
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </button>
-                  );
-                })}
-              </nav>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 px-2 py-2 border-b">
-                  <button
-                    className="p-2 rounded hover:bg-gray-100"
-                    onClick={() => setMobileSubmenu(null)}
-                    aria-label="Back to main menu"
-                  >
-                    <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <span className="font-bold text-base capitalize">{mobileSubmenu}</span>
-                </div>
-                <nav className="mt-2 px-2">
-                  {(secondaryNavMap[mobileSubmenu] || []).map((item: { name: string; href: string }) => (
-                    <button
-                      key={item.name}
-                      className={`w-full text-left group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                        pathname === item.href
-                          ? 'bg-primary-100 text-primary-600'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                      onClick={() => {
-                        router.push(item.href);
-                        setSidebarOpen(false);
-                        setMobileSubmenu(null);
-                      }}
-                    >
-                      {item.name}
-                    </button>
-                  ))}
-                </nav>
-              </>
-            )}
-          </div>
-        </>
-      )}
+                          setMobileSubmenu(null);
+                        }}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </nav>
+                </>
+              )}
+            </div>
+          </>
+        )}
 
-      {/* Secondary Sidebar for Shopify, Pinterest, etc. */}
-      {/* Desktop */}
-      {showSecondarySidebar && section && (
-        <div className="hidden md:fixed md:inset-y-0 md:left-64 md:w-64 md:z-10 md:flex">
-          <SecondarySidebar section={section} />
-        </div>
-      )}
-      {/* Mobile Secondary Sidebar Overlay (still available via header button if needed) */}
-      {showSecondarySidebar && section && secondarySidebarOpen && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black bg-opacity-30 md:hidden" onClick={() => setSecondarySidebarOpen(false)} />
-          <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col md:hidden animate-slide-in">
+        {/* Secondary Sidebar - now attached to header, not fixed */}
+        {showSecondarySidebar && section && (
+          <div className="hidden md:flex md:w-64 md:z-10 border-r border-gray-200">
             <SecondarySidebar section={section} />
-            <button onClick={() => setSecondarySidebarOpen(false)} aria-label="Close sidebar" className="absolute top-4 right-4 p-2 rounded hover:bg-gray-100">
-              <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
-        </>
-      )}
-
-      {/* Main content */}
-      <div className={
-        showSecondarySidebar
-          ? 'w-full md:pl-[32rem]'
-          : 'w-full md:pl-64'
-      }>
-        {/* Header */}
-        <div className="flex items-center gap-2 md:hidden p-2 bg-white border-b sticky top-0 z-30">
-          <button
-            className="p-2 rounded hover:bg-gray-100"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open main navigation"
-          >
-            <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          {showSecondarySidebar && (
+        )}
+        {/* Main content area, fills remaining space */}
+        <div className={
+          showSecondarySidebar
+            ? 'w-full md:pl-0'
+            : 'w-full md:pl-0'
+        }>
+          {/* Header */}
+          <div className="flex items-center gap-2 md:hidden p-2 bg-white border-b sticky top-0 z-30">
             <button
               className="p-2 rounded hover:bg-gray-100"
-              onClick={() => setSecondarySidebarOpen(true)}
-              aria-label="Open section navigation"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open main navigation"
             >
               <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            {showSecondarySidebar && (
+              <button
+                className="p-2 rounded hover:bg-gray-100"
+                onClick={() => setSecondarySidebarOpen(true)}
+                aria-label="Open section navigation"
+              >
+                <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            <span className="font-bold text-lg">{navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}</span>
+          </div>
+          {isMainSectionPage && (
+            <header className="bg-white shadow hidden md:block">
+              <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+                  {navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}
+                </h1>
+              </div>
+            </header>
           )}
-          <span className="font-bold text-lg">{navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}</span>
+          {/* Global Tab Bar */}
+          <div className="flex-none flex space-x-2 border-b bg-white px-4 pt-5">
+            {openTabs.map(tab => (
+              <div
+                key={tab.key}
+                className={`flex items-center px-4 py-2 rounded-t-md border-t border-l border-r border-b-0 cursor-pointer mr-2 bg-gray-50 ${
+                  activeTab === tab.key ? "border-primary-600 bg-white" : "border-gray-200"
+                }`}
+                style={{ marginBottom: "-1px" }}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span className="mr-2">{tab.label}</span>
+                <button
+                  className="ml-1 text-gray-400 hover:text-red-500"
+                  onClick={e => {
+                    e.stopPropagation();
+                    closeTab(tab.key);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          {/* Universal Analytics Bar */}
+          <UniversalAnalyticsBar section={section || ''} tabKey={activeTab} />
+          {/* Page content */}
+          <main className="mx-auto max-w-7xl px-2 sm:px-4 py-4 sm:py-6 lg:px-8">
+            {children}
+          </main>
         </div>
-        {isMainSectionPage && (
-          <header className="bg-white shadow hidden md:block">
-            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                {navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}
-              </h1>
-            </div>
-          </header>
-        )}
-        {/* Page content */}
-        <main className="mx-auto max-w-7xl px-2 sm:px-4 py-4 sm:py-6 lg:px-8">
-          {children}
-        </main>
       </div>
     </div>
   );
