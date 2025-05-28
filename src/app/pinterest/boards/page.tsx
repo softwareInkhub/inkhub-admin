@@ -88,10 +88,10 @@ export default function PinterestBoards() {
       {/* <UniversalOperationBar section="pinterest" tabKey="boards" analytics={analytics} data={tableData} /> */}
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-          <DataView
-            data={tableData}
-            columns={columns}
-          />
+      <DataView
+        data={tableData}
+        columns={columns}
+      />
           {/* Pagination Controls */}
           <div className="flex justify-end mt-4">
             <button

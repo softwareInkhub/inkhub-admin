@@ -87,28 +87,30 @@ export default function ShopifyProducts() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
       {/* <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} /> */}
       {/* <UniversalOperationBar section="shopify" tabKey="products" analytics={analytics} data={tableData} /> */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <DataView
-          data={tableData}
-          columns={columns}
-          onSort={() => {}}
-          onSearch={() => {}}
-        />
-        {/* Pagination Controls */}
-        <div className="flex justify-end mt-4">
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
-            onClick={handleNextPage}
-            disabled={!productsLastEvaluatedKey || isLoadingMore}
-          >
-            {isLoadingMore && (
-              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-            )}
-            Next
-          </button>
+      <div className="flex-1 min-h-0">
+        <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
+          <DataView
+            data={tableData}
+            columns={columns}
+            onSort={() => {}}
+            onSearch={() => {}}
+          />
+          {/* Pagination Controls */}
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
+              onClick={handleNextPage}
+              disabled={!productsLastEvaluatedKey || isLoadingMore}
+            >
+              {isLoadingMore && (
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              )}
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

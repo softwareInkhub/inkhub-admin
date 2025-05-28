@@ -33,9 +33,10 @@ const sidebarConfig = [
 
 interface SecondarySidebarProps {
   section: string;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
-export default function SecondarySidebar({ section }: SecondarySidebarProps) {
+export default function SecondarySidebar({ section, onCollapseChange }: SecondarySidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -66,6 +67,11 @@ export default function SecondarySidebar({ section }: SecondarySidebarProps) {
   useEffect(() => {
     localStorage.setItem('sidebarActiveSections', JSON.stringify(activeSections));
   }, [activeSections]);
+
+  // Notify parent when collapsed changes
+  useEffect(() => {
+    if (onCollapseChange) onCollapseChange(collapsed);
+  }, [collapsed, onCollapseChange]);
 
   // Only show sections that are in activeSections
   const shownSections = sidebarConfig.filter(section => activeSections.includes(section.key));

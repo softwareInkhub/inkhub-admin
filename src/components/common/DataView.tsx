@@ -43,7 +43,8 @@ export default function DataView<T>({
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedTag, setSelectedTag] = useState<string>('');
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  // Use unique key for selection (id, order_number, or fallback to index)
+  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
   const dispatch = useDispatch<AppDispatch>();
 
   // Extract all unique tags from data
@@ -65,11 +66,15 @@ export default function DataView<T>({
     );
   }, [data, selectedTag]);
 
+  // Helper to get unique key for a row
+  const getRowKey = (item: any, index: number) =>
+    item.id ?? item.order_number ?? item.uid ?? index;
+
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allIndices = new Set(filteredData.map((_, index) => index));
-      setSelectedRows(allIndices);
+      const allKeys = new Set(filteredData.map(getRowKey));
+      setSelectedRows(allKeys);
       onSelectionChange?.(filteredData);
     } else {
       setSelectedRows(new Set());
@@ -78,15 +83,15 @@ export default function DataView<T>({
   };
 
   // Handle individual row selection
-  const handleRowSelect = (index: number, checked: boolean) => {
+  const handleRowSelect = (key: string | number, checked: boolean) => {
     const newSelectedRows = new Set(selectedRows);
     if (checked) {
-      newSelectedRows.add(index);
+      newSelectedRows.add(key);
     } else {
-      newSelectedRows.delete(index);
+      newSelectedRows.delete(key);
     }
     setSelectedRows(newSelectedRows);
-    onSelectionChange?.(filteredData.filter((_, i) => newSelectedRows.has(i)));
+    onSelectionChange?.(filteredData.filter((item, i) => newSelectedRows.has(getRowKey(item, i))));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,9 +147,9 @@ export default function DataView<T>({
 
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
       {/* Tag Filter and Search */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-4 justify-between items-stretch sm:items-center p-2 md:p-4 bg-white border-b">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-4 justify-between items-stretch sm:items-center bg-white border-b p-0 m-0">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <label className="font-medium text-gray-700 text-xs md:text-base">Filter by Tag:</label>
           <select
@@ -196,7 +201,7 @@ export default function DataView<T>({
       </div>
 
       {/* Scrollable Content Section */}
-      <div className="flex-1 min-h-0 overflow-auto relative">
+      <div className="flex-1 min-h-0 h-0 overflow-auto relative p-0 m-0">
         {/* Loading Overlay - Only show for initial load */}
         {data.length === 0 && !isLoadingMore && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
@@ -205,7 +210,7 @@ export default function DataView<T>({
         )}
 
         {viewType === 'table' && (
-          <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 max-h-96">
+          <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 h-full">
             <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm md:text-base">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
@@ -213,7 +218,7 @@ export default function DataView<T>({
                     <input
                       type="checkbox"
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      checked={selectedRows.size === filteredData.length}
+                      checked={selectedRows.size === filteredData.length && filteredData.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
                     />
                   </th>
@@ -232,49 +237,52 @@ export default function DataView<T>({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.map((item, index) => (
-                  <tr key={index} className={selectedRows.has(index) ? 'bg-blue-50' : ''} style={{ height: '32px' }}>
-                    <td className="px-2 py-1 whitespace-nowrap text-xs">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={selectedRows.has(index)}
-                        onChange={(e) => handleRowSelect(index, e.target.checked)}
-                      />
-                    </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-xs">
-                      {index + 1}
-                    </td>
-                    {columns.map((column) => {
-                      const value = item[column.accessor];
-                      // If this is an image column, render a smaller image
-                      if (column.header.toLowerCase().includes('image')) {
-                        let src: string | undefined = undefined;
-                        if (typeof value === 'string') {
-                          src = value;
-                        } else if (value && typeof value === 'object' && 'src' in value) {
-                          src = (value as any).src;
+                {filteredData.map((item, index) => {
+                  const rowKey = getRowKey(item, index);
+                  return (
+                    <tr key={rowKey} className={selectedRows.has(rowKey) ? 'bg-blue-50' : ''} style={{ height: '32px' }}>
+                      <td className="px-2 py-1 whitespace-nowrap text-xs">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          checked={selectedRows.has(rowKey)}
+                          onChange={(e) => handleRowSelect(rowKey, e.target.checked)}
+                        />
+                      </td>
+                      <td className="px-2 py-1 whitespace-nowrap text-xs">
+                        {index + 1}
+                      </td>
+                      {columns.map((column) => {
+                        const value = item[column.accessor];
+                        // If this is an image column, render a smaller image
+                        if (column.header.toLowerCase().includes('image')) {
+                          let src: string | undefined = undefined;
+                          if (typeof value === 'string') {
+                            src = value;
+                          } else if (value && typeof value === 'object' && 'src' in value) {
+                            src = (value as any).src;
+                          }
+                          return (
+                            <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
+                              {src ? <img src={src} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} /> : null}
+                            </td>
+                          );
                         }
                         return (
                           <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
-                            {src ? <img src={src} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} /> : null}
+                            {column.render ? column.render(value, item) : String(value)}
                           </td>
                         );
-                      }
-                      return (
-                        <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
-                          {column.render ? column.render(value, item) : String(value)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
         {viewType === 'grid' && (
-          <div className="overflow-auto flex-1 min-h-0 max-h-96">
+          <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 p-1 gap-1">
               {filteredData.map((item, index) => (
                 <div key={index} className="flex flex-col items-center gap-1 p-1 border border-blue-400 bg-white text-xs shadow-md">
@@ -309,7 +317,7 @@ export default function DataView<T>({
           </div>
         )}
         {viewType === 'card' && (
-          <div className="overflow-auto flex-1 min-h-0 max-h-96">
+          <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 p-2">
               {filteredData.map((item, index) => (
                 <div key={index} className="flex flex-col items-center p-1 bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer">
@@ -331,7 +339,8 @@ export default function DataView<T>({
             </div>
           </div>
         )}
-        {/* Place the load more trigger at the end of the content for infinite scroll */}
+
+        {/* Infinite scroll trigger */}
         {hasMore && (
           <div id="load-more-trigger" className="w-full flex justify-center py-4">
             {isLoadingMore ? (

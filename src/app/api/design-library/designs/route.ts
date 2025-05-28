@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const response = await docClient.send(command);
     const items = response.Items || [];
     const result = { items, lastEvaluatedKey: response.LastEvaluatedKey || null };
-
+    
     // Store in disk cache
     await diskCache.set(CACHE_KEY, result, CACHE_TTL);
     console.log('[Disk Cache] Returning designs from API and caching');

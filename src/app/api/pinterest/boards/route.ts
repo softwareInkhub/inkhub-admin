@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const response = await docClient.send(command);
     const items = response.Items || [];
     const result = { items, lastEvaluatedKey: response.LastEvaluatedKey || null };
-
+    
     await diskCache.set(CACHE_KEY, result, CACHE_TTL);
     console.log('[Disk Cache] Returning Pinterest boards from API and caching');
     return NextResponse.json(result);
