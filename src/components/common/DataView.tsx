@@ -42,11 +42,9 @@ export default function DataView<T>({
   tabKey = '',
 }: DataViewProps<T>) {
   const [viewType, setViewType] = useState<ViewType>('table');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
-  const [selectedTag, setSelectedTag] = useState<string>('');
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [lastClickedIdx, setLastClickedIdx] = useState<number | null>(null);
   const [rangeSelecting, setRangeSelecting] = useState(false);
@@ -54,34 +52,15 @@ export default function DataView<T>({
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const dispatch = useDispatch<AppDispatch>();
 
-  // Extract all unique tags from data
-  const allTags = useMemo(() => {
-    const tagsSet = new Set<string>();
-    data.forEach((item: any) => {
-      if (Array.isArray(item.designTags)) {
-        item.designTags.forEach((tag: string) => tagsSet.add(tag));
-      }
-    });
-    return Array.from(tagsSet);
-  }, [data]);
-
-  // Filter data by selected tag
-  const filteredData = useMemo(() => {
-    if (!selectedTag) return data;
-    return data.filter((item: any) =>
-      Array.isArray(item.designTags) && item.designTags.includes(selectedTag)
-    );
-  }, [data, selectedTag]);
-
   // Helper to get unique key for a row
   const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
 
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allIds = new Set(filteredData.map(getRowId));
+      const allIds = new Set(data.map(getRowId));
       setSelectedRowIds(allIds);
-      onSelectionChange?.(filteredData);
+      onSelectionChange?.(data);
     } else {
       setSelectedRowIds(new Set());
       onSelectionChange?.([]);
@@ -94,11 +73,11 @@ export default function DataView<T>({
     if (event && event.shiftKey && lastClickedIdx !== null) {
       // Shift+Click: select range
       const [start, end] = [lastClickedIdx, idx].sort((a, b) => a - b);
-      const idsInRange = filteredData.slice(start, end + 1).map(getRowId);
+      const idsInRange = data.slice(start, end + 1).map(getRowId);
       console.log('Shift+Click detected:', { lastClickedIdx, idx, idsInRange });
       idsInRange.forEach(id => newSelectedRowIds.add(id));
       setSelectedRowIds(newSelectedRowIds);
-      onSelectionChange?.(filteredData.filter(item => newSelectedRowIds.has(getRowId(item))));
+      onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
     } else {
       // Normal click
       if (checked) {
@@ -107,7 +86,7 @@ export default function DataView<T>({
         newSelectedRowIds.delete(rowId);
       }
       setSelectedRowIds(newSelectedRowIds);
-      onSelectionChange?.(filteredData.filter(item => newSelectedRowIds.has(getRowId(item))));
+      onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
       setLastClickedIdx(idx);
       console.log('Normal click:', { idx, rowId });
     }
@@ -115,12 +94,6 @@ export default function DataView<T>({
     if (!event || !event.shiftKey) {
       setLastClickedIdx(idx);
     }
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    onSearch?.(query);
   };
 
   const handleEditClick = (item: T) => {
@@ -187,31 +160,10 @@ export default function DataView<T>({
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
-      {/* Tag Filter and Search */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-4 justify-between items-stretch sm:items-center bg-white border-b p-0 m-0">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="font-medium text-gray-700 text-xs md:text-base">Filter by Tag:</label>
-          <select
-            className="px-2 md:px-3 py-1 md:py-2 border rounded text-xs md:text-base"
-            value={selectedTag}
-            onChange={e => setSelectedTag(e.target.value)}
-          >
-            <option value="">All</option>
-            {allTags.map(tag => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex-1 max-w-full sm:max-w-xs md:max-w-sm">
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={handleSearch}
-            className="w-full px-2 md:px-4 py-1 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-base"
-          />
-        </div>
-        <div className="flex space-x-1 md:space-x-2 justify-end sm:justify-start mt-2 sm:mt-0">
+      {/* Controls header with view toggles right-aligned */}
+      <div className="flex flex-row justify-between items-center bg-white border-b p-0 m-0">
+        <div />
+        <div className="flex space-x-1 md:space-x-2 justify-end mt-2 sm:mt-0 p-2">
           <button
             onClick={() => setViewType('table')}
             className={`p-1 md:p-2 rounded-lg ${
@@ -275,7 +227,7 @@ export default function DataView<T>({
                     <input
                       type="checkbox"
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      checked={selectedRowIds.size === filteredData.length && filteredData.length > 0}
+                      checked={selectedRowIds.size === data.length && data.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
                     />
                   </th>
@@ -297,7 +249,7 @@ export default function DataView<T>({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.map((item, index) => {
+                {data.map((item: any, index: number) => {
                   const rowId = getRowId(item);
                   const isChecked = selectedRowIds.has(rowId);
                   // Only allow range selection if nothing is selected or in range mode
@@ -336,10 +288,10 @@ export default function DataView<T>({
                                 setRangeSelecting(true);
                                 setShowRangeOptionsIdx(null);
                                 // Select the start checkbox
-                                const startId = getRowId(filteredData[index]);
-                                const newSelected = new Set([startId]);
+                                const startId = getRowId(data[index]);
+                                const newSelected = new Set<string>([startId]);
                                 setSelectedRowIds(newSelected);
-                                onSelectionChange?.([filteredData[index]]);
+                                onSelectionChange?.([data[index]]);
                               }}
                             >Start</button>
                           </span>
@@ -356,9 +308,9 @@ export default function DataView<T>({
                                 // Select the range from lastClickedIdx to index
                                 if (lastClickedIdx !== null && index !== lastClickedIdx) {
                                   const [start, end] = [lastClickedIdx, index].sort((a, b) => a - b);
-                                  const ids = new Set(filteredData.slice(start, end + 1).map(getRowId));
+                                  const ids = new Set<string>(data.slice(start, end + 1).map(getRowId));
                                   setSelectedRowIds(ids);
-                                  onSelectionChange?.(filteredData.slice(start, end + 1));
+                                  onSelectionChange?.(data.slice(start, end + 1));
                                 }
                                 setLastClickedIdx(null);
                                 setRangeSelecting(false);
@@ -414,7 +366,7 @@ export default function DataView<T>({
         {viewType === 'grid' && (
           <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 p-1 gap-1">
-              {filteredData.map((item, index) => (
+              {data.map((item: any, index: number) => (
                 <div key={index} className="flex flex-col items-center gap-1 p-1 border border-blue-400 bg-white text-xs shadow-md">
                   {/* Image - clickable for modal */}
                   <div className="flex justify-center w-full">
@@ -449,7 +401,7 @@ export default function DataView<T>({
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 p-2">
-              {filteredData.map((item, index) => (
+              {data.map((item: any, index: number) => (
                 <div key={index} className="flex flex-col items-center p-1 bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer">
                   {/* Smaller image for compact card view */}
                   {columns[0].render
