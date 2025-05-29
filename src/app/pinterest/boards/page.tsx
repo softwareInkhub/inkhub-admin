@@ -5,8 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchBoards } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -15,6 +15,7 @@ export default function PinterestBoards() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,14 +85,23 @@ export default function PinterestBoards() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="pinterest" tabKey="boards" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="pinterest" 
+        tabKey="boards" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-      <DataView
-        data={tableData}
-        columns={columns}
-      />
+          <DataView
+            data={tableData}
+            columns={columns}
+            section="pinterest"
+            tabKey="boards"
+            onSelectionChange={setSelectedRows}
+          />
           {/* Pagination Controls */}
           <div className="flex justify-end mt-4">
             <button

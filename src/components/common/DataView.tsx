@@ -23,6 +23,8 @@ interface DataViewProps<T> {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  section?: string;
+  tabKey?: string;
 }
 
 type ViewType = 'table' | 'grid' | 'card';
@@ -36,6 +38,8 @@ export default function DataView<T>({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  section = '',
+  tabKey = '',
 }: DataViewProps<T>) {
   const [viewType, setViewType] = useState<ViewType>('table');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,8 +47,11 @@ export default function DataView<T>({
   const [editItem, setEditItem] = useState<T | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedTag, setSelectedTag] = useState<string>('');
-  // Use unique key for selection (id, order_number, or fallback to index)
-  const [selectedRows, setSelectedRows] = useState<Set<string | number>>(new Set());
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [lastClickedIdx, setLastClickedIdx] = useState<number | null>(null);
+  const [rangeSelecting, setRangeSelecting] = useState(false);
+  const [showRangeOptionsIdx, setShowRangeOptionsIdx] = useState<number | null>(null);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const dispatch = useDispatch<AppDispatch>();
 
   // Extract all unique tags from data
@@ -67,31 +74,47 @@ export default function DataView<T>({
   }, [data, selectedTag]);
 
   // Helper to get unique key for a row
-  const getRowKey = (item: any, index: number) =>
-    item.id ?? item.order_number ?? item.uid ?? index;
+  const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
 
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allKeys = new Set(filteredData.map(getRowKey));
-      setSelectedRows(allKeys);
+      const allIds = new Set(filteredData.map(getRowId));
+      setSelectedRowIds(allIds);
       onSelectionChange?.(filteredData);
     } else {
-      setSelectedRows(new Set());
+      setSelectedRowIds(new Set());
       onSelectionChange?.([]);
     }
   };
 
-  // Handle individual row selection
-  const handleRowSelect = (key: string | number, checked: boolean) => {
-    const newSelectedRows = new Set(selectedRows);
-    if (checked) {
-      newSelectedRows.add(key);
+  // Handle individual row selection with Shift+Click support
+  const handleRowSelect = (rowId: string, checked: boolean, idx: number, event?: React.MouseEvent) => {
+    let newSelectedRowIds = new Set(selectedRowIds);
+    if (event && event.shiftKey && lastClickedIdx !== null) {
+      // Shift+Click: select range
+      const [start, end] = [lastClickedIdx, idx].sort((a, b) => a - b);
+      const idsInRange = filteredData.slice(start, end + 1).map(getRowId);
+      console.log('Shift+Click detected:', { lastClickedIdx, idx, idsInRange });
+      idsInRange.forEach(id => newSelectedRowIds.add(id));
+      setSelectedRowIds(newSelectedRowIds);
+      onSelectionChange?.(filteredData.filter(item => newSelectedRowIds.has(getRowId(item))));
     } else {
-      newSelectedRows.delete(key);
+      // Normal click
+      if (checked) {
+        newSelectedRowIds.add(rowId);
+      } else {
+        newSelectedRowIds.delete(rowId);
+      }
+      setSelectedRowIds(newSelectedRowIds);
+      onSelectionChange?.(filteredData.filter(item => newSelectedRowIds.has(getRowId(item))));
+      setLastClickedIdx(idx);
+      console.log('Normal click:', { idx, rowId });
     }
-    setSelectedRows(newSelectedRows);
-    onSelectionChange?.(filteredData.filter((item, i) => newSelectedRows.has(getRowKey(item, i))));
+    // Always update lastClickedIdx for Shift+Click
+    if (!event || !event.shiftKey) {
+      setLastClickedIdx(idx);
+    }
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,6 +143,17 @@ export default function DataView<T>({
     setSelectedItem(null);
   };
 
+  // Add download handler for individual rows
+  const handleRowDownload = (row: T) => {
+    const blob = new Blob([JSON.stringify(row, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${section}-${tabKey}-${getRowId(row)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Add intersection observer for infinite scroll
   useEffect(() => {
     if (!onLoadMore || !hasMore) return;
@@ -144,6 +178,11 @@ export default function DataView<T>({
       }
     };
   }, [onLoadMore, hasMore, isLoadingMore]);
+
+  // Handle showing range options on checkbox click
+  const handleCheckboxClick = (idx: number) => {
+    setShowRangeOptionsIdx(idx);
+  };
 
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
@@ -200,6 +239,24 @@ export default function DataView<T>({
         </div>
       </div>
 
+      {/* Clear Selection Button */}
+      {selectedRowIds.size > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+            onClick={() => {
+              setSelectedRowIds(new Set());
+              setLastClickedIdx(null);
+              setRangeSelecting(false);
+              setShowRangeOptionsIdx(null);
+              onSelectionChange?.([]);
+            }}
+          >
+            Clear Selection
+          </button>
+        </div>
+      )}
+
       {/* Scrollable Content Section */}
       <div className="flex-1 min-h-0 h-0 overflow-auto relative p-0 m-0">
         {/* Loading Overlay - Only show for initial load */}
@@ -218,7 +275,7 @@ export default function DataView<T>({
                     <input
                       type="checkbox"
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      checked={selectedRows.size === filteredData.length && filteredData.length > 0}
+                      checked={selectedRowIds.size === filteredData.length && filteredData.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
                     />
                   </th>
@@ -234,20 +291,82 @@ export default function DataView<T>({
                       {column.header}
                     </th>
                   ))}
+                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredData.map((item, index) => {
-                  const rowKey = getRowKey(item, index);
+                  const rowId = getRowId(item);
+                  const isChecked = selectedRowIds.has(rowId);
+                  // Only allow range selection if nothing is selected or in range mode
+                  const allowStart = !rangeSelecting && selectedRowIds.size === 0;
+                  const allowEnd = rangeSelecting && lastClickedIdx !== null && index !== lastClickedIdx;
                   return (
-                    <tr key={rowKey} className={selectedRows.has(rowKey) ? 'bg-blue-50' : ''} style={{ height: '32px' }}>
-                      <td className="px-2 py-1 whitespace-nowrap text-xs">
+                    <tr
+                      key={rowId}
+                      className={isChecked ? 'bg-blue-50' : ''}
+                      style={{ height: '32px' }}
+                    >
+                      <td
+                        className="px-2 py-1 whitespace-nowrap text-xs relative"
+                        onMouseEnter={() => setHoveredIdx(index)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                      >
                         <input
                           type="checkbox"
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          checked={selectedRows.has(rowKey)}
-                          onChange={(e) => handleRowSelect(rowKey, e.target.checked)}
+                          checked={isChecked}
+                          disabled={rangeSelecting}
+                          onChange={e => !rangeSelecting && handleRowSelect(rowId, e.target.checked, index)}
+                          onClick={e => e.stopPropagation()}
                         />
+                        {/* Range selection popover on hover */}
+                        {hoveredIdx === index && allowStart && (
+                          <span
+                            className="absolute left-8 top-1 z-20 flex gap-1 bg-white shadow-lg border border-gray-200 rounded p-1"
+                            style={{ minWidth: 50 }}
+                          >
+                            <button
+                              className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs border border-green-400 hover:bg-green-200"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setLastClickedIdx(index);
+                                setRangeSelecting(true);
+                                setShowRangeOptionsIdx(null);
+                                // Select the start checkbox
+                                const startId = getRowId(filteredData[index]);
+                                const newSelected = new Set([startId]);
+                                setSelectedRowIds(newSelected);
+                                onSelectionChange?.([filteredData[index]]);
+                              }}
+                            >Start</button>
+                          </span>
+                        )}
+                        {hoveredIdx === index && allowEnd && (
+                          <span
+                            className="absolute left-8 top-1 z-20 flex gap-1 bg-white shadow-lg border border-gray-200 rounded p-1"
+                            style={{ minWidth: 50 }}
+                          >
+                            <button
+                              className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-400 hover:bg-blue-200"
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Select the range from lastClickedIdx to index
+                                if (lastClickedIdx !== null && index !== lastClickedIdx) {
+                                  const [start, end] = [lastClickedIdx, index].sort((a, b) => a - b);
+                                  const ids = new Set(filteredData.slice(start, end + 1).map(getRowId));
+                                  setSelectedRowIds(ids);
+                                  onSelectionChange?.(filteredData.slice(start, end + 1));
+                                }
+                                setLastClickedIdx(null);
+                                setRangeSelecting(false);
+                                setShowRangeOptionsIdx(null);
+                              }}
+                            >End</button>
+                          </span>
+                        )}
                       </td>
                       <td className="px-2 py-1 whitespace-nowrap text-xs">
                         {index + 1}
@@ -274,6 +393,17 @@ export default function DataView<T>({
                           </td>
                         );
                       })}
+                      <td className="px-2 py-1 whitespace-nowrap text-xs">
+                        <button
+                          onClick={() => handleRowDownload(item)}
+                          className="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+                          title="Download row data"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

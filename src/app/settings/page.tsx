@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import DataView from '@/components/common/DataView';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 const RESOURCES = [
   { key: 'orders', label: 'Shopify Orders', fetchAllApi: '/api/shopify/orders/fetch-all', columns: [
@@ -48,6 +49,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [showDataView, setShowDataView] = useState<Record<string, boolean>>({});
   const [polling, setPolling] = useState<Record<string, boolean>>({});
+  const [selectedRowsData, setSelectedRowsData] = useState<Record<string, any[]>>({});
 
   // Generalized polling logic for all resources
   useEffect(() => {
@@ -117,7 +119,18 @@ export default function SettingsPage() {
       {RESOURCES.map(resource => (
         showDataView[resource.key] && (
           <div key={resource.key + '-dataview'} className="col-span-1 sm:col-span-2 bg-white rounded shadow p-4 mt-4">
-            <DataView data={data[resource.key] || []} columns={resource.columns} />
+            <DataView
+              data={data[resource.key] || []}
+              columns={resource.columns}
+              onSelectionChange={rows => setSelectedRowsData(prev => ({ ...prev, [resource.key]: rows }))}
+            />
+            <UniversalOperationBar
+              section={resource.key}
+              tabKey={resource.label}
+              analytics={{}}
+              data={data[resource.key] || []}
+              selectedData={selectedRowsData[resource.key] || []}
+            />
           </div>
         )
       ))}
