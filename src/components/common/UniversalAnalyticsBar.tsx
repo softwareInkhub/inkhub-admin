@@ -59,37 +59,44 @@ export default function UniversalAnalyticsBar({ section, tabKey, onChange }: Uni
   if (!config) return null;
 
   return (
-    <div className="bg-gray-50 border-b px-2 sm:px-4 py-2 sm:py-3 flex flex-row flex-wrap items-center min-h-[56px] gap-2 overflow-x-auto">
-      <span className="text-sm sm:text-base font-bold text-primary-700 whitespace-nowrap">
-        {tabKey.charAt(0).toUpperCase() + tabKey.slice(1)} Analytics
-      </span>
-      <select
-        className="input text-xs sm:text-sm w-auto min-w-[90px]"
-        value={filter}
-        onChange={e => setFilter(e.target.value)}
-      >
-        {config.filter.map((opt: string) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-      <select
-        className="input text-xs sm:text-sm w-auto min-w-[90px]"
-        value={groupBy}
-        onChange={e => setGroupBy(e.target.value)}
-      >
-        {config.groupBy.map((opt: string) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-      <select
-        className="input text-xs sm:text-sm w-auto min-w-[90px]"
-        value={aggregate}
-        onChange={e => setAggregate(e.target.value)}
-      >
-        {config.aggregate.map((opt: string) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
+    <div className="flex flex-row items-center gap-4 bg-gray-50 border-b border-gray-200 rounded-t-lg px-6 py-3 shadow-sm w-full">
+      <span className="font-bold text-primary-700 text-base mr-2">Analytics</span>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500 mr-1">Filter:</label>
+        <select
+          className="input input-sm rounded-full border-gray-300 text-xs px-2 py-1"
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+        >
+          {config.filter.map((opt: string) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500 mr-1">Group By:</label>
+        <select
+          className="input input-sm rounded-full border-gray-300 text-xs px-2 py-1"
+          value={groupBy}
+          onChange={e => setGroupBy(e.target.value)}
+        >
+          {config.groupBy.map((opt: string) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-gray-500 mr-1">Aggregate:</label>
+        <select
+          className="input input-sm rounded-full border-gray-300 text-xs px-2 py-1"
+          value={aggregate}
+          onChange={e => setAggregate(e.target.value)}
+        >
+          {config.aggregate.map((opt: string) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 } 

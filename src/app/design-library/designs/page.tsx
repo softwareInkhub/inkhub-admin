@@ -6,8 +6,8 @@ import { AppDispatch, RootState } from '@/store/store';
 import { fetchDesigns } from '@/store/slices/designLibrarySlice';
 import DataView from '@/components/common/DataView';
 import Image from 'next/image';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function DesignLibrary() {
   const dispatch = useDispatch<AppDispatch>();
@@ -17,6 +17,7 @@ export default function DesignLibrary() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   useEffect(() => {
     if (!initialLoaded) {
@@ -106,8 +107,14 @@ export default function DesignLibrary() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="design library" tabKey="designs" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="design library" tabKey="designs" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="design library" tabKey="designs" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="design library" 
+        tabKey="designs" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
@@ -115,6 +122,9 @@ export default function DesignLibrary() {
             columns={columns}
             onSort={() => {}}
             onSearch={() => {}}
+            section="design library"
+            tabKey="designs"
+            onSelectionChange={setSelectedRows}
           />
           {/* Pagination Controls */}
           <div className="flex justify-end mt-4">

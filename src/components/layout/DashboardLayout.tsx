@@ -11,8 +11,6 @@ import {
 } from '@heroicons/react/24/outline';
 import SecondarySidebar from './SecondarySidebar';
 import { useTabContext } from "@/components/layout/TabContext";
-import UniversalAnalyticsBar from "@/components/common/UniversalAnalyticsBar";
-import UniversalOperationBar from "@/components/common/UniversalOperationBar";
 
 interface NavItem {
   name: string;
@@ -312,12 +310,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           ))}
         </div>
-        {/* Universal Analytics Bar - flush below tab bar */}
-        <UniversalAnalyticsBar section={section || ''} tabKey={getAnalyticsTabKey(section || '', activeTab || '')} />
-        {/* Universal Operation Bar - flush below analytics bar */}
-        {pathname !== '/settings' && (
-          <UniversalOperationBar section={section || ''} tabKey={getAnalyticsTabKey(section || '', activeTab || '')} analytics={{}} data={[]} />
-        )}
         {/* Page content */}
         <main className="flex-1 min-h-0 flex flex-col p-0 m-0 overflow-hidden">
           {children}

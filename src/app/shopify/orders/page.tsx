@@ -8,8 +8,8 @@ import DataView from '@/components/common/DataView';
 import { OrdersAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 import { format } from 'date-fns';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 const tabs = [
   { name: 'All Orders', key: 'all' },
@@ -24,6 +24,7 @@ export default function ShopifyOrders() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -152,8 +153,14 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="shopify" tabKey="orders" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="shopify" 
+        tabKey="orders" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
@@ -165,6 +172,9 @@ export default function ShopifyOrders() {
             onSearch={(query) => {
               // Implement search logic
             }}
+            section="shopify"
+            tabKey="orders"
+            onSelectionChange={setSelectedRows}
           />
           {/* Pagination Controls */}
           <div className="flex justify-end mt-4">
