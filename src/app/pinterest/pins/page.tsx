@@ -9,6 +9,7 @@ import Image from 'next/image';
 import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
@@ -19,6 +20,9 @@ export default function PinterestPins() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'Item.media.images.600x.url', 'Item.title', 'Item.description', 'Item.board_owner.username', 'Item.created_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +92,9 @@ export default function PinterestPins() {
     },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   if (analytics.groupBy && analytics.groupBy !== 'None') {
     const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
     tableData = Object.entries(grouped).map(([group, items]) => {
@@ -131,11 +138,16 @@ export default function PinterestPins() {
         data={tableData}
         selectedData={selectedRows}
       />
+      <DecoupledHeader
+        columns={columns}
+        visibleColumns={visibleColumns}
+        onColumnsChange={setVisibleColumns}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}
             section="pinterest"

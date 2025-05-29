@@ -10,6 +10,7 @@ import lodashGroupBy from 'lodash/groupBy';
 import { format } from 'date-fns';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 const tabs = [
   { name: 'All Orders', key: 'all' },
@@ -25,6 +26,9 @@ export default function ShopifyOrders() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'order_number', 'customer', 'email', 'phone', 'total_price', 'financial_status', 'fulfillment_status', 'line_items', 'created_at', 'updated_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -124,6 +128,9 @@ export default function ShopifyOrders() {
     },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for orders
 
@@ -161,11 +168,16 @@ export default function ShopifyOrders() {
         data={tableData}
         selectedData={selectedRows}
       />
+      <DecoupledHeader
+        columns={columns}
+        visibleColumns={visibleColumns}
+        onColumnsChange={setVisibleColumns}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             onSort={(column) => {
               // Implement sorting logic
             }}

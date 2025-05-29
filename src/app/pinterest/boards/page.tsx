@@ -7,6 +7,7 @@ import { fetchBoards } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -16,6 +17,9 @@ export default function PinterestBoards() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'Item.media.image_cover_url', 'Item.name', 'Item.description', 'Item.pin_count', 'Item.privacy', 'Item.owner.username', 'Item.created_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,6 +69,9 @@ export default function PinterestBoards() {
     { header: 'Created At', accessor: 'Item.created_at', render: (_: any, row: any) => row.Item?.created_at || '—' },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for boards
 
@@ -93,11 +100,16 @@ export default function PinterestBoards() {
         data={tableData}
         selectedData={selectedRows}
       />
+      <DecoupledHeader
+        columns={columns}
+        visibleColumns={visibleColumns}
+        onColumnsChange={setVisibleColumns}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             section="pinterest"
             tabKey="boards"
             onSelectionChange={setSelectedRows}
