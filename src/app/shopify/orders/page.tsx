@@ -70,7 +70,7 @@ export default function ShopifyOrders() {
   // Filter orders
   let filteredOrders = orders;
   if (analytics.filter && analytics.filter !== 'All') {
-    filteredOrders = filteredOrders.filter(order => order.financial_status === analytics.filter);
+    filteredOrders = filteredOrders.filter(order => (order.financial_status || '').toLowerCase() === analytics.filter.toLowerCase());
   }
 
   // Grouping and aggregation
@@ -160,7 +160,7 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} data={orders} filteredCount={filteredOrders.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 

@@ -9,6 +9,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { updateDesign, deleteDesign, fetchDesigns } from '@/store/slices/designLibrarySlice';
 import type { AppDispatch } from '@/store/store';
+import React from 'react';
 
 interface DataViewProps<T> {
   data: T[];
@@ -50,6 +51,12 @@ export default function DataView<T>({
   const [rangeSelecting, setRangeSelecting] = useState(false);
   const [showRangeOptionsIdx, setShowRangeOptionsIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [showRowModal, setShowRowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'json' | 'form'>('json');
+  const [rowPinnedFields, setRowPinnedFields] = useState<{ [rowId: string]: string[] }>({});
+  const [pinnedFields, setPinnedFields] = useState<string[]>([]);
+  const [highlightedField, setHighlightedField] = useState<string | null>(null);
+  const [activePinnedPreview, setActivePinnedPreview] = useState<string | null>(null);
   const dispatch = useDispatch<AppDispatch>();
 
   // Helper to get unique key for a row
@@ -157,6 +164,126 @@ export default function DataView<T>({
     setShowRangeOptionsIdx(idx);
   };
 
+  // Helper to scroll to a pinned field
+  const scrollToField = (fieldKey: string) => {
+    const el = document.getElementById(`form-field-${fieldKey}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedField(fieldKey);
+      setTimeout(() => setHighlightedField(null), 1200);
+    }
+  };
+
+  // When a new row is selected, load its pinned fields
+  useEffect(() => {
+    if (selectedItem) {
+      const rowId = getRowId(selectedItem);
+      setPinnedFields(rowPinnedFields[rowId] || []);
+    }
+  }, [selectedItem]);
+
+  // Helper to render view-only form fields
+  const renderViewOnlyForm = (row: any) => {
+    if (!row) return null;
+    // Always pin designImageUrl at the top if present
+    const entries = Object.entries(row);
+    let fields = entries.map(([key, value]) => ({ key, value }));
+    // Move designImageUrl to the top if present
+    const designImageIdx = fields.findIndex(f => f.key === 'designImageUrl');
+    let designImageField = null;
+    if (designImageIdx !== -1) {
+      designImageField = fields[designImageIdx];
+      fields.splice(designImageIdx, 1);
+    }
+    // Sort pinned fields to the top (except designImageUrl)
+    const pinned = fields.filter(f => pinnedFields.includes(f.key));
+    const unpinned = fields.filter(f => !pinnedFields.includes(f.key));
+    // Order pinned fields as in pinnedFields array
+    pinned.sort((a, b) => pinnedFields.indexOf(a.key) - pinnedFields.indexOf(b.key));
+    const orderedFields = [
+      ...(designImageField ? [designImageField] : []),
+      ...pinned,
+      ...unpinned,
+    ];
+    return (
+      <div className="space-y-2">
+        {/* Pinned field header at the top */}
+        {pinnedFields.length > 0 && (
+          <div className="mb-2 flex flex-col max-w-full">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-blue-700 text-sm">Pinned:</span>
+              {pinnedFields.map((key) => (
+                <button
+                  key={key}
+                  className={`px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 hover:bg-blue-200 focus:outline-none ${activePinnedPreview === key ? 'ring-2 ring-blue-400' : ''}`}
+                  onClick={() => setActivePinnedPreview(prev => prev === key ? null : key)}
+                  type="button"
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+            {activePinnedPreview && (() => {
+              const field = orderedFields.find(f => f.key === activePinnedPreview);
+              if (!field) return null;
+              return (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex flex-col items-start">
+                  <span className="text-xs font-semibold text-blue-700 mb-1">{field.key}</span>
+                  {field.key === 'designImageUrl' && field.value && typeof field.value === 'string' && field.value.startsWith('http') ? (
+                    <img src={field.value} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
+                  ) : null}
+                  <span className="text-xs break-all">
+                    {typeof field.value === 'object' ? JSON.stringify(field.value) : String(field.value ?? '')}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+        {orderedFields.map(({ key, value }) => (
+          <div
+            key={key}
+            id={`form-field-${key}`}
+            className={`flex flex-col relative transition-all duration-300 ${highlightedField === key ? 'ring-2 ring-blue-400 bg-blue-50' : ''}`}
+          >
+            <div className="flex items-center mb-1">
+              <label className="text-xs font-semibold text-gray-500 mr-2">{key}</label>
+              {/* Pin/unpin button, except for designImageUrl */}
+              {key !== 'designImageUrl' && (
+                <button
+                  className={`ml-1 text-xs ${pinnedFields.includes(key) ? 'text-blue-600' : 'text-gray-400'} hover:text-blue-700`}
+                  title={pinnedFields.includes(key) ? 'Unpin' : 'Pin to top'}
+                  type="button"
+                  onClick={() => {
+                    setPinnedFields(prev => {
+                      const rowId = getRowId(row);
+                      const newPins = prev.includes(key)
+                        ? prev.filter(f => f !== key)
+                        : [...prev, key];
+                      setRowPinnedFields(all => ({ ...all, [rowId]: newPins }));
+                      return newPins;
+                    });
+                  }}
+                >
+                  {pinnedFields.includes(key) ? '📌' : '📍'}
+                </button>
+              )}
+            </div>
+            {/* Special rendering for designImageUrl */}
+            {key === 'designImageUrl' && value && typeof value === 'string' && value.startsWith('http') && (
+              <img src={value} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
+            )}
+            <input
+              className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs"
+              value={typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}
+              readOnly
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
@@ -258,8 +385,13 @@ export default function DataView<T>({
                   return (
                     <tr
                       key={rowId}
-                      className={isChecked ? 'bg-blue-50' : ''}
+                      className={isChecked ? 'bg-blue-50 cursor-pointer' : 'cursor-pointer'}
                       style={{ height: '32px' }}
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setShowRowModal(true);
+                        setModalTab('json');
+                      }}
                     >
                       <td
                         className="px-2 py-1 whitespace-nowrap text-xs relative"
@@ -433,6 +565,39 @@ export default function DataView<T>({
             ) : (
               <span className="text-sm text-gray-500">Scroll to load more</span>
             )}
+          </div>
+        )}
+
+        {/* Row Modal */}
+        {showRowModal && selectedItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-4 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl"
+                onClick={() => setShowRowModal(false)}
+                title="Close"
+              >
+                &times;
+              </button>
+              <div className="flex border-b mb-4">
+                <button
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 ${modalTab === 'json' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500'}`}
+                  onClick={() => setModalTab('json')}
+                >JSON</button>
+                <button
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 ${modalTab === 'form' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500'}`}
+                  onClick={() => setModalTab('form')}
+                >Form</button>
+              </div>
+              <div className="max-h-96 overflow-auto">
+                {modalTab === 'json' && (
+                  <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto">
+                    {JSON.stringify(selectedItem, null, 2)}
+                  </pre>
+                )}
+                {modalTab === 'form' && renderViewOnlyForm(selectedItem)}
+              </div>
+            </div>
           </div>
         )}
       </div>

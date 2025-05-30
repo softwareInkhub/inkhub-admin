@@ -92,7 +92,7 @@ export default function PinterestBoards() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} data={boards} filteredCount={filteredBoards.length} />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 

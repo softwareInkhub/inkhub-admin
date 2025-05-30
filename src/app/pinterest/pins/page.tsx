@@ -46,7 +46,11 @@ export default function PinterestPins() {
   // Filter out pins without Item
   let filteredPins = pins.filter(pin => pin.Item);
   if (analytics.filter && analytics.filter !== 'All') {
-    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.filter);
+    if (analytics.filter === 'Board Owner') {
+      if (analytics.subFilter) {
+        filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.subFilter);
+      }
+    }
   }
 
   // Grouping and aggregation
@@ -96,7 +100,12 @@ export default function PinterestPins() {
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
   if (analytics.groupBy && analytics.groupBy !== 'None') {
-    const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
+    const grouped = lodashGroupBy(filteredPins, pin => {
+      if (analytics.groupBy === 'Board Owner') {
+        return pin.Item?.board_owner?.username || 'Unknown';
+      }
+      return 'Unknown';
+    });
     tableData = Object.entries(grouped).map(([group, items]) => {
       let value = 0;
       if (analytics.aggregate === 'Count') value = items.length;
@@ -130,7 +139,13 @@ export default function PinterestPins() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} />
+      <UniversalAnalyticsBar 
+        section="pinterest" 
+        tabKey="pins" 
+        onChange={setAnalytics} 
+        data={pins}
+        filteredCount={filteredPins.length}
+      />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="pins" 
