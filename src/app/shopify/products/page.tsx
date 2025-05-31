@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchProducts } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
-import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
@@ -14,7 +13,7 @@ export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
   const { products, loading, error, productsLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
 
-  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count', subFilter: '' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -41,12 +40,38 @@ export default function ShopifyProducts() {
     }
   };
 
-  let filteredProducts = products;
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredProducts = filteredProducts.filter(product => product.status === analytics.filter || product.product_type === analytics.filter || product.vendor === analytics.filter);
+  // Group and aggregate data if needed
+  let tableData = filteredProducts;
+  if (analytics.groupBy && analytics.groupBy !== 'None') {
+    const grouped = lodashGroupBy(filteredProducts, product => {
+      switch (analytics.groupBy) {
+        case 'Type':
+          return product.product_type || 'Unknown';
+        case 'Vendor':
+          return product.vendor || 'Unknown';
+        default:
+          return 'Unknown';
+      }
+    });
+
+    tableData = Object.entries(grouped).map(([group, items]) => {
+      let value = 0;
+      switch (analytics.aggregate) {
+        case 'Count':
+          value = items.length;
+          break;
+        case 'Sum Inventory':
+          value = items.reduce((sum, item) => sum + (item.inventory_quantity || 0), 0);
+          break;
+      }
+      return {
+        group,
+        value,
+        items,
+      };
+    });
   }
 
-  let tableData = filteredProducts;
   let columns = [
     {
       header: 'Image',

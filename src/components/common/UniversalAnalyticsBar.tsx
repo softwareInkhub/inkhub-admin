@@ -1,63 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
 
-interface UniversalAnalyticsBarProps {
-  section: string;
-  tabKey: string;
-  onChange?: (options: any) => void;
-}
-
-const configs: Record<string, any> = {
-  shopify: {
-    orders: {
-      filter: ["All", "Paid", "Pending", "Refunded", "Partially Refunded", "Voided"],
-      groupBy: ["None", "Status", "Customer", "Date"],
-      aggregate: ["Count", "Sum Total", "Average Order Value"],
-    },
-    products: {
-      filter: ["All", "Active", "Draft"],
-      groupBy: ["None", "Type", "Vendor"],
-      aggregate: ["Count", "Sum Inventory"],
-    },
-    collections: {
-      filter: ["All", "Manual", "Automated"],
-      groupBy: ["None", "Type"],
-      aggregate: ["Count"],
-    },
-  },
-  pinterest: {
-    pins: {
-      filter: ["All"],
-      groupBy: ["None", "Board Owner"],
-      aggregate: ["Count"],
-    },
-    boards: {
-      filter: ["All"],
-      groupBy: ["None", "Owner"],
-      aggregate: ["Count"],
-    },
-  },
-  "design library": {
-    designs: {
-      filter: ["All", "Active", "Draft"],
-      groupBy: ["None", "Type", "Status"],
-      aggregate: ["Count"],
-    },
-  },
-};
-
-export default function UniversalAnalyticsBar({ section, tabKey, onChange }: UniversalAnalyticsBarProps) {
-  const config = configs[section?.toLowerCase()]?.[tabKey?.toLowerCase()];
-  const [filter, setFilter] = useState(config?.filter?.[0] || "All");
-  const [groupBy, setGroupBy] = useState(config?.groupBy?.[0] || "None");
-  const [aggregate, setAggregate] = useState(config?.aggregate?.[0] || "Count");
-
-  useEffect(() => {
-    if (onChange) onChange({ filter, groupBy, aggregate });
-  }, [filter, groupBy, aggregate, onChange]);
-
-  if (!config) return null;
-
+export default function UniversalAnalyticsBar() {
   return (
     <div className="flex flex-row items-center gap-4 bg-gray-50 border-b border-gray-200 rounded-t-lg px-6 py-3 shadow-sm w-full">
       <span className="font-bold text-primary-700 text-base mr-2">Analytics</span>
