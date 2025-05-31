@@ -40,11 +40,7 @@ export default function DesignLibrary() {
 
   let filteredDesigns = designs;
   if (analytics.filter && analytics.filter !== 'All') {
-    filteredDesigns = filteredDesigns.filter(
-      design =>
-        (design.designStatus || '').toLowerCase() === analytics.filter.toLowerCase() ||
-        (design.designType || '').toLowerCase() === analytics.filter.toLowerCase()
-    );
+    filteredDesigns = filteredDesigns.filter(design => design.designStatus === analytics.filter || design.designType === analytics.filter);
   }
 
   let columns = [
@@ -128,9 +124,6 @@ export default function DesignLibrary() {
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-          <div className="mb-2 text-sm text-gray-600">
-            Showing {filteredDesigns.length} design{filteredDesigns.length !== 1 ? 's' : ''}
-          </div>
           <DataView
             data={tableData}
             columns={filteredColumns}

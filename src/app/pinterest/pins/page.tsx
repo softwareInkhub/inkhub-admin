@@ -45,11 +45,7 @@ export default function PinterestPins() {
   // Filter out pins without Item
   let filteredPins = pins.filter(pin => pin.Item);
   if (analytics.filter && analytics.filter !== 'All') {
-    if (analytics.filter === 'Board Owner') {
-      if (analytics.subFilter) {
-        filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.subFilter);
-      }
-    }
+    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.filter);
   }
 
   // Grouping and aggregation
@@ -99,12 +95,7 @@ export default function PinterestPins() {
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
   if (analytics.groupBy && analytics.groupBy !== 'None') {
-    const grouped = lodashGroupBy(filteredPins, pin => {
-      if (analytics.groupBy === 'Board Owner') {
-        return pin.Item?.board_owner?.username || 'Unknown';
-      }
-      return 'Unknown';
-    });
+    const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
     tableData = Object.entries(grouped).map(([group, items]) => {
       let value = 0;
       if (analytics.aggregate === 'Count') value = items.length;
