@@ -8,8 +8,9 @@ import DataView from '@/components/common/DataView';
 import { OrdersAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 import { format } from 'date-fns';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 const tabs = [
   { name: 'All Orders', key: 'all' },
@@ -24,12 +25,16 @@ export default function ShopifyOrders() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'order_number', 'customer', 'email', 'phone', 'total_price', 'financial_status', 'fulfillment_status', 'line_items', 'created_at', 'updated_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsInitialLoad(true);
-        await dispatch(fetchOrders({ limit: 100 })).unwrap();
+        await dispatch(fetchOrders({ limit: 500 })).unwrap();
       } catch (err) {
         console.error('Error fetching orders:', err);
       } finally {
@@ -43,7 +48,7 @@ export default function ShopifyOrders() {
     if (!ordersLastEvaluatedKey || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      await dispatch(fetchOrders({ limit: 100, lastKey: ordersLastEvaluatedKey })).unwrap();
+      await dispatch(fetchOrders({ limit: 500, lastKey: ordersLastEvaluatedKey })).unwrap();
     } catch (err) {
       console.error('Error loading more orders:', err);
     } finally {
@@ -65,7 +70,7 @@ export default function ShopifyOrders() {
   // Filter orders
   let filteredOrders = orders;
   if (analytics.filter && analytics.filter !== 'All') {
-    filteredOrders = filteredOrders.filter(order => order.financial_status === analytics.filter);
+    filteredOrders = filteredOrders.filter(order => (order.financial_status || '').toLowerCase() === analytics.filter.toLowerCase());
   }
 
   // Grouping and aggregation
@@ -123,6 +128,9 @@ export default function ShopifyOrders() {
     },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for orders
 
@@ -141,7 +149,7 @@ export default function ShopifyOrders() {
       <div className="flex flex-col items-center justify-center h-full">
         <div className="text-red-500 mb-2">{error}</div>
         <button 
-          onClick={() => dispatch(fetchOrders({ limit: 100 }))}
+          onClick={() => dispatch(fetchOrders({ limit: 500 }))}
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Retry
@@ -152,33 +160,32 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="shopify" tabKey="orders" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} data={orders} filteredCount={filteredOrders.length} />
+      <UniversalOperationBar 
+        section="shopify" 
+        tabKey="orders" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             onSort={(column) => {
               // Implement sorting logic
             }}
             onSearch={(query) => {
               // Implement search logic
             }}
+            section="shopify"
+            tabKey="orders"
+            onSelectionChange={setSelectedRows}
+            onLoadMore={handleNextPage}
+            hasMore={!!ordersLastEvaluatedKey}
+            isLoadingMore={isLoadingMore}
           />
-          {/* Pagination Controls */}
-          <div className="flex justify-end mt-4">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
-              onClick={handleNextPage}
-              disabled={!ordersLastEvaluatedKey || isLoadingMore}
-            >
-              {isLoadingMore && (
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              )}
-              Next
-            </button>
-          </div>
         </div>
       </div>
     </div>

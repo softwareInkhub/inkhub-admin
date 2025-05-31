@@ -5,8 +5,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchBoards } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -15,6 +16,10 @@ export default function PinterestBoards() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'Item.media.image_cover_url', 'Item.name', 'Item.description', 'Item.pin_count', 'Item.privacy', 'Item.owner.username', 'Item.created_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,6 +69,9 @@ export default function PinterestBoards() {
     { header: 'Created At', accessor: 'Item.created_at', render: (_: any, row: any) => row.Item?.created_at || '—' },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for boards
 
@@ -84,27 +92,26 @@ export default function PinterestBoards() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="pinterest" tabKey="boards" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="pinterest" 
+        tabKey="boards" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-      <DataView
-        data={tableData}
-        columns={columns}
-      />
-          {/* Pagination Controls */}
-          <div className="flex justify-end mt-4">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
-              onClick={handleNextPage}
-              disabled={!boardsLastEvaluatedKey || isLoadingMore}
-            >
-              {isLoadingMore && (
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              )}
-              Next
-            </button>
-          </div>
+          <DataView
+            data={tableData}
+            columns={filteredColumns}
+            section="pinterest"
+            tabKey="boards"
+            onSelectionChange={setSelectedRows}
+            onLoadMore={handleNextPage}
+            hasMore={!!boardsLastEvaluatedKey}
+            isLoadingMore={isLoadingMore}
+          />
         </div>
       </div>
     </div>

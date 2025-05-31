@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
-import { diskCache } from '@/utils/disk-cache';
 
 interface ShopifyState {
   orders: any[];
@@ -22,7 +21,7 @@ const initialState: ShopifyState = {
 
 export const fetchOrders = createAsyncThunk(
   'shopify/fetchOrders',
-  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+  async ({ limit = 500, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
       if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
@@ -36,7 +35,7 @@ export const fetchOrders = createAsyncThunk(
 
 export const fetchProducts = createAsyncThunk(
   'shopify/fetchProducts',
-  async ({ limit = 100, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+  async ({ limit = 500, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
       if (lastKey) params.append('lastKey', JSON.stringify(lastKey));

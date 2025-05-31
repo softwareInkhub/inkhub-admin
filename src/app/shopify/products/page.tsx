@@ -6,8 +6,9 @@ import { fetchProducts } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
 import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
@@ -16,6 +17,10 @@ export default function ShopifyProducts() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'image', 'id', 'title', 'vendor', 'product_type', 'status', 'tags', 'created_at', 'updated_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,6 +72,9 @@ export default function ShopifyProducts() {
     { header: 'Updated At', accessor: 'updated_at' },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for products
 
@@ -88,29 +96,28 @@ export default function ShopifyProducts() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="shopify" tabKey="products" analytics={analytics} data={tableData} /> */}
+      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="shopify" 
+        tabKey="products" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}
+            section="shopify"
+            tabKey="products"
+            onSelectionChange={setSelectedRows}
+            onLoadMore={() => handleNextPage()}
+            hasMore={!!productsLastEvaluatedKey}
+            isLoadingMore={isLoadingMore}
           />
-          {/* Pagination Controls */}
-          <div className="flex justify-end mt-4">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
-              onClick={handleNextPage}
-              disabled={!productsLastEvaluatedKey || isLoadingMore}
-            >
-              {isLoadingMore && (
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              )}
-              Next
-            </button>
-          </div>
         </div>
       </div>
     </div>

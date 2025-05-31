@@ -7,8 +7,8 @@ import { fetchPins } from '@/store/slices/pinterestSlice';
 import DataView from '@/components/common/DataView';
 import Image from 'next/image';
 import lodashGroupBy from 'lodash/groupBy';
-// import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
-// import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
@@ -18,6 +18,10 @@ export default function PinterestPins() {
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'Item.media.images.600x.url', 'Item.title', 'Item.description', 'Item.board_owner.username', 'Item.created_at'
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +91,9 @@ export default function PinterestPins() {
     },
   ];
 
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
   if (analytics.groupBy && analytics.groupBy !== 'None') {
     const grouped = lodashGroupBy(filteredPins, pin => pin.Item?.board_owner?.username);
     tableData = Object.entries(grouped).map(([group, items]) => {
@@ -122,30 +129,28 @@ export default function PinterestPins() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} /> */}
-      {/* <UniversalOperationBar section="pinterest" tabKey="pins" analytics={analytics} data={tableData} /> */}
-      {/* Data Table - Scrollable */}
+      <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} />
+      <UniversalOperationBar 
+        section="pinterest" 
+        tabKey="pins" 
+        analytics={analytics} 
+        data={tableData}
+        selectedData={selectedRows}
+      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
             data={tableData}
-            columns={columns}
+            columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}
+            section="pinterest"
+            tabKey="pins"
+            onSelectionChange={setSelectedRows}
+            onLoadMore={handleNextPage}
+            hasMore={!!pinsLastEvaluatedKey}
+            isLoadingMore={isLoadingMore}
           />
-          {/* Pagination Controls */}
-          <div className="flex justify-end mt-4">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 flex items-center gap-2"
-              onClick={handleNextPage}
-              disabled={!pinsLastEvaluatedKey || isLoadingMore}
-            >
-              {isLoadingMore && (
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              )}
-              Next
-            </button>
-          </div>
         </div>
       </div>
     </div>

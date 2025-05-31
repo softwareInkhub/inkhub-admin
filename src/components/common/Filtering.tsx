@@ -99,4 +99,4 @@ export default function UniversalAnalyticsBar({ section, tabKey, onChange }: Uni
       </div>
     </div>
   );
-} 
+}
