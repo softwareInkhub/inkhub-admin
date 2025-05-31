@@ -187,6 +187,7 @@ export default function ShopifyOrders() {
             isLoadingMore={isLoadingMore}
           />
         </div>
+      </div>
     </div>
   );
 } 
