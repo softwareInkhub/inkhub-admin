@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchProducts } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
-import { ProductsAnalyticsOptions } from '../ShopifyAnalyticsBar';
 import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
@@ -14,13 +13,19 @@ export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
   const { products, loading, error, productsLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
 
-  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count', subFilter: '' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'image', 'id', 'title', 'vendor', 'product_type', 'status', 'tags', 'created_at', 'updated_at'
   ]);
+
+  const [filter, setFilter] = useState('All');
+  let filteredProducts = products;
+  if (filter !== 'All') {
+    filteredProducts = products.filter(product => product.status === filter.toLowerCase());
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,12 +46,38 @@ export default function ShopifyProducts() {
     }
   };
 
-  let filteredProducts = products;
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredProducts = filteredProducts.filter(product => product.status === analytics.filter || product.product_type === analytics.filter || product.vendor === analytics.filter);
+  // Group and aggregate data if needed
+  let tableData = filteredProducts;
+  if (analytics.groupBy && analytics.groupBy !== 'None') {
+    const grouped = lodashGroupBy(filteredProducts, product => {
+      switch (analytics.groupBy) {
+        case 'Type':
+          return product.product_type || 'Unknown';
+        case 'Vendor':
+          return product.vendor || 'Unknown';
+        default:
+          return 'Unknown';
+      }
+    });
+
+    tableData = Object.entries(grouped).map(([group, items]) => {
+      let value = 0;
+      switch (analytics.aggregate) {
+        case 'Count':
+          value = items.length;
+          break;
+        case 'Sum Inventory':
+          value = items.reduce((sum, item) => sum + (item.inventory_quantity || 0), 0);
+          break;
+      }
+      return {
+        group,
+        value,
+        items,
+      };
+    });
   }
 
-  let tableData = filteredProducts;
   let columns = [
     {
       header: 'Image',
@@ -75,9 +106,6 @@ export default function ShopifyProducts() {
   // Filter columns based on visibleColumns
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
-  // Example grouping/aggregation (can be extended as needed)
-  // For now, just pass through data as grouping/aggregation is not defined for products
-
   if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -96,7 +124,6 @@ export default function ShopifyProducts() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="products" 
@@ -108,11 +135,28 @@ export default function ShopifyProducts() {
         columns={columns}
         visibleColumns={visibleColumns}
         onColumnsChange={setVisibleColumns}
+        analyticsBar={
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 mr-1">Filter:</label>
+            <select
+              className="input input-sm rounded-full border-gray-300 text-xs px-2 py-1"
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Draft">Draft</option>
+            </select>
+            <span className="ml-2 min-w-[56px] text-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 inline-block align-middle">
+              {filteredProducts.length} found
+            </span>
+          </div>
+        }
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={tableData}
+            data={filteredProducts}
             columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}
