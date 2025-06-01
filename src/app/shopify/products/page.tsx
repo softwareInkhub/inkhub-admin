@@ -12,7 +12,7 @@ import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
-  const { products, loading, error, productsLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
+  const { products, loading, error, productsLastEvaluatedKey, totalProducts } = useSelector((state: RootState) => state.shopify);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -96,7 +96,7 @@ export default function ShopifyProducts() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="products" 

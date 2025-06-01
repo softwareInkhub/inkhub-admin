@@ -12,7 +12,7 @@ import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
-  const { pins, loading, error, pinsLastEvaluatedKey } = useSelector((state: RootState) => state.pinterest);
+  const { pins, loading, error, pinsLastEvaluatedKey, totalPins } = useSelector((state: RootState) => state.pinterest);
 
   // Analytics/filter/group state
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
@@ -129,7 +129,7 @@ export default function PinterestPins() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="pins" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="pins" 

@@ -11,7 +11,7 @@ import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
-  const { boards, loading, error, boardsLastEvaluatedKey } = useSelector((state: RootState) => state.pinterest);
+  const { boards, loading, error, boardsLastEvaluatedKey, totalBoards } = useSelector((state: RootState) => state.pinterest);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -92,7 +92,7 @@ export default function PinterestBoards() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="boards" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 

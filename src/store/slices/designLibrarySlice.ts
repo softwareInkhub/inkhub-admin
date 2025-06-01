@@ -7,6 +7,7 @@ interface DesignLibraryState {
   loading: boolean;
   error: string | null;
   lastEvaluatedKey: any | null;
+  totalDesigns: number;
 }
 
 const initialState: DesignLibraryState = {
@@ -14,6 +15,7 @@ const initialState: DesignLibraryState = {
   loading: false,
   error: null,
   lastEvaluatedKey: null,
+  totalDesigns: 0,
 };
 
 export const fetchDesigns = createAsyncThunk(
@@ -79,7 +81,7 @@ const designLibrarySlice = createSlice({
       })
       .addCase(fetchDesigns.fulfilled, (state, action) => {
         state.loading = false;
-        const { items, lastEvaluatedKey } = action.payload || {};
+        const { items, lastEvaluatedKey, total } = action.payload || {};
         if (action.meta.arg && action.meta.arg.lastKey) {
           // Pagination: append
           state.designs = [...state.designs, ...(items || [])];
@@ -88,6 +90,7 @@ const designLibrarySlice = createSlice({
           state.designs = items || [];
         }
         state.lastEvaluatedKey = lastEvaluatedKey || null;
+        state.totalDesigns = typeof total === 'number' ? total : state.designs.length;
       })
       .addCase(fetchDesigns.rejected, (state, action) => {
         state.loading = false;

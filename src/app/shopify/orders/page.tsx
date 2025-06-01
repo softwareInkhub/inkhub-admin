@@ -20,7 +20,15 @@ const tabs = [
 
 export default function ShopifyOrders() {
   const dispatch = useDispatch<AppDispatch>();
-  const { orders, loading, error, ordersLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
+  const { orders, loading, error, ordersLastEvaluatedKey, totalOrders } = useSelector((state: RootState) => state.shopify);
+
+  // Flatten orders if needed
+  const flatOrders = orders.map(order => order.item ? order.item : order);
+
+  // Debug: log the contents of flatOrders
+  useEffect(() => {
+    console.log('Debug flatOrders:', flatOrders);
+  }, [flatOrders]);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -68,7 +76,7 @@ export default function ShopifyOrders() {
   }, [orders]);
 
   // Filter orders
-  let filteredOrders = orders;
+  let filteredOrders = flatOrders;
   if (analytics.filter && analytics.filter !== 'All') {
     filteredOrders = filteredOrders.filter(order => (order.financial_status || '').toLowerCase() === analytics.filter.toLowerCase());
   }
@@ -160,7 +168,7 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 

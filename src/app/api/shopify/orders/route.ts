@@ -385,7 +385,7 @@ async function forceStartFetching(): Promise<void> {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = Number(searchParams.get('limit')) || 500;
+    const limit = Number(searchParams.get('limit')) || 50;
     const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')!) : undefined;
     const forceRefresh = searchParams.get('forceRefresh') === 'true';
     const forceStart = searchParams.get('forceStart') === 'true';
@@ -412,7 +412,7 @@ export async function GET(req: Request) {
     }
 
     // Get orders from cache or start fetching
-    const allOrders = await getOrdersFromCache();
+    const allOrders = (await getOrdersFromCache()).map(transformOrder);
 
     // If we got empty array (cache miss and couldn't acquire lock),
     // trigger background refresh and return empty result

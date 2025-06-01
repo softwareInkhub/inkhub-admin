@@ -9,6 +9,8 @@ interface PinterestState {
   error: string | null;
   pinsLastEvaluatedKey: any | null;
   boardsLastEvaluatedKey: any | null;
+  totalPins: number;
+  totalBoards: number;
 }
 
 const initialState: PinterestState = {
@@ -18,6 +20,8 @@ const initialState: PinterestState = {
   error: null,
   pinsLastEvaluatedKey: null,
   boardsLastEvaluatedKey: null,
+  totalPins: 0,
+  totalBoards: 0,
 };
 
 export const fetchPins = createAsyncThunk(
@@ -65,7 +69,7 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchPins.fulfilled, (state, action) => {
         state.loading = false;
-        const { items = [], lastEvaluatedKey } = action.payload || {};
+        const { items = [], lastEvaluatedKey, total } = action.payload || {};
         if (action.meta.arg && action.meta.arg.lastKey) {
           // Pagination: append
           state.pins = [...state.pins, ...(items || [])];
@@ -74,6 +78,7 @@ const pinterestSlice = createSlice({
           state.pins = items || [];
         }
         state.pinsLastEvaluatedKey = lastEvaluatedKey || null;
+        state.totalPins = typeof total === 'number' ? total : state.pins.length;
       })
       .addCase(fetchPins.rejected, (state, action) => {
         state.loading = false;
@@ -86,7 +91,7 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchBoards.fulfilled, (state, action) => {
         state.loading = false;
-        const { items = [], lastEvaluatedKey } = action.payload || {};
+        const { items = [], lastEvaluatedKey, total } = action.payload || {};
         if (action.meta.arg && action.meta.arg.lastKey) {
           // Pagination: append
           state.boards = [...state.boards, ...(items || [])];
@@ -95,6 +100,7 @@ const pinterestSlice = createSlice({
           state.boards = items || [];
         }
         state.boardsLastEvaluatedKey = lastEvaluatedKey || null;
+        state.totalBoards = typeof total === 'number' ? total : state.boards.length;
       })
       .addCase(fetchBoards.rejected, (state, action) => {
         state.loading = false;

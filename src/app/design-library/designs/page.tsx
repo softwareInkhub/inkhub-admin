@@ -12,7 +12,7 @@ import DecoupledHeader from '@/components/common/DecoupledHeader';
 
 export default function DesignLibrary() {
   const dispatch = useDispatch<AppDispatch>();
-  const { designs, loading, error, lastEvaluatedKey } = useSelector((state: RootState) => state.designLibrary);
+  const { designs, loading, error, lastEvaluatedKey, totalDesigns } = useSelector((state: RootState) => state.designLibrary);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -114,7 +114,7 @@ export default function DesignLibrary() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="design library" tabKey="designs" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
       <UniversalOperationBar 
         section="design library" 
         tabKey="designs" 
