@@ -160,7 +160,7 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} data={orders} filteredCount={filteredOrders.length} />
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 

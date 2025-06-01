@@ -291,9 +291,9 @@ export default function DataView<T>({
               )}
             </div>
             {/* Special rendering for designImageUrl */}
-            {key === 'designImageUrl' && value && typeof value === 'string' && value.startsWith('http') && (
-              <img src={String(value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
-            ) as React.ReactNode}
+            {key === 'designImageUrl' && value && typeof value === 'string' && value.startsWith('http')
+              ? <img src={String(value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
+              : null}
             <input
               className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs"
               value={typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}

@@ -18,7 +18,6 @@ interface SidebarProps {
 const navigation = [
   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-  { name: 'BRHM', href: '/brhm', icon: PencilSquareIcon },
   { name: 'Design Library', href: '/design-library', icon: BookOpenIcon },
 ];
 

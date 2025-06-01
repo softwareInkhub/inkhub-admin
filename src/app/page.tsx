@@ -24,12 +24,6 @@ const stats = [
     href: '/pinterest',
   },
   {
-    name: 'BRHM Books',
-    value: '0',
-    icon: BookOpenIcon,
-    href: '/brhm',
-  },
-  {
     name: 'Design Library',
     value: '0',
     icon: DesignIcon,

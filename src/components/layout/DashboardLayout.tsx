@@ -32,7 +32,6 @@ interface DashboardLayoutProps {
 function getSectionFromPath(pathname: string) {
   if (pathname.startsWith('/shopify')) return 'shopify';
   if (pathname.startsWith('/pinterest')) return 'pinterest';
-  if (pathname.startsWith('/brhm')) return 'brhm';
   if (pathname.startsWith('/design-library')) return 'design library';
   return null;
 }
@@ -49,9 +48,6 @@ const secondaryNavMap: Record<string, { name: string; href: string }[]> = {
   ],
   'design library': [
     { name: 'Designs', href: '/design-library/designs' },
-  ],
-  brhm: [
-    { name: 'Dashboard', href: '/brhm/dashboard' },
   ],
 };
 
@@ -81,7 +77,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const showSecondarySidebar =
     section === 'shopify' ||
     section === 'pinterest' ||
-    section === 'brhm' ||
     section === 'design library';
 
   // Only show header for main section pages (not subpages)
@@ -89,7 +84,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     pathname === '/' ||
     pathname === '/shopify' ||
     pathname === '/pinterest' ||
-    pathname === '/brhm' ||
     pathname === '/design-library' ||
     pathname === '/settings';
 

@@ -32,7 +32,7 @@ async function fetchAllBoardsFromDynamoDB() {
   let totalFetched = 0;
   try {
     do {
-      const command = new ScanCommand({
+      const command: ScanCommand = new ScanCommand({
         TableName: process.env.PINTEREST_BOARDS_TABLE,
         Limit: PAGE_SIZE,
         ExclusiveStartKey: lastKey,
