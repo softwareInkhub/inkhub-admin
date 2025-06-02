@@ -10,6 +10,7 @@ import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import ImageCell from '@/components/common/ImageCell';
+import FilterBar from '@/components/common/FilterBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
@@ -23,6 +24,12 @@ export default function PinterestPins() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'Item.media.images.600x.url', 'Item.title', 'Item.description', 'Item.board_owner.username', 'Item.created_at'
   ]);
+
+  // Multi-filter states
+  const [board, setBoard] = useState('All');
+  // Smart filter states
+  const [smartField, setSmartField] = useState('Item.title');
+  const [smartValue, setSmartValue] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,10 +50,29 @@ export default function PinterestPins() {
     }
   };
 
-  // Filter out pins without Item
-  let filteredPins = pins.filter(pin => pin.Item);
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredPins = filteredPins.filter(pin => pin.Item?.board_owner?.username === analytics.filter);
+  // Build filter options from data
+  const boardOptions = ['All', ...Array.from(new Set(pins.map((d: any) => d.Item?.board_owner?.username).filter(Boolean)))];
+  const smartFieldOptions = [
+    { label: 'Title', value: 'Item.title' },
+    { label: 'Description', value: 'Item.description' },
+    { label: 'Board', value: 'Item.board_owner.username' },
+    { label: 'Created At', value: 'Item.created_at' },
+  ];
+
+  // Multi-filter logic
+  let filteredPins = pins.filter(pin => pin.Item)
+    .filter((row: any) =>
+      (board === 'All' || row.Item?.board_owner?.username === board)
+    );
+  // Smart filter logic
+  if (smartValue) {
+    filteredPins = filteredPins.filter((row: any) => {
+      const val = smartField.split('.').reduce((acc, key) => acc?.[key], row);
+      if (Array.isArray(val)) {
+        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+      }
+      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
+    });
   }
 
   // Grouping and aggregation
@@ -102,6 +128,13 @@ export default function PinterestPins() {
     ];
   }
 
+  // Reset all filters
+  const handleResetFilters = () => {
+    setBoard('All');
+    setSmartField('Item.title');
+    setSmartValue('');
+  };
+
   if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -120,18 +153,18 @@ export default function PinterestPins() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={tableData.length} />
+      <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={filteredPins.length} />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="pins" 
         analytics={analytics} 
-        data={tableData}
+        data={filteredPins}
         selectedData={selectedRows}
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={tableData}
+            data={filteredPins}
             columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}
@@ -141,6 +174,21 @@ export default function PinterestPins() {
             onLoadMore={handleNextPage}
             hasMore={!!pinsLastEvaluatedKey}
             isLoadingMore={isLoadingMore}
+            status={''}
+            setStatus={() => {}}
+            statusOptions={[]}
+            type={''}
+            setType={() => {}}
+            typeOptions={[]}
+            board={board}
+            setBoard={setBoard}
+            boardOptions={boardOptions}
+            smartField={smartField}
+            setSmartField={setSmartField}
+            smartFieldOptions={smartFieldOptions}
+            smartValue={smartValue}
+            setSmartValue={setSmartValue}
+            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

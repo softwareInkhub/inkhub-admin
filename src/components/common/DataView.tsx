@@ -15,6 +15,7 @@ import GridView from './GridView';
 import TableView from './TableView';
 import UniversalOperationBar from './UniversalOperationBar';
 import FilterBar from './FilterBar';
+import ModalNavigator from './ModalNavigator';
 
 interface DataViewProps<T> {
   data: T[];
@@ -124,7 +125,11 @@ export default function DataView<T>({
     : data;
 
   // Helper to get unique key for a row
-  const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
+  const getRowId = (item: unknown) => {
+    if (!item || typeof item !== 'object') return '';
+    const obj = item as Record<string, any>;
+    return obj.id ?? obj.order_number ?? obj.uid ?? JSON.stringify(obj);
+  };
 
   // Handle row selection
   const handleRowSelect = (rowId: string, checked: boolean) => {
@@ -386,6 +391,18 @@ export default function DataView<T>({
     // Fallbacks
     item.image_url || item.cover || item.thumbnail || item.productImage || '';
 
+  const currentIndex = filteredData.findIndex(item => getRowId(item) === getRowId(selectedItem));
+  const handleNext = () => {
+    if (currentIndex < filteredData.length - 1) {
+      setSelectedItem(filteredData[currentIndex + 1]);
+    }
+  };
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setSelectedItem(filteredData[currentIndex - 1]);
+    }
+  };
+
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
@@ -395,20 +412,20 @@ export default function DataView<T>({
           <DecoupledHeader columns={columns.map(col => ({ header: col.header, accessor: String(col.accessor) }))} visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
         </div>
         <div className="flex-shrink-0">
-          {status && setStatus && statusOptions && type && setType && typeOptions && board && setBoard && boardOptions && smartField && setSmartField && smartFieldOptions && smartValue !== undefined && setSmartValue && onResetFilters && (
+          {(!!statusOptions?.length || !!typeOptions?.length || !!boardOptions?.length || !!smartFieldOptions?.length) && smartField && setSmartField && smartValue !== undefined && setSmartValue && onResetFilters && (
             <FilterBar
-              status={status}
-              setStatus={setStatus}
-              statusOptions={statusOptions}
-              type={type}
-              setType={setType}
-              typeOptions={typeOptions}
-              board={board}
-              setBoard={setBoard}
-              boardOptions={boardOptions}
+              status={status || ''}
+              setStatus={setStatus || (() => {})}
+              statusOptions={statusOptions || []}
+              type={type || ''}
+              setType={setType || (() => {})}
+              typeOptions={typeOptions || []}
+              board={board || ''}
+              setBoard={setBoard || (() => {})}
+              boardOptions={boardOptions || []}
               smartField={smartField}
               setSmartField={setSmartField}
-              smartFieldOptions={smartFieldOptions}
+              smartFieldOptions={smartFieldOptions || []}
               smartValue={smartValue}
               setSmartValue={setSmartValue}
               onReset={onResetFilters}
@@ -496,7 +513,7 @@ export default function DataView<T>({
             onItemClick={(item) => {
               setSelectedItem(item);
               setShowRowModal(true);
-              setModalTab('image');
+              setModalTab('json');
             }}
           />
         )}
@@ -510,7 +527,7 @@ export default function DataView<T>({
                   onClick={() => {
                     setSelectedItem(item);
                     setShowRowModal(true);
-                    setModalTab('image');
+                    setModalTab('json');
                   }}
                 >
                   {/* Smaller image for compact card view */}
@@ -548,8 +565,14 @@ export default function DataView<T>({
 
         {/* Row Modal */}
         {showRowModal && selectedItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-4 relative">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+            onClick={() => setShowRowModal(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-lg max-w-lg w-full p-4 relative"
+              onClick={e => e.stopPropagation()}
+            >
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl"
                 onClick={() => setShowRowModal(false)}
@@ -589,6 +612,12 @@ export default function DataView<T>({
                 )}
                 {modalTab === 'form' && renderViewOnlyForm(selectedItem)}
               </div>
+              <ModalNavigator
+                currentIndex={currentIndex}
+                total={filteredData.length}
+                onNext={handleNext}
+                onPrev={handlePrev}
+              />
             </div>
           </div>
         )}

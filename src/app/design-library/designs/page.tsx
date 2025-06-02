@@ -150,14 +150,6 @@ export default function DesignLibrary() {
         data={tableData}
         selectedData={selectedRows}
       />
-      <FilterBar
-        status={status} setStatus={setStatus} statusOptions={statusOptions}
-        type={type} setType={setType} typeOptions={typeOptions}
-        board={board} setBoard={setBoard} boardOptions={boardOptions}
-        smartField={smartField} setSmartField={setSmartField} smartFieldOptions={smartFieldOptions}
-        smartValue={smartValue} setSmartValue={setSmartValue}
-        onReset={handleResetFilters}
-      />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView

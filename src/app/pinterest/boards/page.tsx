@@ -9,6 +9,7 @@ import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
 import ImageCell from '@/components/common/ImageCell';
+import FilterBar from '@/components/common/FilterBar';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,6 +22,13 @@ export default function PinterestBoards() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'Item.media.image_cover_url', 'Item.name', 'Item.description', 'Item.pin_count', 'Item.privacy', 'Item.owner.username', 'Item.created_at'
   ]);
+
+  // Multi-filter states
+  const [privacy, setPrivacy] = useState('All');
+  const [owner, setOwner] = useState('All');
+  // Smart filter states
+  const [smartField, setSmartField] = useState('Item.name');
+  const [smartValue, setSmartValue] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,9 +49,31 @@ export default function PinterestBoards() {
     }
   };
 
-  let filteredBoards = boards.filter(board => board.Item);
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredBoards = filteredBoards.filter(board => board.Item?.owner?.username === analytics.filter);
+  // Build filter options from data
+  const privacyOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.privacy).filter(Boolean)))];
+  const ownerOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.owner?.username).filter(Boolean)))];
+  const smartFieldOptions = [
+    { label: 'Name', value: 'Item.name' },
+    { label: 'Description', value: 'Item.description' },
+    { label: 'Owner', value: 'Item.owner.username' },
+    { label: 'Privacy', value: 'Item.privacy' },
+  ];
+
+  // Multi-filter logic
+  let filteredBoards = boards.filter(board => board.Item)
+    .filter((row: any) =>
+      (privacy === 'All' || row.Item?.privacy === privacy) &&
+      (owner === 'All' || row.Item?.owner?.username === owner)
+    );
+  // Smart filter logic
+  if (smartValue) {
+    filteredBoards = filteredBoards.filter((row: any) => {
+      const val = smartField.split('.').reduce((acc, key) => acc?.[key], row);
+      if (Array.isArray(val)) {
+        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+      }
+      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
+    });
   }
 
   let tableData = filteredBoards;
@@ -68,6 +98,14 @@ export default function PinterestBoards() {
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for boards
 
+  // Reset all filters
+  const handleResetFilters = () => {
+    setPrivacy('All');
+    setOwner('All');
+    setSmartField('Item.name');
+    setSmartValue('');
+  };
+
   if (loading && isInitialLoad) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -85,18 +123,18 @@ export default function PinterestBoards() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={tableData.length} />
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={filteredBoards.length} />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 
         analytics={analytics} 
-        data={tableData}
+        data={filteredBoards}
         selectedData={selectedRows}
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={tableData}
+            data={filteredBoards}
             columns={filteredColumns}
             section="pinterest"
             tabKey="boards"
@@ -104,6 +142,21 @@ export default function PinterestBoards() {
             onLoadMore={handleNextPage}
             hasMore={!!boardsLastEvaluatedKey}
             isLoadingMore={isLoadingMore}
+            status={privacy}
+            setStatus={setPrivacy}
+            statusOptions={privacyOptions}
+            type={owner}
+            setType={setOwner}
+            typeOptions={ownerOptions}
+            board={''}
+            setBoard={() => {}}
+            boardOptions={[]}
+            smartField={smartField}
+            setSmartField={setSmartField}
+            smartFieldOptions={smartFieldOptions}
+            smartValue={smartValue}
+            setSmartValue={setSmartValue}
+            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

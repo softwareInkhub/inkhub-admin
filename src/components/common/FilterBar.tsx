@@ -20,34 +20,40 @@ interface FilterBarProps {
 }
 
 export default function FilterBar({
-  status, setStatus, statusOptions,
-  type, setType, typeOptions,
-  board, setBoard, boardOptions,
-  smartField, setSmartField, smartFieldOptions,
+  status, setStatus, statusOptions = [],
+  type, setType, typeOptions = [],
+  board, setBoard, boardOptions = [],
+  smartField, setSmartField, smartFieldOptions = [],
   smartValue, setSmartValue,
   onReset
 }: FilterBarProps) {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm">
       <div className="flex flex-wrap gap-2 flex-1 items-center">
-        <Filtering
-          filters={statusOptions}
-          value={status}
-          onFilterChange={setStatus}
-          label="Status"
-        />
-        <Filtering
-          filters={typeOptions}
-          value={type}
-          onFilterChange={setType}
-          label="Type"
-        />
-        <Filtering
-          filters={boardOptions}
-          value={board}
-          onFilterChange={setBoard}
-          label="Board"
-        />
+        {statusOptions.length > 1 && (
+          <Filtering
+            filters={statusOptions}
+            value={status}
+            onFilterChange={setStatus}
+            label="Status"
+          />
+        )}
+        {typeOptions.length > 1 && (
+          <Filtering
+            filters={typeOptions}
+            value={type}
+            onFilterChange={setType}
+            label="Type"
+          />
+        )}
+        {boardOptions.length > 1 && (
+          <Filtering
+            filters={boardOptions}
+            value={board}
+            onFilterChange={setBoard}
+            label="Board"
+          />
+        )}
         {/* Smart field+value filter */}
         <div className="flex items-center gap-2">
           <select
