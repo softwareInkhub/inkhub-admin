@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTabContext } from "@/components/layout/TabContext";
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
 const sidebarConfig = [
   {
@@ -41,11 +41,22 @@ export default function SecondarySidebar({ section, onCollapseChange }: Secondar
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const { openTab } = useTabContext();
+  // Track expanded sections by key
+  const [expandedSections, setExpandedSections] = useState<string[]>(sidebarConfig.map(s => s.key));
 
   // Notify parent when collapsed changes
   useEffect(() => {
     if (onCollapseChange) onCollapseChange(collapsed);
   }, [collapsed, onCollapseChange]);
+
+  // Toggle section expand/collapse
+  const handleSectionToggle = (key: string) => {
+    setExpandedSections(prev =>
+      prev.includes(key)
+        ? prev.filter(k => k !== key)
+        : [...prev, key]
+    );
+  };
 
   return (
     <div
@@ -67,33 +78,49 @@ export default function SecondarySidebar({ section, onCollapseChange }: Secondar
         )}
       </button>
       <div className={`transition-all duration-300 flex-1 ${collapsed ? 'opacity-0 pointer-events-none select-none w-0 p-0' : 'opacity-100 w-full p-4'}`}>
-        {!collapsed && sidebarConfig.map(section => (
-          <div key={section.key} className="mb-6 relative group">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-base font-semibold capitalize text-gray-700">{section.title}</h2>
+        {!collapsed && sidebarConfig.map(section => {
+          const isExpanded = expandedSections.includes(section.key);
+          return (
+            <div key={section.key} className="mb-6 relative group">
+              <button
+                className="flex items-center justify-between w-full mb-2 text-base font-semibold capitalize text-gray-700 hover:bg-gray-100 rounded px-2 py-1 transition-colors"
+                onClick={() => handleSectionToggle(section.key)}
+                aria-expanded={isExpanded}
+                aria-controls={`section-items-${section.key}`}
+                type="button"
+              >
+                <span>{section.title}</span>
+                {isExpanded ? (
+                  <ChevronUpIcon className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                )}
+              </button>
+              {isExpanded && (
+                <nav className="space-y-1" id={`section-items-${section.key}`}> 
+                  {section.items.map(item => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <button
+                        key={item.name}
+                        className={`block w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-600 font-semibold'
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        tabIndex={collapsed ? -1 : 0}
+                        aria-hidden={collapsed}
+                        onClick={() => openTab({ key: item.href, label: item.name, path: item.href })}
+                      >
+                        {item.name}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
             </div>
-            <nav className="space-y-1">
-              {section.items.map(item => {
-                const isActive = pathname === item.href;
-                return (
-                  <button
-                    key={item.name}
-                    className={`block w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-600 font-semibold'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                    tabIndex={collapsed ? -1 : 0}
-                    aria-hidden={collapsed}
-                    onClick={() => openTab({ key: item.href, label: item.name, path: item.href })}
-                  >
-                    {item.name}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
