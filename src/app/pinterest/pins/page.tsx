@@ -9,6 +9,7 @@ import Image from 'next/image';
 import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import ImageCell from '@/components/common/ImageCell';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
@@ -54,20 +55,10 @@ export default function PinterestPins() {
     {
       header: 'Image',
       accessor: 'Item.media.images.600x.url',
-      render: (value: any, row: any) => (
-        <div className="relative w-20 h-20">
-          {row.Item?.media?.images?.['600x']?.url ? (
-            <Image
-              src={row.Item.media.images['600x'].url}
-              alt="Pin"
-              fill
-              className="object-cover rounded-lg"
-            />
-          ) : (
-            <span>No Image</span>
-          )}
-        </div>
-      ),
+      render: (_: any, row: any, viewType?: string) => {
+        const url = row.Item?.media?.images?.['600x']?.url;
+        return <ImageCell src={url} alt="Pin" viewType={viewType} />;
+      }
     },
     {
       header: 'Title',

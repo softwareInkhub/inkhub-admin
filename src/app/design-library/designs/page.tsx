@@ -9,10 +9,20 @@ import Image from 'next/image';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ImageCell from '@/components/common/ImageCell';
+import FilterBar from '@/components/common/FilterBar';
 
 export default function DesignLibrary() {
   const dispatch = useDispatch<AppDispatch>();
   const { designs, loading, error, lastEvaluatedKey, totalDesigns } = useSelector((state: RootState) => state.designLibrary);
+
+  // Multi-filter states
+  const [status, setStatus] = useState('All');
+  const [type, setType] = useState('All');
+  const [board, setBoard] = useState('All');
+  // Smart filter states
+  const [smartField, setSmartField] = useState('designName');
+  const [smartValue, setSmartValue] = useState('');
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -38,31 +48,43 @@ export default function DesignLibrary() {
     }
   };
 
-  let filteredDesigns = designs;
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredDesigns = filteredDesigns.filter(design => design.designStatus === analytics.filter || design.designType === analytics.filter);
+  // Build filter options from data
+  const statusOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.designStatus).filter(Boolean)))];
+  const typeOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.designType).filter(Boolean)))];
+  const boardOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.orderName).filter(Boolean)))];
+  const smartFieldOptions = [
+    { label: 'Name', value: 'designName' },
+    { label: 'Status', value: 'designStatus' },
+    { label: 'Type', value: 'designType' },
+    { label: 'Board', value: 'orderName' },
+    { label: 'Tags', value: 'designTags' },
+    { label: 'Price', value: 'designPrice' },
+    { label: 'Size', value: 'designSize' },
+  ];
+
+  // Multi-filter logic
+  let filteredDesigns = designs.filter((row: any) =>
+    (status === 'All' || row.designStatus === status) &&
+    (type === 'All' || row.designType === type) &&
+    (board === 'All' || row.orderName === board)
+  );
+  // Smart filter logic
+  if (smartValue) {
+    filteredDesigns = filteredDesigns.filter((row: any) => {
+      const val = row[smartField];
+      if (Array.isArray(val)) {
+        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+      }
+      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
+    });
   }
 
   let columns = [
     {
       header: 'Image',
       accessor: 'designImageUrl',
-      render: (value: string) => (
-        <div className="relative w-32 h-32">
-          {value ? (
-            <Image
-              src={value}
-              alt="Design"
-              fill
-              className="object-contain rounded-lg"
-              sizes="(max-width: 128px) 100vw, 128px"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
-              <span className="text-gray-400">No Image</span>
-            </div>
-          )}
-        </div>
+      render: (value: string, _row: any, viewType?: string) => (
+        <ImageCell src={value} alt="Design" viewType={viewType} />
       ),
     },
     { header: 'Name', accessor: 'designName' },
@@ -91,9 +113,6 @@ export default function DesignLibrary() {
   // Filter columns based on visibleColumns
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
-  // Example grouping/aggregation (can be extended as needed)
-  // For now, just pass through data as grouping/aggregation is not defined for designs
-
   let tableData = filteredDesigns;
 
   if (loading && !initialLoaded) {
@@ -112,6 +131,15 @@ export default function DesignLibrary() {
     );
   }
 
+  // Reset all filters
+  const handleResetFilters = () => {
+    setStatus('All');
+    setType('All');
+    setBoard('All');
+    setSmartField('designName');
+    setSmartValue('');
+  };
+
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
@@ -121,6 +149,14 @@ export default function DesignLibrary() {
         analytics={analytics} 
         data={tableData}
         selectedData={selectedRows}
+      />
+      <FilterBar
+        status={status} setStatus={setStatus} statusOptions={statusOptions}
+        type={type} setType={setType} typeOptions={typeOptions}
+        board={board} setBoard={setBoard} boardOptions={boardOptions}
+        smartField={smartField} setSmartField={setSmartField} smartFieldOptions={smartFieldOptions}
+        smartValue={smartValue} setSmartValue={setSmartValue}
+        onReset={handleResetFilters}
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
@@ -135,6 +171,21 @@ export default function DesignLibrary() {
             onLoadMore={handleNextPage}
             hasMore={!!lastEvaluatedKey}
             isLoadingMore={isLoadingMore}
+            status={status}
+            setStatus={setStatus}
+            statusOptions={statusOptions}
+            type={type}
+            setType={setType}
+            typeOptions={typeOptions}
+            board={board}
+            setBoard={setBoard}
+            boardOptions={boardOptions}
+            smartField={smartField}
+            setSmartField={setSmartField}
+            smartFieldOptions={smartFieldOptions}
+            smartValue={smartValue}
+            setSmartValue={setSmartValue}
+            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

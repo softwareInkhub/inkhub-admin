@@ -9,6 +9,27 @@ import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ImageCell from '@/components/common/ImageCell';
+import GridView from '@/components/common/GridView';
+
+// Reusable image cell component
+function ProductImageCell({ src, alt, viewType }: { src: string; alt: string; viewType?: string }) {
+  const size = viewType === 'card' ? 64 : 28;
+  const radius = viewType === 'card' ? 8 : 4;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          style={{ width: size, height: size, objectFit: 'cover', borderRadius: radius }}
+        />
+      ) : (
+        <span>No Image</span>
+      )}
+    </div>
+  );
+}
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
@@ -51,19 +72,16 @@ export default function ShopifyProducts() {
     {
       header: 'Image',
       accessor: 'image',
-      render: (value: any, row: any) =>
-        row.image && row.image.src ? (
-          <img
-            src={row.image.src}
-            alt={row.title}
-            className="w-16 h-16 object-cover rounded"
-          />
-        ) : (
-          <span>No Image</span>
-        ),
+      render: (_: any, row: any, viewType?: string) => (
+        <ImageCell src={row.image?.src} alt={row.title} viewType={viewType === 'grid' ? 'card' : viewType} />
+      ),
     },
     { header: 'Product ID', accessor: 'id' },
-    { header: 'Title', accessor: 'title' },
+    {
+      header: 'Title',
+      accessor: 'title',
+      render: (value: any, _row: any, viewType?: string) => viewType === 'grid' ? <span className="font-semibold text-base truncate">{value}</span> : value,
+    },
     { header: 'Vendor', accessor: 'vendor' },
     { header: 'Product Type', accessor: 'product_type' },
     { header: 'Status', accessor: 'status' },
@@ -94,6 +112,9 @@ export default function ShopifyProducts() {
     );
   }
 
+  // When rendering grid view, only pass the image and title columns:
+  const gridColumns = [columns[0], columns[2]];
+
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
@@ -109,6 +130,7 @@ export default function ShopifyProducts() {
           <DataView
             data={tableData}
             columns={filteredColumns}
+            gridColumns={gridColumns}
             onSort={() => {}}
             onSearch={() => {}}
             section="shopify"

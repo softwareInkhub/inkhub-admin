@@ -8,6 +8,7 @@ import DataView from '@/components/common/DataView';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ImageCell from '@/components/common/ImageCell';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -50,16 +51,8 @@ export default function PinterestBoards() {
     {
       header: 'Cover',
       accessor: 'Item.media.image_cover_url',
-      render: (value: any, row: any) =>
-        row.Item?.media?.image_cover_url ? (
-          <img
-            src={row.Item.media.image_cover_url}
-            alt={row.Item.name}
-            className="w-16 h-12 object-cover rounded"
-          />
-        ) : (
-          <span>No Image</span>
-        ),
+      render: (_: any, row: any, viewType?: string) =>
+        <ImageCell src={row.Item?.media?.image_cover_url} alt={row.Item?.name} viewType={viewType} />,
     },
     { header: 'Name', accessor: 'Item.name', render: (_: any, row: any) => row.Item?.name || '—' },
     { header: 'Description', accessor: 'Item.description', render: (_: any, row: any) => row.Item?.description || '—' },

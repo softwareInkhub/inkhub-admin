@@ -18,12 +18,12 @@ interface NavItem {
   icon: typeof HomeIcon;
 }
 
-const navigation: NavItem[] = [
-  { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
-  { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-  { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-];
+// const navigation: NavItem[] = [
+//   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
+//   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
+//   { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
+//   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+// ];
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -108,36 +108,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="w-full border-b bg-white shadow sticky top-0 z-50 px-6 flex flex-col">
         <div className="flex items-center justify-center h-12">
           <h1 className="text-2xl font-bold text-primary-600">Inkhub Admin</h1>
-        </div>
-        <div className="flex justify-center mt-1 mb-2">
-          <div className="bg-white rounded-lg shadow border border-gray-200 px-4 py-1 flex items-center">
-            <nav className="flex flex-row gap-4 items-center">
-              {navigation.map((item) => {
-                const isActive = pathname.startsWith(item.href);
-                // For main nav, open the first subpage (e.g., Orders, Pins, Designs)
-                let openHref = item.href;
-                let openLabel = item.name;
-                const sectionKey = getSectionFromPath(item.href);
-                if (sectionKey && secondaryNavMap[sectionKey] && secondaryNavMap[sectionKey][0]) {
-                  openHref = secondaryNavMap[sectionKey][0].href;
-                  openLabel = secondaryNavMap[sectionKey][0].name;
-                }
-                return (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => openTab({ key: openHref, label: openLabel, path: openHref })}
-                    className={`text-sm font-medium transition-colors bg-transparent border-none outline-none cursor-pointer ${
-                      isActive ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'
-                    }`}
-                    style={{ fontFamily: 'inherit' }}
-                  >
-                    {item.name}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
         </div>
       </header>
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -248,34 +218,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main content area, fills remaining space */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-2 md:hidden p-2 bg-white border-b sticky top-0 z-30">
-          <button
-            className="p-2 rounded hover:bg-gray-100"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open main navigation"
-          >
-            <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          {showSecondarySidebar && (
-            <button
-              className="p-2 rounded hover:bg-gray-100"
-              onClick={() => setSecondarySidebarOpen(true)}
-              aria-label="Open section navigation"
-            >
-              <svg className="h-6 w-6 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-          <span className="font-bold text-lg">{navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}</span>
-        </div>
         {isMainSectionPage && pathname !== '/settings' && (
           <header className="bg-white shadow hidden md:block">
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
               <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                {navigation.find((item) => item.href === pathname)?.name || 'Dashboard'}
+                Dashboard
               </h1>
             </div>
           </header>

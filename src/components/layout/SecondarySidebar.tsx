@@ -40,56 +40,12 @@ export default function SecondarySidebar({ section, onCollapseChange }: Secondar
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [activeSections, setActiveSections] = useState<string[]>([]);
   const { openTab } = useTabContext();
-
-  // Load activeSections from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('sidebarActiveSections');
-    if (stored) {
-      setActiveSections(JSON.parse(stored));
-    }
-  }, []);
-
-  // Update activeSections if the user navigates to a new section
-  useEffect(() => {
-    const section = sidebarConfig.find(section =>
-      section.items.some(item => pathname.startsWith(item.href))
-    );
-    if (section && !activeSections.includes(section.key)) {
-      const updated = [...activeSections, section.key];
-      setActiveSections(updated);
-      localStorage.setItem('sidebarActiveSections', JSON.stringify(updated));
-    }
-  }, [pathname]);
-
-  // Persist activeSections to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('sidebarActiveSections', JSON.stringify(activeSections));
-  }, [activeSections]);
 
   // Notify parent when collapsed changes
   useEffect(() => {
     if (onCollapseChange) onCollapseChange(collapsed);
   }, [collapsed, onCollapseChange]);
-
-  // Only show sections that are in activeSections
-  const shownSections = sidebarConfig.filter(section => activeSections.includes(section.key));
-  if (shownSections.length === 0) return null;
-
-  // The most recently clicked/added section is the last in the array
-  const lastActiveKey = activeSections[activeSections.length - 1];
-
-  // Remove a section from the sidebar
-  const handleRemoveSection = (key: string) => {
-    const updated = activeSections.filter(sectionKey => sectionKey !== key);
-    setActiveSections(updated);
-    localStorage.setItem('sidebarActiveSections', JSON.stringify(updated));
-    // If no sections left, redirect to homepage
-    if (updated.length === 0) {
-      router.push('/');
-    }
-  };
 
   return (
     <div
@@ -111,10 +67,10 @@ export default function SecondarySidebar({ section, onCollapseChange }: Secondar
         )}
       </button>
       <div className={`transition-all duration-300 flex-1 ${collapsed ? 'opacity-0 pointer-events-none select-none w-0 p-0' : 'opacity-100 w-full p-4'}`}>
-        {!collapsed && shownSections.map(section => (
+        {!collapsed && sidebarConfig.map(section => (
           <div key={section.key} className="mb-6 relative group">
             <div className="flex items-center justify-between mb-2">
-              <h2 className={`text-base font-semibold capitalize ${lastActiveKey === section.key ? 'text-blue-600' : 'text-gray-700'}`}>{section.title}</h2>
+              <h2 className="text-base font-semibold capitalize text-gray-700">{section.title}</h2>
             </div>
             <nav className="space-y-1">
               {section.items.map(item => {
