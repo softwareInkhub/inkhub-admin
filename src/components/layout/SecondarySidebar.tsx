@@ -49,7 +49,7 @@ export default function SecondarySidebar({ section, onCollapseChange }: Secondar
 
   return (
     <div
-      className={`relative h-screen border-r border-gray-200 bg-white transition-all duration-300 flex flex-col ${
+      className={`relative h-full border-r border-gray-200 bg-white transition-all duration-300 flex flex-col ${
         collapsed ? 'w-4' : 'w-64'
       }`}
     >

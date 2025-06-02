@@ -121,10 +121,10 @@ async function acquireLock(retries = 3, delay = 1000): Promise<boolean> {
   if (lockValue) {
     const lockTimestamp = parseInt(lockValue);
     if (Date.now() - lockTimestamp > LOCK_TTL * 1000) {
-      console.log('[Debug] 🔒 Found stale lock, forcing release');
+      console.log('[Debug] Found stale lock, forcing release');
       await releaseLock();
     } else {
-      console.log('[Debug] 🔒 Lock is active, fetch already in progress');
+      console.log('[Debug] Lock is active, fetch already in progress');
       return false;
     }
   }
@@ -133,22 +133,22 @@ async function acquireLock(retries = 3, delay = 1000): Promise<boolean> {
     const timestamp = Date.now().toString();
     const locked = await redis.set(CACHE_LOCK_KEY, timestamp, 'EX', LOCK_TTL, 'NX');
     if (locked === 'OK') {
-      console.log('[Debug] 🔒 Lock acquired successfully');
+      console.log('[Debug] Lock acquired successfully');
       return true;
     }
-    console.log(`[Debug] 🔒 Lock acquisition attempt ${i + 1} failed, retrying...`);
+    console.log('[Debug] Lock acquisition attempt', i + 1, 'failed, retrying...');
     await new Promise(resolve => setTimeout(resolve, delay));
   }
-  console.log('[Debug] 🔒 Failed to acquire lock after all retries');
+  console.log('[Debug] Failed to acquire lock after all retries');
   return false;
 }
 
 async function releaseLock(): Promise<void> {
   try {
     await redis.del(CACHE_LOCK_KEY);
-    console.log('[Debug] 🔓 Lock released successfully');
+    console.log('[Debug] Lock released successfully');
   } catch (error) {
-    console.error('[Debug] ❌ Error releasing lock:', error);
+    console.error('[Debug] Error releasing lock:', error);
   }
 }
 
@@ -161,14 +161,14 @@ async function isLockStale(): Promise<boolean> {
     const lockTimestamp = parseInt(lockValue);
     return Date.now() - lockTimestamp > LOCK_TTL * 1000;
   } catch (error) {
-    console.error('[Debug] ❌ Error checking lock status:', error);
+    console.error('[Debug] Error checking lock status:', error);
     return false;
   }
 }
 
 // Function to fetch all orders from DynamoDB (no lock logic here)
 async function fetchAllOrders() {
-  console.log('[Debug] 🚀 Starting DynamoDB fetch for orders at:', new Date().toISOString());
+  console.log('[Debug] Starting DynamoDB fetch for orders at: ' + new Date().toISOString());
   const startTime = Date.now();
   const allItems: any[] = [];
   let lastEvaluatedKey: any = undefined;
@@ -178,26 +178,26 @@ async function fetchAllOrders() {
     // Check if we have a last scan position
     const lastScanPosition = await redis.get(LAST_SCAN_POSITION_KEY);
     if (lastScanPosition) {
-      console.log('[Debug] 🔄 Resuming from last scan position');
+      console.log('[Debug] Resuming from last scan position');
       lastEvaluatedKey = JSON.parse(lastScanPosition);
       // Get existing partial cache
       const partialData = await redis.get(PARTIAL_CACHE_KEY);
       if (partialData) {
         allItems.push(...JSON.parse(partialData));
-        console.log(`[Debug] 📦 Loaded ${allItems.length} items from partial cache`);
+        console.log('[Debug] Loaded ' + allItems.length + ' items from partial cache');
       }
     }
 
     while (true) {
       // Check if lock is stale during long operations
       if (await isLockStale()) {
-        console.log('[Debug] 🔒 Lock became stale during fetch, releasing...');
+        console.log('[Debug] Lock became stale during fetch, releasing...');
         await releaseLock();
         throw new Error('Lock became stale during fetch');
       }
 
       scanCount++;
-      console.log(`[Debug] 📊 DynamoDB Scan #${scanCount} for orders starting...`);
+      console.log('[Debug] DynamoDB Scan #' + scanCount + ' for orders starting...');
       
       const command = new ScanCommand({
         TableName: process.env.SHOPIFY_ORDERS_TABLE,
@@ -208,13 +208,13 @@ async function fetchAllOrders() {
       const response = await docClient.send(command);
       const items = response.Items || [];
       
-      console.log(`[Debug] 📊 DynamoDB Scan #${scanCount} for orders complete. Items fetched: ${items.length}`);
+      console.log('[Debug] DynamoDB Scan #' + scanCount + ' for orders complete. Items fetched: ' + (response.Items?.length || 0));
       
       // Cache partial results as we go
       if (items.length > 0) {
         allItems.push(...items);
         await redis.set(PARTIAL_CACHE_KEY, JSON.stringify(allItems), 'EX', CACHE_TTL);
-        console.log(`[Debug] 💾 Cached ${allItems.length} partial orders`);
+        console.log('[Debug] Cached ' + allItems.length + ' partial orders');
       }
 
       lastEvaluatedKey = response.LastEvaluatedKey;
@@ -226,58 +226,53 @@ async function fetchAllOrders() {
 
       // Store the current scan position
       await redis.set(LAST_SCAN_POSITION_KEY, JSON.stringify(lastEvaluatedKey), 'EX', CACHE_TTL);
-      console.log('[Debug] 📍 Saved scan position for resume');
+      console.log('[Debug] Saved scan position for resume');
 
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const endTime = Date.now();
-    console.log(`[Debug] ✅ DynamoDB fetch for orders complete:
-      - Total time: ${endTime - startTime}ms
-      - Total items: ${allItems.length}
-      - Number of scans: ${scanCount}
-      - Timestamp: ${new Date().toISOString()}
-    `);
+    console.log('[Debug] DynamoDB fetch complete:\n' + 
+      '- Total items: ' + allItems.length + '\n' +
+      '- Time taken: ' + (endTime - startTime) + 'ms\n' +
+      '- Scans performed: ' + scanCount);
 
     return allItems;
   } catch (error) {
-    console.error('[Debug] ❌ Error during DynamoDB fetch:', error);
+    console.error('[Debug] Error during DynamoDB fetch:', error);
     throw error;
   }
 }
 
 // Function to get orders from cache or fetch from DB
 async function getOrdersFromCache() {
-  console.log('[Debug] 🔍 Checking Valkey cache for orders at:', new Date().toISOString());
+  console.log('[Debug] Checking Valkey cache for orders at: ' + new Date().toISOString());
   const startTime = Date.now();
   
   try {
     // First check for complete cache
     const cachedData = await redis.get(ALL_ORDERS_CACHE_KEY);
     if (cachedData) {
-      const parsedData = JSON.parse(cachedData);
-      console.log(`[Debug] 🎯 Complete Cache HIT for orders:
-        - Cache check time: ${Date.now() - startTime}ms
-        - Items in cache: ${parsedData.length}
-        - Timestamp: ${new Date().toISOString()}
-      `);
-      return parsedData;
+      console.log('[Debug] Cache HIT:\n' +
+        '- Total items: ' + cachedData.length + '\n' +
+        '- Time taken: ' + (Date.now() - startTime) + 'ms');
+      return JSON.parse(cachedData);
     }
 
     // Then check for partial cache
     const partialData = await redis.get(PARTIAL_CACHE_KEY);
     if (partialData) {
       const parsedPartial = JSON.parse(partialData);
-      console.log(`[Debug] 🎯 Partial Cache HIT for orders:
-        - Cache check time: ${Date.now() - startTime}ms
-        - Items in cache: ${parsedPartial.length}
-        - Timestamp: ${new Date().toISOString()}
-      `);
+      console.log('[Debug] Partial Cache HIT for orders: ' +
+        '- Cache check time: ' + (Date.now() - startTime) + 'ms\n' +
+        '- Items in cache: ' + parsedPartial.length + '\n' +
+        '- Timestamp: ' + new Date().toISOString()
+      );
 
       // Check if we have a last scan position
       const lastScanPosition = await redis.get(LAST_SCAN_POSITION_KEY);
       if (lastScanPosition) {
-        console.log('[Debug] 🔄 Found last scan position, attempting to trigger background fetch');
+        console.log('[Debug] Found last scan position, attempting to trigger background fetch');
         // Try to acquire the lock before starting background fetch
         acquireLock().then(hasLock => {
           if (hasLock) {
@@ -289,11 +284,11 @@ async function getOrdersFromCache() {
                 }
               })
               .catch(error => {
-                console.error('[Debug] ❌ Error in background fetch:', error);
+                console.error('[Debug] Error in background fetch:', error);
               })
               .finally(() => releaseLock());
           } else {
-            console.log('[Debug] 🔒 Could not acquire lock for background fetch, skipping');
+            console.log('[Debug] Lock could not acquire lock for background fetch, skipping');
           }
         });
       }
@@ -301,40 +296,30 @@ async function getOrdersFromCache() {
       return parsedPartial;
     }
 
-    console.log(`[Debug] ❌ Cache MISS for orders:
-      - Cache check time: ${Date.now() - startTime}ms
-      - Timestamp: ${new Date().toISOString()}
-    `);
+    console.log('[Debug] Cache MISS:\n' +
+      '- Time taken: ' + (Date.now() - startTime) + 'ms');
 
     // Try to acquire lock before fetching
     const hasLock = await acquireLock();
     if (!hasLock) {
-      console.log('[Debug] 🔒 Another process is fetching orders, returning empty array');
+      console.log('[Debug] Another process is fetching orders, returning empty array');
       return [];
     }
 
     try {
-      console.log('[Debug] 🚀 Fetching orders from DynamoDB...');
+      console.log('[Debug] Fetching orders from DynamoDB...');
       const orders = await fetchAllOrders();
       
-      console.log('[Debug] 💾 Caching complete orders in Valkey...');
-      const cacheStartTime = Date.now();
-      await redis.set(ALL_ORDERS_CACHE_KEY, JSON.stringify(orders), 'EX', CACHE_TTL);
-      const cacheEndTime = Date.now();
-      
-      console.log(`[Debug] ✅ Cache population for orders complete:
-        - Cache time: ${cacheEndTime - cacheStartTime}ms
-        - Items cached: ${orders.length}
-        - TTL: ${CACHE_TTL} seconds
-        - Timestamp: ${new Date().toISOString()}
-      `);
+      console.log('[Debug] Cache population complete:\n' +
+        '- Total items: ' + orders.length + '\n' +
+        '- Time taken: ' + (Date.now() - startTime) + 'ms');
       
       return orders;
     } finally {
       await releaseLock();
     }
   } catch (error) {
-    console.error('[Debug] ❌ Error in getOrdersFromCache:', error);
+    console.error('[Debug] Error in getOrdersFromCache:', error);
     await releaseLock();
     throw error;
   }
@@ -344,17 +329,17 @@ async function getOrdersFromCache() {
 async function refreshOrdersInBackground() {
   const hasLock = await acquireLock();
   if (!hasLock) {
-    console.log('[Debug] 🔒 Another process is refreshing orders, skipping');
+    console.log('[Debug] Another process is refreshing orders, skipping');
     return;
   }
 
   try {
-    console.log('[Debug] 🔄 Starting background refresh of orders...');
+    console.log('[Debug] Starting background refresh of orders...');
     const orders = await fetchAllOrders();
     await redis.set(ALL_ORDERS_CACHE_KEY, JSON.stringify(orders), 'EX', CACHE_TTL);
-    console.log('[Debug] ✅ Background refresh complete');
+    console.log('[Debug] Background refresh complete');
   } catch (error) {
-    console.error('[Debug] ❌ Error during background refresh:', error);
+    console.error('[Debug] Error during background refresh:', error);
   } finally {
     await releaseLock();
   }
@@ -370,12 +355,12 @@ async function isFetchingInProgress(): Promise<boolean> {
 async function forceStartFetching(): Promise<void> {
   const hasLock = await acquireLock();
   if (!hasLock) {
-    console.log('[Debug] 🔒 Another process is already fetching');
+    console.log('[Debug] Another process is already fetching');
     return;
   }
 
   try {
-    console.log('[Debug] 🚀 Force starting fetch from DynamoDB...');
+    console.log('[Debug] Force starting fetch from DynamoDB...');
     await fetchAllOrders();
   } finally {
     await releaseLock();
@@ -390,24 +375,20 @@ export async function GET(req: Request) {
     const forceRefresh = searchParams.get('forceRefresh') === 'true';
     const forceStart = searchParams.get('forceStart') === 'true';
 
-    console.log(`[Debug] 📥 Orders request received:
-      - Limit: ${limit}
-      - Force Refresh: ${forceRefresh}
-      - Force Start: ${forceStart}
-      - Last Key: ${lastKey ? 'Present' : 'None'}
-      - Timestamp: ${new Date().toISOString()}
-    `);
+    console.log('[Debug] Request received:\n' +
+      '- Method: ' + req.method + '\n' +
+      '- URL: ' + req.url);
 
     if (forceRefresh) {
-      console.log('[Debug] 🔄 Force refresh requested for orders, clearing cache...');
+      console.log('[Debug] Force refresh requested for orders, clearing cache...');
       await redis.del(ALL_ORDERS_CACHE_KEY);
       await redis.del(PARTIAL_CACHE_KEY);
       await redis.del(LAST_SCAN_POSITION_KEY);
-      console.log('[Debug] ✅ Orders cache cleared');
+      console.log('[Debug] Orders cache cleared');
     }
 
     if (forceStart) {
-      console.log('[Debug] 🚀 Force start requested for orders...');
+      console.log('[Debug] Force start requested for orders...');
       await forceStartFetching();
     }
 
@@ -427,14 +408,10 @@ export async function GET(req: Request) {
     const paginatedOrders = allOrders.slice(startIndex, endIndex);
     const hasMore = endIndex < allOrders.length;
 
-    console.log(`[Debug] 📤 Orders response prepared:
-      - Total items: ${allOrders.length}
-      - Paginated items: ${paginatedOrders.length}
-      - Has more: ${hasMore}
-      - Start index: ${startIndex}
-      - End index: ${endIndex}
-      - Timestamp: ${new Date().toISOString()}
-    `);
+    console.log('[Debug] Response prepared:\n' +
+      '- Items: ' + paginatedOrders.length + '\n' +
+      '- Has more: ' + hasMore + '\n' +
+      '- Total: ' + allOrders.length);
 
     const result = {
       items: paginatedOrders,
@@ -444,7 +421,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('[Debug] ❌ Error occurred while fetching orders:', error);
+    console.error('[Debug] Error occurred while fetching orders:', error);
     const errorMessage = getErrorMessage(error);
     return NextResponse.json(
       { error: errorMessage },
@@ -459,15 +436,15 @@ export async function POST(req: Request) {
     const { action } = await req.json();
     
     if (action === 'invalidate') {
-      console.log('[Debug] 🔄 Manually invalidating orders cache...');
+      console.log('[Debug] Manually invalidating orders cache...');
       await redis.del(ALL_ORDERS_CACHE_KEY);
-      console.log('[Debug] ✅ Orders cache invalidated successfully');
+      console.log('[Debug] Orders cache invalidated successfully');
       return NextResponse.json({ message: 'Orders cache invalidated successfully' });
     }
     
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('[Debug] ❌ Error occurred while invalidating orders cache:', error);
+    console.error('[Debug] Error occurred while invalidating orders cache:', error);
     return NextResponse.json(
       { error: 'Failed to process request' },
       { status: 500 }

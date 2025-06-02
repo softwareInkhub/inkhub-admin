@@ -50,7 +50,7 @@ export default function ShopifyOrders() {
     const fetchData = async () => {
       try {
         setIsInitialLoad(true);
-        await dispatch(fetchOrders({ limit: 500 })).unwrap();
+        await dispatch(fetchOrders({ limit: 1000 })).unwrap();
       } catch (err) {
         console.error('Error fetching orders:', err);
       } finally {
@@ -64,7 +64,7 @@ export default function ShopifyOrders() {
     if (!ordersLastEvaluatedKey || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      await dispatch(fetchOrders({ limit: 500, lastKey: ordersLastEvaluatedKey })).unwrap();
+      await dispatch(fetchOrders({ limit: 1000, lastKey: ordersLastEvaluatedKey })).unwrap();
     } catch (err) {
       console.error('Error loading more orders:', err);
     } finally {

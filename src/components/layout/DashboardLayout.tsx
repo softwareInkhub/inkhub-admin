@@ -18,12 +18,12 @@ interface NavItem {
   icon: typeof HomeIcon;
 }
 
-// const navigation: NavItem[] = [
-//   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
-//   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-//   { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
-//   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-// ];
+const navigation: NavItem[] = [
+  { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
+  { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
+  { name: 'Design Library', href: '/design-library', icon: PhotoIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+];
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -32,7 +32,7 @@ interface DashboardLayoutProps {
 function getSectionFromPath(pathname: string) {
   if (pathname.startsWith('/shopify')) return 'shopify';
   if (pathname.startsWith('/pinterest')) return 'pinterest';
-  if (pathname.startsWith('/design-library')) return 'design library';
+  if (pathname.startsWith('/design-library')) return 'design-library';
   return null;
 }
 
@@ -46,7 +46,7 @@ const secondaryNavMap: Record<string, { name: string; href: string }[]> = {
     { name: 'Pins', href: '/pinterest/pins' },
     { name: 'Boards', href: '/pinterest/boards' },
   ],
-  'design library': [
+  'design-library': [
     { name: 'Designs', href: '/design-library/designs' },
   ],
 };
@@ -64,7 +64,7 @@ function getAnalyticsTabKey(section: string, activeTab: string): string {
     if (tab.includes('pins')) return 'pins';
     if (tab.includes('boards')) return 'boards';
   }
-  if (section === 'design library') {
+  if (section === 'design-library') {
     if (tab.includes('designs')) return 'designs';
   }
   return '';
@@ -74,10 +74,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const section = getSectionFromPath(pathname);
-  const showSecondarySidebar =
-    section === 'shopify' ||
-    section === 'pinterest' ||
-    section === 'design library';
+  const showSecondarySidebar = true; // Always show the sidebar
 
   // Only show header for main section pages (not subpages)
   const isMainSectionPage =
@@ -210,11 +207,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
         {/* Secondary Sidebar - now attached to header, not fixed */}
-      {showSecondarySidebar && section && (
-          <div className={`hidden md:flex md:z-10 border-r border-gray-200 ${secondarySidebarCollapsed ? 'md:w-4' : 'md:w-64'}`}>
-            <SecondarySidebar section={section} onCollapseChange={setSecondarySidebarCollapsed} />
+        {showSecondarySidebar && (
+          <div className={`flex md:z-10 border-r border-gray-200 ${secondarySidebarCollapsed ? 'md:w-4' : 'md:w-64'}`}>
+            <SecondarySidebar section={section || 'shopify'} onCollapseChange={setSecondarySidebarCollapsed} />
           </div>
-      )}
+        )}
         {/* Main content area, fills remaining space */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Header */}

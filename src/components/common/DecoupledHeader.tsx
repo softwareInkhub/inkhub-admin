@@ -48,14 +48,15 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
   }, [open]);
 
   return (
-    <div className="flex justify-between items-center w-full relative mb-2 gap-2 bg-white p-3 rounded shadow-sm"
-         style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap' }}>
+    <div className="flex justify-between items-center w-full relative bg-white p-0 m-0 gap-0"
+         style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap', minHeight: 0 }}>
       {/* Active columns as chips (left) */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-x-0.5 gap-y-0 items-center min-h-0 p-0 m-0">
         {columns.filter(col => visibleColumns.includes(col.accessor)).map(col => (
           <span
             key={col.accessor}
-            className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200"
+            className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] border border-blue-200 font-normal"
+            style={{lineHeight: '1.1', margin: 0}}
           >
             {col.header}
           </span>

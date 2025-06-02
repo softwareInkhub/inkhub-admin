@@ -406,31 +406,35 @@ export default function DataView<T>({
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
-      {/* Top controls: DecoupledHeader (left) and FilterBar (right) */}
-      <div className="flex flex-row justify-between items-center w-full mb-2 gap-2">
-        <div className="flex-1">
-          <DecoupledHeader columns={columns.map(col => ({ header: col.header, accessor: String(col.accessor) }))} visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
-        </div>
-        <div className="flex-shrink-0">
-          {(!!statusOptions?.length || !!typeOptions?.length || !!boardOptions?.length || !!smartFieldOptions?.length) && smartField && setSmartField && smartValue !== undefined && setSmartValue && onResetFilters && (
-            <FilterBar
-              status={status || ''}
-              setStatus={setStatus || (() => {})}
-              statusOptions={statusOptions || []}
-              type={type || ''}
-              setType={setType || (() => {})}
-              typeOptions={typeOptions || []}
-              board={board || ''}
-              setBoard={setBoard || (() => {})}
-              boardOptions={boardOptions || []}
-              smartField={smartField}
-              setSmartField={setSmartField}
-              smartFieldOptions={smartFieldOptions || []}
-              smartValue={smartValue}
-              setSmartValue={setSmartValue}
-              onReset={onResetFilters}
-            />
-          )}
+      {/* Redesigned Top Controls: Card-style container for column selector and filter bar */}
+      <div className="w-full mb-3">
+        <div className="flex flex-col md:flex-row gap-2 items-stretch bg-gray-50 border border-gray-200 rounded-xl shadow-sm px-4 py-3">
+          <div className="flex-1 min-w-0 flex items-center">
+            <DecoupledHeader columns={columns.map(col => ({ header: col.header, accessor: String(col.accessor) }))} visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
+          </div>
+          <div className="flex-shrink-0 flex items-center justify-end">
+            {(!!statusOptions?.length || !!typeOptions?.length || !!boardOptions?.length || !!smartFieldOptions?.length) && smartField && setSmartField && smartValue !== undefined && setSmartValue && onResetFilters && (
+              <div className="w-full md:w-auto">
+                <FilterBar
+                  status={status || ''}
+                  setStatus={setStatus || (() => {})}
+                  statusOptions={statusOptions || []}
+                  type={type || ''}
+                  setType={setType || (() => {})}
+                  typeOptions={typeOptions || []}
+                  board={board || ''}
+                  setBoard={setBoard || (() => {})}
+                  boardOptions={boardOptions || []}
+                  smartField={smartField}
+                  setSmartField={setSmartField}
+                  smartFieldOptions={smartFieldOptions || []}
+                  smartValue={smartValue}
+                  setSmartValue={setSmartValue}
+                  onReset={onResetFilters}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

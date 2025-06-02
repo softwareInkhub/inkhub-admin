@@ -28,8 +28,8 @@ export default function FilterBar({
   onReset
 }: FilterBarProps) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shadow-sm">
-      <div className="flex flex-wrap gap-2 flex-1 items-center">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 shadow-sm m-0">
+      <div className="flex flex-wrap gap-1 flex-1 items-center m-0 p-0">
         {statusOptions.length > 1 && (
           <Filtering
             filters={statusOptions}
@@ -75,7 +75,7 @@ export default function FilterBar({
         </div>
       </div>
       <button
-        className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-medium transition-colors"
+        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-[11px] font-medium transition-colors m-0"
         onClick={onReset}
         title="Clear all filters"
         type="button"
