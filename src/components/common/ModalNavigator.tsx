@@ -17,7 +17,7 @@ const ModalNavigator: React.FC<ModalNavigatorProps> = ({
   nextLabel = "Next",
   prevLabel = "Previous",
 }) => (
-  <div className="flex justify-end mt-4 gap-2">
+  <div className="flex justify-end mt-6 gap-2 w-full">
     <button
       className="px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
       onClick={onPrev}

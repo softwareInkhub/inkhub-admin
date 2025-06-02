@@ -61,7 +61,7 @@ export default function UniversalAnalyticsBar({ section, tabKey, total, currentC
   if (!config) return null;
 
   return (
-    <div className="flex flex-row items-center bg-gray-50 border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full">
+    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4">
       <div className="flex flex-col items-center justify-center">
         <div className="border-2 border-gray-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[80px]">
           <div className="text-xs font-semibold mb-0.5">Total Data</div>
@@ -74,6 +74,14 @@ export default function UniversalAnalyticsBar({ section, tabKey, total, currentC
           <div className="text-lg font-bold text-green-700">{typeof currentCount === 'number' ? currentCount : '--'}</div>
         </div>
       </div>
+      {[3,4,5,6,7,8,9,10,11].map((num) => (
+        <div key={num} className="flex flex-col items-center justify-center ml-2">
+          <div className="border-2 border-gray-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[120px]">
+            <div className="text-xs font-semibold mb-0.5">Box {num}</div>
+            <div className="text-lg font-bold text-gray-700">--</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 } 

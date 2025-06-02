@@ -25,7 +25,7 @@ export default function UniversalOperationBar({ section, tabKey, analytics, data
   };
 
   return (
-    <div className="flex flex-row items-center bg-gray-50 border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full">
+    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4">
       <div className="flex flex-col items-center justify-center">
         <div className="border-2 border-blue-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[80px] flex flex-col items-center">
           <button

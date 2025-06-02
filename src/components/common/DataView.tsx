@@ -403,6 +403,19 @@ export default function DataView<T>({
     }
   };
 
+  useEffect(() => {
+    if (!showRowModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrev();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showRowModal, currentIndex, filteredData, setSelectedItem]);
+
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
@@ -531,7 +544,7 @@ export default function DataView<T>({
                   onClick={() => {
                     setSelectedItem(item);
                     setShowRowModal(true);
-                    setModalTab('json');
+                    setModalTab('image');
                   }}
                 >
                   {/* Smaller image for compact card view */}
@@ -574,8 +587,9 @@ export default function DataView<T>({
             onClick={() => setShowRowModal(false)}
           >
             <div
-              className="bg-white rounded-lg shadow-lg max-w-lg w-full p-4 relative"
+              className="bg-white rounded-lg shadow-lg max-w-7xl w-full h-[900px] max-h-[90vh] p-6 relative flex flex-col"
               onClick={e => e.stopPropagation()}
+              tabIndex={0}
             >
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl"
@@ -598,24 +612,25 @@ export default function DataView<T>({
                   onClick={() => setModalTab('form')}
                 >Form</button>
               </div>
-              <div className="max-h-96 overflow-auto">
+              <div className="flex-1 min-h-0 overflow-auto">
                 {modalTab === 'image' && (
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center justify-center h-full">
                     <img
                       src={getImageSrc(selectedItem)}
                       alt="Large"
-                      className="mb-4 rounded shadow max-h-80 object-contain"
+                      className="mb-4 rounded shadow max-h-[600px] object-contain"
                       style={{ maxWidth: '100%' }}
                     />
                   </div>
                 )}
                 {modalTab === 'json' && (
-                  <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto">
+                  <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto h-full">
                     {JSON.stringify(selectedItem, null, 2)}
                   </pre>
                 )}
                 {modalTab === 'form' && renderViewOnlyForm(selectedItem)}
               </div>
+              {/* Move ModalNavigator outside scrollable content */}
               <ModalNavigator
                 currentIndex={currentIndex}
                 total={filteredData.length}
