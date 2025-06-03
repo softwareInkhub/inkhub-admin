@@ -37,7 +37,7 @@ function TableView<T>({
   const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-[70vh]">
       <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm md:text-base">
         <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>

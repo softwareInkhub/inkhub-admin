@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   TableCellsIcon,
   Squares2X2Icon,
@@ -17,6 +17,8 @@ import TableView from './TableView';
 import UniversalOperationBar from './UniversalOperationBar';
 import FilterBar from './FilterBar';
 import ModalNavigator from './ModalNavigator';
+import CardConfigModal from './CardConfigModal';
+import GridConfigModal from './GridConfigModal';
 
 interface DataViewProps<T> {
   data: T[];
@@ -72,6 +74,196 @@ function flattenObject(obj: any, prefix = '', result: Record<string, any> = {}) 
     }
   }
   return result;
+}
+
+// Recursive component to render nested form fields with collapsible sections
+const RenderNestedForm = React.memo(({ data, parentKey = '', openSections, toggleSection }: { data: any; parentKey?: string; openSections: Record<string, boolean>; toggleSection: (key: string) => void }) => {
+  if (Array.isArray(data)) {
+    const sectionKey = parentKey;
+    const isOpen = openSections[sectionKey] ?? true;
+    return (
+      <div className="pl-4 border-l-2 border-gray-200 my-1">
+        <button
+          className="flex items-center gap-1 text-xs text-gray-500 mb-1 focus:outline-none"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <span className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+          Array [{data.length}]
+        </button>
+        {isOpen && data.map((item, idx) => (
+          <div key={idx} className="mb-2">
+            <span className="text-xs font-semibold text-gray-400 mr-2">[{idx}]</span>
+            <RenderNestedForm data={item} parentKey={`${sectionKey}[${idx}]`} openSections={openSections} toggleSection={toggleSection} />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (typeof data === 'object' && data !== null) {
+    const sectionKey = parentKey;
+    const isOpen = openSections[sectionKey] ?? true;
+    return (
+      <div className="pl-2 border-l-2 border-gray-100 my-1 space-y-2">
+        <button
+          className="flex items-center gap-1 text-xs text-gray-500 mb-1 focus:outline-none"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <span className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+          Object
+        </button>
+        {isOpen && Object.entries(data).map(([key, value]) => {
+          const childKey = sectionKey ? `${sectionKey}.${key}` : key;
+          return (
+            <div key={childKey} className="flex flex-col mb-1">
+              <label className="text-xs font-semibold text-gray-500 mb-1">{key}</label>
+              <RenderNestedForm data={value} parentKey={childKey} openSections={openSections} toggleSection={toggleSection} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else if (typeof data === 'string' && (data.startsWith('http://') || data.startsWith('https://'))) {
+    return (
+      <a
+        href={data}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all text-xs whitespace-pre-line"
+      >
+        {data}
+      </a>
+    );
+  } else {
+    return (
+      <div className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs break-all whitespace-pre-line min-h-[32px]">
+        {typeof data === 'object' ? JSON.stringify(data) : String(data ?? '')}
+      </div>
+    );
+  }
+});
+
+// Recursive JSON Explorer with checkboxes, select all, priority, and collapsible objects/arrays
+const JsonExplorer = ({ data, checkedFields, setCheckedFields, expandedFields, setExpandedFields, parentKey = '' }: {
+  data: any;
+  checkedFields: Set<string>;
+  setCheckedFields: (fields: Set<string>) => void;
+  expandedFields: Set<string>;
+  setExpandedFields: (fields: Set<string>) => void;
+  parentKey?: string;
+}) => {
+  // Helper to build a unique key for each field
+  const getKey = (key: string | number) => (parentKey ? `${parentKey}.${key}` : String(key));
+
+  // Helper to toggle checked state for a field and all its children
+  const toggleCheck = (key: string, value: any, checked: boolean) => {
+    const newChecked = new Set(checkedFields);
+    const updateChildren = (val: any, k: string) => {
+      newChecked[checked ? 'add' : 'delete'](k);
+      if (typeof val === 'object' && val !== null) {
+        if (Array.isArray(val)) {
+          val.forEach((item, idx) => updateChildren(item, `${k}[${idx}]`));
+        } else {
+          Object.entries(val).forEach(([childKey, childVal]) => updateChildren(childVal, `${k}.${childKey}`));
+        }
+      }
+    };
+    updateChildren(value, key);
+    setCheckedFields(newChecked);
+  };
+
+  // Helper to toggle expanded/collapsed state
+  const toggleExpand = (key: string) => {
+    const newExpanded = new Set(expandedFields);
+    if (newExpanded.has(key)) newExpanded.delete(key);
+    else newExpanded.add(key);
+    setExpandedFields(newExpanded);
+  };
+
+  // Helper to check if all children are checked
+  const areAllChildrenChecked = (value: any, key: string): boolean => {
+    let allChecked = checkedFields.has(key);
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        allChecked = allChecked && value.every((item, idx) => areAllChildrenChecked(item, `${key}[${idx}]`));
+      } else {
+        allChecked = allChecked && Object.entries(value).every(([childKey, childVal]) => areAllChildrenChecked(childVal, `${key}.${childKey}`));
+      }
+    }
+    return allChecked;
+  };
+
+  // Helper to render a field
+  const renderField = (key: string | number, value: any) => {
+    const fieldKey = getKey(key);
+    const isChecked = checkedFields.has(fieldKey);
+    const isExpanded = expandedFields.has(fieldKey);
+    const isObject = typeof value === 'object' && value !== null;
+    const isArray = Array.isArray(value);
+    return (
+      <div key={fieldKey} className="pl-2 border-l border-gray-200 my-1">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={e => toggleCheck(fieldKey, value, e.target.checked)}
+            className="accent-blue-600"
+          />
+          {isObject ? (
+            <button
+              className="text-xs text-gray-600 font-mono px-1 py-0.5 rounded hover:bg-gray-100 focus:outline-none"
+              onClick={() => toggleExpand(fieldKey)}
+              type="button"
+            >
+              {isArray ? (isExpanded ? '[...]' : '[...]') : (isExpanded ? '{...}' : '{...}')}
+            </button>
+          ) : null}
+          <span className="text-xs font-semibold text-gray-700 font-mono">{String(key)}</span>
+          {!isObject && (
+            typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://')) ? (
+              <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all text-xs whitespace-pre-line">{value}</a>
+            ) : (
+              <span className="text-xs break-all whitespace-pre-line">{typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}</span>
+            )
+          )}
+        </div>
+        {isObject && isExpanded && (
+          <div className="ml-4">
+            {isArray
+              ? value.map((item: any, idx: number) => renderField(idx, item))
+              : Object.entries(value).map(([childKey, childVal]) => renderField(childKey, childVal))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Priority: checked fields first
+  let entries: [string | number, any][] = [];
+  if (Array.isArray(data)) {
+    entries = data.map((item, idx) => [idx, item]);
+  } else if (typeof data === 'object' && data !== null) {
+    entries = Object.entries(data);
+  }
+  const checkedEntries = entries.filter(([k]) => checkedFields.has(getKey(k)));
+  const uncheckedEntries = entries.filter(([k]) => !checkedFields.has(getKey(k)));
+  const orderedEntries = [...checkedEntries, ...uncheckedEntries];
+
+  return (
+    <div>
+      {orderedEntries.map(([k, v]) => renderField(k, v))}
+    </div>
+  );
+};
+
+// Helper to check if all fields are checked in the JSON explorer
+function areAllFieldsChecked(data: any, checkedFields: Set<string>, parentKey = 'root'): boolean {
+  const checkKey = (key: string | number) => (parentKey ? `${parentKey}.${key}` : String(key));
+  if (Array.isArray(data)) {
+    return checkedFields.has(parentKey) && data.every((item, idx) => areAllFieldsChecked(item, checkedFields, `${parentKey}[${idx}]`));
+  } else if (typeof data === 'object' && data !== null) {
+    return checkedFields.has(parentKey) && Object.entries(data).every(([key, value]) => areAllFieldsChecked(value, checkedFields, parentKey ? `${parentKey}.${key}` : key));
+  } else {
+    return checkedFields.has(parentKey);
+  }
 }
 
 export default function DataView<T>({
@@ -250,113 +442,18 @@ export default function DataView<T>({
     }
   }, [selectedItem]);
 
+  // Collapsible state for nested form view
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = useCallback((key: string) => {
+    setOpenSections((prev: Record<string, boolean>) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   // Helper to render view-only form fields
   const renderViewOnlyForm = (row: any) => {
     if (!row) return null;
-    const imageSrc = getImageSrc(row);
-    // Always pin designImageUrl at the top if present
-    const entries = Object.entries(row);
-    let fields = entries.map(([key, value]) => ({ key, value }));
-    // Move designImageUrl to the top if present
-    const designImageIdx = fields.findIndex(f => f.key === 'designImageUrl');
-    let designImageField = null;
-    if (designImageIdx !== -1) {
-      designImageField = fields[designImageIdx];
-      fields.splice(designImageIdx, 1);
-    }
-    // Sort pinned fields to the top (except designImageUrl)
-    const pinned = fields.filter(f => pinnedFields.includes(f.key));
-    const unpinned = fields.filter(f => !pinnedFields.includes(f.key));
-    // Order pinned fields as in pinnedFields array
-    pinned.sort((a, b) => pinnedFields.indexOf(a.key) - pinnedFields.indexOf(b.key));
-    const orderedFields = [
-      ...(designImageField ? [designImageField] : []),
-      ...pinned,
-      ...unpinned,
-    ];
     return (
-      <div className="space-y-2">
-        {/* Always show image at the top if present, except for design library */}
-        {section !== 'design library' && imageSrc && (
-          <img
-            src={imageSrc}
-            alt="Design"
-            className="mb-2 w-32 h-32 object-contain rounded border border-gray-200"
-          />
-        )}
-        {/* Pinned field header at the top */}
-        {pinnedFields.length > 0 && (
-          <div className="mb-2 flex flex-col max-w-full">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold text-blue-700 text-sm">Pinned:</span>
-              {pinnedFields.map((key) => (
-                <button
-                  key={key}
-                  className={`px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 hover:bg-blue-200 focus:outline-none ${activePinnedPreview === key ? 'ring-2 ring-blue-400' : ''}`}
-                  onClick={() => setActivePinnedPreview(prev => prev === key ? null : key)}
-                  type="button"
-                >
-                  {key}
-                </button>
-              ))}
-            </div>
-            {activePinnedPreview && (() => {
-              const field = orderedFields.find(f => f.key === activePinnedPreview);
-              if (!field) return null;
-              return (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex flex-col items-start">
-                  <span className="text-xs font-semibold text-blue-700 mb-1">{field.key}</span>
-                  {field.key === 'designImageUrl' && field.value && typeof field.value === 'string' && field.value.startsWith('http') ? (
-                    <img src={String(field.value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
-                  ) : null}
-                  <span className="text-xs break-all">
-                    {typeof field.value === 'object' ? JSON.stringify(field.value) : String(field.value ?? '')}
-                  </span>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-        {orderedFields.map(({ key, value }) => (
-          <div
-            key={key}
-            id={`form-field-${key}`}
-            className={`flex flex-col relative transition-all duration-300 ${highlightedField === key ? 'ring-2 ring-blue-400 bg-blue-50' : ''}`}
-          >
-            <div className="flex items-center mb-1">
-              <label className="text-xs font-semibold text-gray-500 mr-2">{key}</label>
-              {/* Pin/unpin button, except for designImageUrl */}
-              {key !== 'designImageUrl' && (
-                <button
-                  className={`ml-1 text-xs ${pinnedFields.includes(key) ? 'text-blue-600' : 'text-gray-400'} hover:text-blue-700`}
-                  title={pinnedFields.includes(key) ? 'Unpin' : 'Pin to top'}
-                  type="button"
-                  onClick={() => {
-                    setPinnedFields(prev => {
-                      const rowId = getRowId(row);
-                      const newPins = prev.includes(key)
-                        ? prev.filter(f => f !== key)
-                        : [...prev, key];
-                      setRowPinnedFields(all => ({ ...all, [rowId]: newPins }));
-                      return newPins;
-                    });
-                  }}
-                >
-                  {pinnedFields.includes(key) ? '📌' : '📍'}
-                </button>
-              )}
-            </div>
-            {/* Special rendering for designImageUrl */}
-            {key === 'designImageUrl' && value && typeof value === 'string' && value.startsWith('http')
-              ? <img src={String(value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
-              : null}
-            <input
-              className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs"
-              value={typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}
-              readOnly
-            />
-          </div>
-        ))}
+      <div className="p-1">
+        <RenderNestedForm data={row} openSections={openSections} toggleSection={toggleSection} />
       </div>
     );
   };
@@ -468,6 +565,29 @@ export default function DataView<T>({
         render: undefined,
       })),
   ];
+
+  // Add before the modal return:
+  const [jsonCheckedFields, setJsonCheckedFields] = useState<Set<string>>(new Set());
+  const [jsonExpandedFields, setJsonExpandedFields] = useState<Set<string>>(new Set());
+  const handleSelectAllJson = (data: any, checked: boolean) => {
+    const allKeys = new Set<string>();
+    const collectKeys = (val: any, key: string) => {
+      allKeys[checked ? 'add' : 'delete'](key);
+      if (typeof val === 'object' && val !== null) {
+        if (Array.isArray(val)) {
+          val.forEach((item, idx) => collectKeys(item, `${key}[${idx}]`));
+        } else {
+          Object.entries(val).forEach(([childKey, childVal]) => collectKeys(childVal, `${key}.${childKey}`));
+        }
+      }
+    };
+    collectKeys(data, 'root');
+    setJsonCheckedFields(allKeys);
+  };
+
+  // Card view: manage modal and selected fields state at the parent level
+  const [cardModalOpenIdx, setCardModalOpenIdx] = useState<number | null>(null);
+  const [cardSelectedFieldsMap, setCardSelectedFieldsMap] = useState<Record<number, string[]>>({});
 
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
@@ -604,31 +724,91 @@ export default function DataView<T>({
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 p-2">
-              {filteredData.map((item: any, index: number) => (
-                <div
-                  key={index}
-                  className="flex flex-col items-center p-1 bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer"
-                  onClick={() => {
-                    setSelectedItem(item);
-                    setShowRowModal(true);
-                    setModalTab('image');
-                  }}
-                >
-                  {/* Smaller image for compact card view */}
-                  {filteredColumns[0].render
-                    ? filteredColumns[0].render(item[filteredColumns[0].accessor], item, 'card')
-                    : <img src={String(item[filteredColumns[0].accessor])} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
+              {filteredData.map((item: any, index: number) => {
+                // Image extraction logic (same as GridView)
+                let imageUrl: string | undefined = undefined;
+                // Try to find an image field
+                const imageField = filteredColumns.find(col => {
+                  const header = col.header.toLowerCase();
+                  const accessor = String(col.accessor).toLowerCase();
+                  return ["image", "cover", "thumbnail", "photo", "img"].some(keyword => header.includes(keyword) || accessor.includes(keyword));
+                });
+                let imageValue = imageField ? item[imageField.accessor] : undefined;
+                if (Array.isArray(imageValue) && imageValue[0]?.src) {
+                  imageUrl = imageValue[0].src;
+                } else if (typeof imageValue === 'object' && imageValue !== null && imageValue.src) {
+                  imageUrl = imageValue.src;
+                } else if (typeof imageValue === 'string') {
+                  imageUrl = imageValue;
+                }
+                // Pinterest Pins/Boards
+                if (!imageUrl && item.Item?.media?.images?.['600x']?.url) {
+                  imageUrl = item.Item.media.images['600x'].url;
+                } else if (!imageUrl && item.Item?.media?.image_cover_url) {
+                  imageUrl = item.Item.media.image_cover_url;
+                }
+                // All possible keys from the item (flattened)
+                const flattenObject = (obj: any, prefix = '', result: Record<string, any> = {}) => {
+                  for (const key in obj) {
+                    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+                    const value = obj[key];
+                    const newKey = prefix ? `${prefix}.${key}` : key;
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                      flattenObject(value, newKey, result);
+                    } else {
+                      result[newKey] = value;
+                    }
                   }
-                  {/* Optional: show a label or title below the image */}
-                  {filteredColumns[1] && (
-                    <div className="text-xs text-center mt-1 truncate w-full">
-                      {filteredColumns[1].render
-                        ? filteredColumns[1].render(item[filteredColumns[1].accessor], item, 'card')
-                        : String(item[filteredColumns[1].accessor])}
-                    </div>
-                  )}
-                </div>
-              ))}
+                  return result;
+                };
+                const flatItem = flattenObject(item);
+                const allKeys = Object.keys(flatItem);
+                const cardSelectedFields = cardSelectedFieldsMap[index] || [];
+                return (
+                  <div
+                    key={index}
+                    className="relative flex flex-col items-center bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer"
+                  >
+                    {/* Settings Icon */}
+                    <button
+                      className="absolute top-1 right-1 z-10 bg-white rounded-full p-1 shadow border hover:bg-gray-100"
+                      onClick={e => { e.stopPropagation(); setCardModalOpenIdx(index); }}
+                      title="Configure card fields"
+                      type="button"
+                    >
+                      <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+                    </button>
+                    {/* Only render the image */}
+                    {imageUrl ? (
+                      <img src={imageUrl} alt="" className="w-20 h-20 object-cover rounded" />
+                    ) : (
+                      <div className="w-20 h-20 flex items-center justify-center bg-gray-100 text-gray-400 rounded text-xs">No Image</div>
+                    )}
+                    {/* Render selected fields below the image */}
+                    {cardSelectedFields.length > 0 && (
+                      <div className="w-full mt-2 flex flex-col gap-1 items-center">
+                        {cardSelectedFields.map(fieldKey => (
+                          <div key={fieldKey} className="w-full text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 break-all text-center">
+                            <span className="font-semibold text-gray-500 mr-1">{fieldKey}:</span>
+                            <span>{typeof flatItem[fieldKey] === 'object' ? JSON.stringify(flatItem[fieldKey]) : String(flatItem[fieldKey] ?? '')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Card settings modal */}
+                    {cardModalOpenIdx === index && (
+                      <CardConfigModal
+                        open={cardModalOpenIdx === index}
+                        onClose={() => setCardModalOpenIdx(null)}
+                        allKeys={allKeys}
+                        selectedFields={cardSelectedFields}
+                        onChange={fields => setCardSelectedFieldsMap(prev => ({ ...prev, [index]: fields }))}
+                        title="Select fields to show"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -690,10 +870,26 @@ export default function DataView<T>({
                     />
                   </div>
                 )}
-                {modalTab === 'json' && (
-                  <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto h-full">
-                    {JSON.stringify(selectedItem, null, 2)}
-                  </pre>
+                {modalTab === 'json' && selectedItem && (
+                  <div className="bg-gray-50 rounded p-2 text-xs overflow-x-auto h-full">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        checked={areAllFieldsChecked(selectedItem, jsonCheckedFields, 'root')}
+                        onChange={e => handleSelectAllJson(selectedItem, e.target.checked)}
+                        className="accent-blue-600"
+                      />
+                      <span className="font-semibold">Select All</span>
+                    </div>
+                    <JsonExplorer
+                      data={selectedItem}
+                      checkedFields={jsonCheckedFields}
+                      setCheckedFields={setJsonCheckedFields}
+                      expandedFields={jsonExpandedFields}
+                      setExpandedFields={setJsonExpandedFields}
+                      parentKey="root"
+                    />
+                  </div>
                 )}
                 {modalTab === 'form' && renderViewOnlyForm(selectedItem)}
               </div>
@@ -710,63 +906,14 @@ export default function DataView<T>({
 
         {/* Grid Settings Modal */}
         {gridSettingsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity duration-300">
-            <div className="bg-white rounded-xl shadow-2xl p-0 min-w-[320px] max-w-full w-full sm:w-[600px] relative animate-fadeInScale">
-              {/* Sticky Header with Title and Actions */}
-              <div className="sticky top-0 z-10 bg-white rounded-t-xl flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                <span className="font-bold text-lg">Select fields to show</span>
-                <div className="flex gap-2 items-center">
-                  <button
-                    className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-gray-700 transition-colors"
-                    onClick={() => setSelectedGridFields([])}
-                    title="Clear all selections"
-                  >
-                    Clear All
-                  </button>
-                  <button
-                    className="text-gray-400 hover:text-red-500 text-xl px-2 py-1 rounded transition-colors"
-                    onClick={() => setGridSettingsOpen(false)}
-                    title="Close"
-                  >
-                    &times;
-                  </button>
-                </div>
-              </div>
-              {/* Checkbox Grid */}
-              <div className="max-h-[80vh] overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {availableGridFields.map((col) => (
-                  <label
-                    key={col.accessor}
-                    className="flex items-center gap-2 cursor-pointer py-2 px-2 rounded border border-gray-200 bg-white shadow-sm hover:shadow-md hover:bg-gray-50 focus-within:bg-gray-100 transition-all"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedGridFields.includes(String(col.accessor))}
-                      onChange={() => {
-                        setSelectedGridFields(prev => {
-                          const accessor = String(col.accessor);
-                          return prev.includes(accessor)
-                            ? prev.filter(f => f !== accessor)
-                            : [...prev, accessor];
-                        });
-                      }}
-                      className="accent-blue-600"
-                    />
-                    <span className="truncate" title={col.header}>{col.header}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <style jsx>{`
-              @keyframes fadeInScale {
-                0% { opacity: 0; transform: scale(0.95); }
-                100% { opacity: 1; transform: scale(1); }
-              }
-              .animate-fadeInScale {
-                animation: fadeInScale 0.25s cubic-bezier(0.4,0,0.2,1);
-              }
-            `}</style>
-          </div>
+          <GridConfigModal<T>
+            open={gridSettingsOpen}
+            onClose={() => setGridSettingsOpen(false)}
+            availableFields={availableGridFields}
+            selectedFields={selectedGridFields}
+            onChange={setSelectedGridFields}
+            title="Select fields to show"
+          />
         )}
       </div>
     </div>

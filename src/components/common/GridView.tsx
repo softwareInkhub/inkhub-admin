@@ -27,10 +27,24 @@ function findImageColIdx<T>(columns: GridViewProps<T>["columns"]): number {
 
 function GridView<T>({ data, columns, itemsPerRow = 6, viewType = 'grid', onItemClick, selectedFields = [], getFlattenedRow }: GridViewProps<T>) {
   const imageColIdx = findImageColIdx(columns);
+  const imageCol = columns[imageColIdx];
   return (
     <div className={`flex flex-col gap-4 p-2`}>
+      {/* Sticky Header Row */}
+      <div className="flex flex-row items-stretch sticky top-0 z-20 bg-white border-b">
+        {/* Image column header */}
+        <div className="w-40 flex items-center justify-center font-bold uppercase text-xs text-gray-500 py-2 border-r">{imageCol ? imageCol.header : 'Image'}</div>
+        {/* Selected fields headers */}
+        {selectedFields.map((accessor) => {
+          const col = columns.find(c => String(c.accessor) === accessor);
+          return (
+            <div key={accessor} className="w-40 flex items-center justify-center font-bold uppercase text-xs text-gray-500 py-2 border-r">
+              {col ? col.header : accessor}
+            </div>
+          );
+        })}
+      </div>
       {data.map((item, idx) => {
-        const imageCol = columns[imageColIdx];
         const flatRow = getFlattenedRow ? getFlattenedRow(item) : item;
         return (
           <div key={idx} className="flex flex-row items-stretch bg-white rounded shadow border p-2 relative gap-2">
