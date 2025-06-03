@@ -483,6 +483,8 @@ export default function DataView<T>({
     setRangeStartIdx(null);
     setRangeEndIdx(null);
     setRangeSelecting(false);
+    setSelectedRowIds(new Set());
+    onSelectionChange?.([]);
   };
 
   // Handle row click to open modal
@@ -550,7 +552,7 @@ export default function DataView<T>({
       return {
         header: col?.header || key,
         accessor: key,
-        render: col?.render,
+        render: col?.render as ((value: any, row: T, viewType?: 'table' | 'grid' | 'card' | string) => React.ReactNode) | undefined,
       };
     });
 
@@ -667,21 +669,6 @@ export default function DataView<T>({
         </div>
       </div>
 
-      {/* Clear Selection Button */}
-      {selectedRowIds.size > 0 && (
-        <div className="flex items-center gap-2 mb-2">
-          <button
-            className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
-            onClick={() => {
-              setSelectedRowIds(new Set());
-              onSelectionChange?.([]);
-            }}
-          >
-            Clear Selection
-          </button>
-        </div>
-      )}
-
       {/* Scrollable Content Section */}
       <div className="flex-1 min-h-0 h-0 overflow-auto relative p-0 m-0">
         {/* Loading Overlay - Only show for initial load */}
@@ -705,6 +692,7 @@ export default function DataView<T>({
             hoveredIdx={hoveredIdx}
             setHoveredIdx={setHoveredIdx}
             onRowClick={handleRowClick}
+            onClearRange={clearRangeSelection}
           />
         )}
         {viewType === 'grid' && (
