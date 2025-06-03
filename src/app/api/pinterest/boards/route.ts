@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import Redis from 'ioredis';
+import redis from '@/utils/redis';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {
@@ -28,7 +28,6 @@ const client = new DynamoDBClient({
   }
 });
 const docClient = DynamoDBDocumentClient.from(client);
-const redis = new Redis({ host: 'localhost', port: 6379 });
 
 const CACHE_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 const ALL_BOARDS_CACHE_KEY = 'pinterest_boards:all';
@@ -51,7 +50,7 @@ async function acquireLock(retries = 3, delay = 1000): Promise<boolean> {
 
   for (let i = 0; i < retries; i++) {
     const timestamp = Date.now().toString();
-    const locked = await redis.set(CACHE_LOCK_KEY, timestamp, 'NX', 'EX', LOCK_TTL);
+    const locked = await redis.set(CACHE_LOCK_KEY, timestamp, 'EX', LOCK_TTL, 'NX');
     if (locked === 'OK') {
       console.log('[Debug] 🔒 Lock acquired successfully');
       return true;

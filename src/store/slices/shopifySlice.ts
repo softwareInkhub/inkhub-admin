@@ -8,6 +8,8 @@ interface ShopifyState {
   error: string | null;
   ordersLastEvaluatedKey: any | null;
   productsLastEvaluatedKey: any | null;
+  totalOrders: number;
+  totalProducts: number;
 }
 
 const initialState: ShopifyState = {
@@ -17,11 +19,13 @@ const initialState: ShopifyState = {
   error: null,
   ordersLastEvaluatedKey: null,
   productsLastEvaluatedKey: null,
+  totalOrders: 0,
+  totalProducts: 0,
 };
 
 export const fetchOrders = createAsyncThunk(
   'shopify/fetchOrders',
-  async ({ limit = 500, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+  async ({ limit = 50, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
       if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
@@ -64,15 +68,18 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
-        const { items = [], lastEvaluatedKey } = action.payload || {};
+        const { items = [], lastEvaluatedKey, total } = action.payload || {};
+        // Unwrap 'item' if present
+        const flatItems = items.map(order => order.item ? order.item : order);
         if (action.meta.arg && action.meta.arg.lastKey) {
           // Pagination: append
-          state.orders = [...state.orders, ...(items || [])];
+          state.orders = [...state.orders, ...flatItems];
         } else {
           // First page: replace
-          state.orders = items || [];
+          state.orders = flatItems;
         }
         state.ordersLastEvaluatedKey = lastEvaluatedKey || null;
+        state.totalOrders = typeof total === 'number' ? total : state.orders.length;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
@@ -85,7 +92,7 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        const { items = [], lastEvaluatedKey } = action.payload || {};
+        const { items = [], lastEvaluatedKey, total } = action.payload || {};
         if (action.meta.arg && action.meta.arg.lastKey) {
           // Pagination: append
           state.products = [...state.products, ...(items || [])];
@@ -94,6 +101,7 @@ const shopifySlice = createSlice({
           state.products = items || [];
         }
         state.productsLastEvaluatedKey = lastEvaluatedKey || null;
+        state.totalProducts = typeof total === 'number' ? total : state.products.length;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;

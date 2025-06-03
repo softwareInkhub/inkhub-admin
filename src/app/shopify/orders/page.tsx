@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
+import FilterBar from '@/components/common/FilterBar';
 
 const tabs = [
   { name: 'All Orders', key: 'all' },
@@ -20,7 +21,15 @@ const tabs = [
 
 export default function ShopifyOrders() {
   const dispatch = useDispatch<AppDispatch>();
-  const { orders, loading, error, ordersLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
+  const { orders, loading, error, ordersLastEvaluatedKey, totalOrders } = useSelector((state: RootState) => state.shopify);
+
+  // Flatten orders if needed
+  const flatOrders = orders.map(order => order.item ? order.item : order);
+
+  // Debug: log the contents of flatOrders
+  useEffect(() => {
+    console.log('Debug flatOrders:', flatOrders);
+  }, [flatOrders]);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -30,11 +39,18 @@ export default function ShopifyOrders() {
     'order_number', 'customer', 'email', 'phone', 'total_price', 'financial_status', 'fulfillment_status', 'line_items', 'created_at', 'updated_at'
   ]);
 
+  // Multi-filter states
+  const [status, setStatus] = useState('All');
+  const [fulfillment, setFulfillment] = useState('All');
+  // Smart filter states
+  const [smartField, setSmartField] = useState('order_number');
+  const [smartValue, setSmartValue] = useState('');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsInitialLoad(true);
-        await dispatch(fetchOrders({ limit: 500 })).unwrap();
+        await dispatch(fetchOrders({ limit: 1000 })).unwrap();
       } catch (err) {
         console.error('Error fetching orders:', err);
       } finally {
@@ -48,7 +64,7 @@ export default function ShopifyOrders() {
     if (!ordersLastEvaluatedKey || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      await dispatch(fetchOrders({ limit: 500, lastKey: ordersLastEvaluatedKey })).unwrap();
+      await dispatch(fetchOrders({ limit: 1000, lastKey: ordersLastEvaluatedKey })).unwrap();
     } catch (err) {
       console.error('Error loading more orders:', err);
     } finally {
@@ -67,10 +83,45 @@ export default function ShopifyOrders() {
     }
   }, [orders]);
 
-  // Filter orders
-  let filteredOrders = orders;
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredOrders = filteredOrders.filter(order => (order.financial_status || '').toLowerCase() === analytics.filter.toLowerCase());
+  // Build filter options from data
+  const statusOptions = ['All', ...Array.from(new Set(flatOrders.map((d: any) => d.financial_status).filter(Boolean)))];
+  const fulfillmentOptions = ['All', ...Array.from(new Set(flatOrders.map((d: any) => d.fulfillment_status).filter(Boolean)))];
+  const smartFieldOptions = [
+    { label: 'Order #', value: 'order_number' },
+    { label: 'Customer', value: 'customer' },
+    { label: 'Email', value: 'email' },
+    { label: 'Phone', value: 'phone' },
+    { label: 'Total', value: 'total_price' },
+    { label: 'Status', value: 'financial_status' },
+    { label: 'Fulfillment', value: 'fulfillment_status' },
+    { label: 'Items', value: 'line_items' },
+    { label: 'Created', value: 'created_at' },
+    { label: 'Updated', value: 'updated_at' },
+  ];
+
+  // Multi-filter logic
+  let filteredOrders = flatOrders.filter((row: any) =>
+    (status === 'All' || row.financial_status === status) &&
+    (fulfillment === 'All' || row.fulfillment_status === fulfillment)
+  );
+  // Smart filter logic
+  if (smartValue) {
+    filteredOrders = filteredOrders.filter((row: any) => {
+      let val = row[smartField];
+      if (smartField === 'customer') {
+        val = `${row.customer?.first_name || ''} ${row.customer?.last_name || ''}`.trim();
+      }
+      if (smartField === 'line_items') {
+        val = Array.isArray(row.line_items) ? row.line_items.length : '';
+      }
+      if (smartField === 'created_at' || smartField === 'updated_at') {
+        val = row[smartField] ? new Date(row[smartField]).toLocaleDateString() : '';
+      }
+      if (Array.isArray(val)) {
+        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+      }
+      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
+    });
   }
 
   // Grouping and aggregation
@@ -134,6 +185,14 @@ export default function ShopifyOrders() {
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for orders
 
+  // Reset all filters
+  const handleResetFilters = () => {
+    setStatus('All');
+    setFulfillment('All');
+    setSmartField('order_number');
+    setSmartValue('');
+  };
+
   if ((loading && isInitialLoad) || isInitialLoad) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
@@ -160,7 +219,7 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" onChange={setAnalytics} data={orders} filteredCount={filteredOrders.length} />
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 
@@ -185,6 +244,21 @@ export default function ShopifyOrders() {
             onLoadMore={handleNextPage}
             hasMore={!!ordersLastEvaluatedKey}
             isLoadingMore={isLoadingMore}
+            status={status}
+            setStatus={setStatus}
+            statusOptions={statusOptions}
+            type={fulfillment}
+            setType={setFulfillment}
+            typeOptions={fulfillmentOptions}
+            board={''}
+            setBoard={() => {}}
+            boardOptions={[]}
+            smartField={smartField}
+            setSmartField={setSmartField}
+            smartFieldOptions={smartFieldOptions}
+            smartValue={smartValue}
+            setSmartValue={setSmartValue}
+            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

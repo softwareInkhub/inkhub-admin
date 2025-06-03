@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DecoupledHeaderProps {
   columns: { header: string; accessor: string }[];
@@ -8,6 +9,9 @@ interface DecoupledHeaderProps {
 
 export default function DecoupledHeader({ columns, visibleColumns, onColumnsChange }: DecoupledHeaderProps) {
   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const handleToggleColumn = (accessor: string) => {
     if (visibleColumns.includes(accessor)) {
@@ -17,15 +21,42 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
     }
   };
 
+  // Click-away to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
+  // Set dropdown position when opening
+  useEffect(() => {
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.right - 224 + window.scrollX, // 224px = w-56
+      });
+    }
+  }, [open]);
+
   return (
-    <div className="flex justify-between items-center w-full relative mb-2 gap-2 bg-white p-3 rounded shadow-sm"
-         style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap' }}>
+    <div className="flex justify-between items-center w-full relative bg-white p-0 m-0 gap-0"
+         style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap', minHeight: 0 }}>
       {/* Active columns as chips (left) */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-x-0.5 gap-y-0 items-center min-h-0 p-0 m-0">
         {columns.filter(col => visibleColumns.includes(col.accessor)).map(col => (
           <span
             key={col.accessor}
-            className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-200"
+            className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] border border-blue-200 font-normal"
+            style={{lineHeight: '1.1', margin: 0}}
           >
             {col.header}
           </span>
@@ -33,6 +64,7 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
       </div>
       {/* Settings button (right) */}
       <button
+        ref={buttonRef}
         className="p-2 rounded-full hover:bg-gray-200 focus:outline-none"
         onClick={() => setOpen(o => !o)}
         title="Configure columns"
@@ -41,8 +73,12 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
       </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded shadow-lg z-50 p-3">
+      {open && dropdownPos && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed w-56 bg-white border border-gray-200 rounded shadow-lg z-50 p-3"
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}
+        >
           <div className="flex justify-between items-center mb-2">
             <span className="font-semibold text-sm text-gray-700">Show Columns</span>
             <button
@@ -65,7 +101,8 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
               </label>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -9,10 +9,32 @@ import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ImageCell from '@/components/common/ImageCell';
+import GridView from '@/components/common/GridView';
+import FilterBar from '@/components/common/FilterBar';
+
+// Reusable image cell component
+function ProductImageCell({ src, alt, viewType }: { src: string; alt: string; viewType?: string }) {
+  const size = viewType === 'card' ? 64 : 28;
+  const radius = viewType === 'card' ? 8 : 4;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          style={{ width: size, height: size, objectFit: 'cover', borderRadius: radius }}
+        />
+      ) : (
+        <span>No Image</span>
+      )}
+    </div>
+  );
+}
 
 export default function ShopifyProducts() {
   const dispatch = useDispatch<AppDispatch>();
-  const { products, loading, error, productsLastEvaluatedKey } = useSelector((state: RootState) => state.shopify);
+  const { products, loading, error, productsLastEvaluatedKey, totalProducts } = useSelector((state: RootState) => state.shopify);
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -21,6 +43,14 @@ export default function ShopifyProducts() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'image', 'id', 'title', 'vendor', 'product_type', 'status', 'tags', 'created_at', 'updated_at'
   ]);
+
+  // Multi-filter states
+  const [status, setStatus] = useState('All');
+  const [type, setType] = useState('All');
+  const [vendor, setVendor] = useState('All');
+  // Smart filter states
+  const [smartField, setSmartField] = useState('title');
+  const [smartValue, setSmartValue] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,9 +71,32 @@ export default function ShopifyProducts() {
     }
   };
 
-  let filteredProducts = products;
-  if (analytics.filter && analytics.filter !== 'All') {
-    filteredProducts = filteredProducts.filter(product => product.status === analytics.filter || product.product_type === analytics.filter || product.vendor === analytics.filter);
+  // Build filter options from data
+  const statusOptions = ['All', ...Array.from(new Set(products.map((d: any) => d.status).filter(Boolean)))];
+  const typeOptions = ['All', ...Array.from(new Set(products.map((d: any) => d.product_type).filter(Boolean)))];
+  const vendorOptions = ['All', ...Array.from(new Set(products.map((d: any) => d.vendor).filter(Boolean)))];
+  const smartFieldOptions = [
+    { label: 'Title', value: 'title' },
+    { label: 'Vendor', value: 'vendor' },
+    { label: 'Type', value: 'product_type' },
+    { label: 'Status', value: 'status' },
+  ];
+
+  // Multi-filter logic
+  let filteredProducts = products.filter((row: any) =>
+    (status === 'All' || row.status === status) &&
+    (type === 'All' || row.product_type === type) &&
+    (vendor === 'All' || row.vendor === vendor)
+  );
+  // Smart filter logic
+  if (smartValue) {
+    filteredProducts = filteredProducts.filter((row: any) => {
+      const val = row[smartField];
+      if (Array.isArray(val)) {
+        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+      }
+      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
+    });
   }
 
   let tableData = filteredProducts;
@@ -51,19 +104,16 @@ export default function ShopifyProducts() {
     {
       header: 'Image',
       accessor: 'image',
-      render: (value: any, row: any) =>
-        row.image && row.image.src ? (
-          <img
-            src={row.image.src}
-            alt={row.title}
-            className="w-16 h-16 object-cover rounded"
-          />
-        ) : (
-          <span>No Image</span>
-        ),
+      render: (_: any, row: any, viewType?: string) => (
+        <ImageCell src={row.image?.src} alt={row.title} viewType={viewType === 'grid' ? 'card' : viewType} />
+      ),
     },
     { header: 'Product ID', accessor: 'id' },
-    { header: 'Title', accessor: 'title' },
+    {
+      header: 'Title',
+      accessor: 'title',
+      render: (value: any, _row: any, viewType?: string) => viewType === 'grid' ? <span className="font-semibold text-base truncate">{value}</span> : value,
+    },
     { header: 'Vendor', accessor: 'vendor' },
     { header: 'Product Type', accessor: 'product_type' },
     { header: 'Status', accessor: 'status' },
@@ -94,9 +144,21 @@ export default function ShopifyProducts() {
     );
   }
 
+  // When rendering grid view, only pass the image and title columns:
+  const gridColumns = [columns[0], columns[2]];
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setStatus('All');
+    setType('All');
+    setVendor('All');
+    setSmartField('title');
+    setSmartValue('');
+  };
+
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="products" onChange={setAnalytics} />
+      <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="products" 
@@ -109,6 +171,7 @@ export default function ShopifyProducts() {
           <DataView
             data={tableData}
             columns={filteredColumns}
+            gridColumns={gridColumns}
             onSort={() => {}}
             onSearch={() => {}}
             section="shopify"
@@ -117,6 +180,21 @@ export default function ShopifyProducts() {
             onLoadMore={() => handleNextPage()}
             hasMore={!!productsLastEvaluatedKey}
             isLoadingMore={isLoadingMore}
+            status={status}
+            setStatus={setStatus}
+            statusOptions={statusOptions}
+            type={type}
+            setType={setType}
+            typeOptions={typeOptions}
+            board={vendor}
+            setBoard={setVendor}
+            boardOptions={vendorOptions}
+            smartField={smartField}
+            setSmartField={setSmartField}
+            smartFieldOptions={smartFieldOptions}
+            smartValue={smartValue}
+            setSmartValue={setSmartValue}
+            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

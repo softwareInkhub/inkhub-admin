@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import Redis from 'ioredis';
+import redis from '@/utils/redis';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {
@@ -28,8 +28,6 @@ const client = new DynamoDBClient({
   }
 });
 const docClient = DynamoDBDocumentClient.from(client);
-
-const redis = new Redis({ host: 'localhost', port: 6379 });
 
 interface ShopifyProduct {
   id: string;

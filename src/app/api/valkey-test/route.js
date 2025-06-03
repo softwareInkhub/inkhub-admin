@@ -1,6 +1,4 @@
-import Redis from 'ioredis';
-
-const redis = new Redis({ host: 'localhost', port: 6379 });
+import redis from '@/utils/redis';
 
 export async function GET() {
   // Set a value in Valkey

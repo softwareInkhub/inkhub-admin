@@ -1,23 +1,31 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   TableCellsIcon,
   Squares2X2Icon,
   ViewColumnsIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useDispatch } from 'react-redux';
 import { updateDesign, deleteDesign, fetchDesigns } from '@/store/slices/designLibrarySlice';
 import type { AppDispatch } from '@/store/store';
 import React from 'react';
 import DecoupledHeader from './DecoupledHeader';
+import GridView from './GridView';
+import TableView from './TableView';
+import UniversalOperationBar from './UniversalOperationBar';
+import FilterBar from './FilterBar';
+import ModalNavigator from './ModalNavigator';
+import CardConfigModal from './CardConfigModal';
+import GridConfigModal from './GridConfigModal';
 
 interface DataViewProps<T> {
   data: T[];
   columns: {
     header: string;
     accessor: keyof T;
-    render?: (value: any, row: T) => React.ReactNode;
+    render?: (value: any, row: T, viewType?: 'table' | 'grid' | 'card') => React.ReactNode;
   }[];
   onSort?: (column: keyof T) => void;
   onSearch?: (query: string) => void;
@@ -28,9 +36,235 @@ interface DataViewProps<T> {
   section?: string;
   tabKey?: string;
   initialVisibleColumns?: string[];
+  gridColumns?: {
+    header: string;
+    accessor: keyof T;
+    render?: (value: any, row: T, viewType?: 'table' | 'grid' | 'card') => React.ReactNode;
+  }[];
+  // FilterBar props
+  status?: string;
+  setStatus?: (v: string) => void;
+  statusOptions?: string[];
+  type?: string;
+  setType?: (v: string) => void;
+  typeOptions?: string[];
+  board?: string;
+  setBoard?: (v: string) => void;
+  boardOptions?: string[];
+  smartField?: string;
+  setSmartField?: (v: string) => void;
+  smartFieldOptions?: { label: string; value: string }[];
+  smartValue?: string;
+  setSmartValue?: (v: string) => void;
+  onResetFilters?: () => void;
 }
 
 type ViewType = 'table' | 'grid' | 'card';
+
+// Utility to flatten nested objects into dot-separated keys
+function flattenObject(obj: any, prefix = '', result: Record<string, any> = {}) {
+  for (const key in obj) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    const value = obj[key];
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenObject(value, newKey, result);
+    } else {
+      result[newKey] = value;
+    }
+  }
+  return result;
+}
+
+// Recursive component to render nested form fields with collapsible sections
+const RenderNestedForm = React.memo(({ data, parentKey = '', openSections, toggleSection }: { data: any; parentKey?: string; openSections: Record<string, boolean>; toggleSection: (key: string) => void }) => {
+  if (Array.isArray(data)) {
+    const sectionKey = parentKey;
+    const isOpen = openSections[sectionKey] ?? true;
+    return (
+      <div className="pl-4 border-l-2 border-gray-200 my-1">
+        <button
+          className="flex items-center gap-1 text-xs text-gray-500 mb-1 focus:outline-none"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <span className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+          Array [{data.length}]
+        </button>
+        {isOpen && data.map((item, idx) => (
+          <div key={idx} className="mb-2">
+            <span className="text-xs font-semibold text-gray-400 mr-2">[{idx}]</span>
+            <RenderNestedForm data={item} parentKey={`${sectionKey}[${idx}]`} openSections={openSections} toggleSection={toggleSection} />
+          </div>
+        ))}
+      </div>
+    );
+  } else if (typeof data === 'object' && data !== null) {
+    const sectionKey = parentKey;
+    const isOpen = openSections[sectionKey] ?? true;
+    return (
+      <div className="pl-2 border-l-2 border-gray-100 my-1 space-y-2">
+        <button
+          className="flex items-center gap-1 text-xs text-gray-500 mb-1 focus:outline-none"
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <span className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+          Object
+        </button>
+        {isOpen && Object.entries(data).map(([key, value]) => {
+          const childKey = sectionKey ? `${sectionKey}.${key}` : key;
+          return (
+            <div key={childKey} className="flex flex-col mb-1">
+              <label className="text-xs font-semibold text-gray-500 mb-1">{key}</label>
+              <RenderNestedForm data={value} parentKey={childKey} openSections={openSections} toggleSection={toggleSection} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else if (typeof data === 'string' && (data.startsWith('http://') || data.startsWith('https://'))) {
+    return (
+      <a
+        href={data}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all text-xs whitespace-pre-line"
+      >
+        {data}
+      </a>
+    );
+  } else {
+    return (
+      <div className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs break-all whitespace-pre-line min-h-[32px]">
+        {typeof data === 'object' ? JSON.stringify(data) : String(data ?? '')}
+      </div>
+    );
+  }
+});
+
+// Recursive JSON Explorer with checkboxes, select all, priority, and collapsible objects/arrays
+const JsonExplorer = ({ data, checkedFields, setCheckedFields, expandedFields, setExpandedFields, parentKey = '' }: {
+  data: any;
+  checkedFields: Set<string>;
+  setCheckedFields: (fields: Set<string>) => void;
+  expandedFields: Set<string>;
+  setExpandedFields: (fields: Set<string>) => void;
+  parentKey?: string;
+}) => {
+  // Helper to build a unique key for each field
+  const getKey = (key: string | number) => (parentKey ? `${parentKey}.${key}` : String(key));
+
+  // Helper to toggle checked state for a field and all its children
+  const toggleCheck = (key: string, value: any, checked: boolean) => {
+    const newChecked = new Set(checkedFields);
+    const updateChildren = (val: any, k: string) => {
+      newChecked[checked ? 'add' : 'delete'](k);
+      if (typeof val === 'object' && val !== null) {
+        if (Array.isArray(val)) {
+          val.forEach((item, idx) => updateChildren(item, `${k}[${idx}]`));
+        } else {
+          Object.entries(val).forEach(([childKey, childVal]) => updateChildren(childVal, `${k}.${childKey}`));
+        }
+      }
+    };
+    updateChildren(value, key);
+    setCheckedFields(newChecked);
+  };
+
+  // Helper to toggle expanded/collapsed state
+  const toggleExpand = (key: string) => {
+    const newExpanded = new Set(expandedFields);
+    if (newExpanded.has(key)) newExpanded.delete(key);
+    else newExpanded.add(key);
+    setExpandedFields(newExpanded);
+  };
+
+  // Helper to check if all children are checked
+  const areAllChildrenChecked = (value: any, key: string): boolean => {
+    let allChecked = checkedFields.has(key);
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        allChecked = allChecked && value.every((item, idx) => areAllChildrenChecked(item, `${key}[${idx}]`));
+      } else {
+        allChecked = allChecked && Object.entries(value).every(([childKey, childVal]) => areAllChildrenChecked(childVal, `${key}.${childKey}`));
+      }
+    }
+    return allChecked;
+  };
+
+  // Helper to render a field
+  const renderField = (key: string | number, value: any) => {
+    const fieldKey = getKey(key);
+    const isChecked = checkedFields.has(fieldKey);
+    const isExpanded = expandedFields.has(fieldKey);
+    const isObject = typeof value === 'object' && value !== null;
+    const isArray = Array.isArray(value);
+    return (
+      <div key={fieldKey} className="pl-2 border-l border-gray-200 my-1">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={e => toggleCheck(fieldKey, value, e.target.checked)}
+            className="accent-blue-600"
+          />
+          {isObject ? (
+            <button
+              className="text-xs text-gray-600 font-mono px-1 py-0.5 rounded hover:bg-gray-100 focus:outline-none"
+              onClick={() => toggleExpand(fieldKey)}
+              type="button"
+            >
+              {isArray ? (isExpanded ? '[...]' : '[...]') : (isExpanded ? '{...}' : '{...}')}
+            </button>
+          ) : null}
+          <span className="text-xs font-semibold text-gray-700 font-mono">{String(key)}</span>
+          {!isObject && (
+            typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://')) ? (
+              <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all text-xs whitespace-pre-line">{value}</a>
+            ) : (
+              <span className="text-xs break-all whitespace-pre-line">{typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}</span>
+            )
+          )}
+        </div>
+        {isObject && isExpanded && (
+          <div className="ml-4">
+            {isArray
+              ? value.map((item: any, idx: number) => renderField(idx, item))
+              : Object.entries(value).map(([childKey, childVal]) => renderField(childKey, childVal))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Priority: checked fields first
+  let entries: [string | number, any][] = [];
+  if (Array.isArray(data)) {
+    entries = data.map((item, idx) => [idx, item]);
+  } else if (typeof data === 'object' && data !== null) {
+    entries = Object.entries(data);
+  }
+  const checkedEntries = entries.filter(([k]) => checkedFields.has(getKey(k)));
+  const uncheckedEntries = entries.filter(([k]) => !checkedFields.has(getKey(k)));
+  const orderedEntries = [...checkedEntries, ...uncheckedEntries];
+
+  return (
+    <div>
+      {orderedEntries.map(([k, v]) => renderField(k, v))}
+    </div>
+  );
+};
+
+// Helper to check if all fields are checked in the JSON explorer
+function areAllFieldsChecked(data: any, checkedFields: Set<string>, parentKey = 'root'): boolean {
+  const checkKey = (key: string | number) => (parentKey ? `${parentKey}.${key}` : String(key));
+  if (Array.isArray(data)) {
+    return checkedFields.has(parentKey) && data.every((item, idx) => areAllFieldsChecked(item, checkedFields, `${parentKey}[${idx}]`));
+  } else if (typeof data === 'object' && data !== null) {
+    return checkedFields.has(parentKey) && Object.entries(data).every(([key, value]) => areAllFieldsChecked(value, checkedFields, parentKey ? `${parentKey}.${key}` : key));
+  } else {
+    return checkedFields.has(parentKey);
+  }
+}
 
 export default function DataView<T>({
   data,
@@ -44,6 +278,22 @@ export default function DataView<T>({
   section = '',
   tabKey = '',
   initialVisibleColumns,
+  gridColumns,
+  status,
+  setStatus,
+  statusOptions,
+  type,
+  setType,
+  typeOptions,
+  board,
+  setBoard,
+  boardOptions,
+  smartField,
+  setSmartField,
+  smartFieldOptions,
+  smartValue,
+  setSmartValue,
+  onResetFilters,
 }: DataViewProps<T>) {
   const [viewType, setViewType] = useState<ViewType>('table');
   const [selectedItem, setSelectedItem] = useState<T | null>(null);
@@ -52,10 +302,12 @@ export default function DataView<T>({
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [lastClickedIdx, setLastClickedIdx] = useState<number | null>(null);
   const [rangeSelecting, setRangeSelecting] = useState(false);
+  const [rangeStartIdx, setRangeStartIdx] = useState<number | null>(null);
+  const [rangeEndIdx, setRangeEndIdx] = useState<number | null>(null);
   const [showRangeOptionsIdx, setShowRangeOptionsIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
-  const [modalTab, setModalTab] = useState<'json' | 'form'>('json');
+  const [modalTab, setModalTab] = useState<'json' | 'form' | 'image'>('json');
   const [rowPinnedFields, setRowPinnedFields] = useState<{ [rowId: string]: string[] }>({});
   const [pinnedFields, setPinnedFields] = useState<string[]>([]);
   const [highlightedField, setHighlightedField] = useState<string | null>(null);
@@ -81,7 +333,23 @@ export default function DataView<T>({
     : data;
 
   // Helper to get unique key for a row
-  const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
+  const getRowId = (item: unknown) => {
+    if (!item || typeof item !== 'object') return '';
+    const obj = item as Record<string, any>;
+    return obj.id ?? obj.order_number ?? obj.uid ?? JSON.stringify(obj);
+  };
+
+  // Handle row selection
+  const handleRowSelect = (rowId: string, checked: boolean) => {
+    const newSelectedRowIds = new Set(selectedRowIds);
+    if (checked) {
+      newSelectedRowIds.add(rowId);
+    } else {
+      newSelectedRowIds.delete(rowId);
+    }
+    setSelectedRowIds(newSelectedRowIds);
+    onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
+  };
 
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
@@ -92,35 +360,6 @@ export default function DataView<T>({
     } else {
       setSelectedRowIds(new Set());
       onSelectionChange?.([]);
-    }
-  };
-
-  // Handle individual row selection with Shift+Click support
-  const handleRowSelect = (rowId: string, checked: boolean, idx: number, event?: React.MouseEvent) => {
-    let newSelectedRowIds = new Set(selectedRowIds);
-    if (event && event.shiftKey && lastClickedIdx !== null) {
-      // Shift+Click: select range
-      const [start, end] = [lastClickedIdx, idx].sort((a, b) => a - b);
-      const idsInRange = data.slice(start, end + 1).map(getRowId);
-      console.log('Shift+Click detected:', { lastClickedIdx, idx, idsInRange });
-      idsInRange.forEach(id => newSelectedRowIds.add(id));
-      setSelectedRowIds(newSelectedRowIds);
-      onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
-    } else {
-      // Normal click
-      if (checked) {
-        newSelectedRowIds.add(rowId);
-      } else {
-        newSelectedRowIds.delete(rowId);
-      }
-      setSelectedRowIds(newSelectedRowIds);
-      onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
-      setLastClickedIdx(idx);
-      console.log('Normal click:', { idx, rowId });
-    }
-    // Always update lastClickedIdx for Shift+Click
-    if (!event || !event.shiftKey) {
-      setLastClickedIdx(idx);
     }
   };
 
@@ -203,134 +442,192 @@ export default function DataView<T>({
     }
   }, [selectedItem]);
 
+  // Collapsible state for nested form view
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const toggleSection = useCallback((key: string) => {
+    setOpenSections((prev: Record<string, boolean>) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
   // Helper to render view-only form fields
   const renderViewOnlyForm = (row: any) => {
     if (!row) return null;
-    // Always pin designImageUrl at the top if present
-    const entries = Object.entries(row);
-    let fields = entries.map(([key, value]) => ({ key, value }));
-    // Move designImageUrl to the top if present
-    const designImageIdx = fields.findIndex(f => f.key === 'designImageUrl');
-    let designImageField = null;
-    if (designImageIdx !== -1) {
-      designImageField = fields[designImageIdx];
-      fields.splice(designImageIdx, 1);
-    }
-    // Sort pinned fields to the top (except designImageUrl)
-    const pinned = fields.filter(f => pinnedFields.includes(f.key));
-    const unpinned = fields.filter(f => !pinnedFields.includes(f.key));
-    // Order pinned fields as in pinnedFields array
-    pinned.sort((a, b) => pinnedFields.indexOf(a.key) - pinnedFields.indexOf(b.key));
-    const orderedFields = [
-      ...(designImageField ? [designImageField] : []),
-      ...pinned,
-      ...unpinned,
-    ];
     return (
-      <div className="space-y-2">
-        {/* Pinned field header at the top */}
-        {pinnedFields.length > 0 && (
-          <div className="mb-2 flex flex-col max-w-full">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold text-blue-700 text-sm">Pinned:</span>
-              {pinnedFields.map((key) => (
-                <button
-                  key={key}
-                  className={`px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 hover:bg-blue-200 focus:outline-none ${activePinnedPreview === key ? 'ring-2 ring-blue-400' : ''}`}
-                  onClick={() => setActivePinnedPreview(prev => prev === key ? null : key)}
-                  type="button"
-                >
-                  {key}
-                </button>
-              ))}
-            </div>
-            {activePinnedPreview && (() => {
-              const field = orderedFields.find(f => f.key === activePinnedPreview);
-              if (!field) return null;
-              return (
-                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex flex-col items-start">
-                  <span className="text-xs font-semibold text-blue-700 mb-1">{field.key}</span>
-                  {field.key === 'designImageUrl' && field.value && typeof field.value === 'string' && field.value.startsWith('http') ? (
-                    <img src={String(field.value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
-                  ) : null}
-                  <span className="text-xs break-all">
-                    {typeof field.value === 'object' ? JSON.stringify(field.value) : String(field.value ?? '')}
-                  </span>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-        {orderedFields.map(({ key, value }) => (
-          <div
-            key={key}
-            id={`form-field-${key}`}
-            className={`flex flex-col relative transition-all duration-300 ${highlightedField === key ? 'ring-2 ring-blue-400 bg-blue-50' : ''}`}
-          >
-            <div className="flex items-center mb-1">
-              <label className="text-xs font-semibold text-gray-500 mr-2">{key}</label>
-              {/* Pin/unpin button, except for designImageUrl */}
-              {key !== 'designImageUrl' && (
-                <button
-                  className={`ml-1 text-xs ${pinnedFields.includes(key) ? 'text-blue-600' : 'text-gray-400'} hover:text-blue-700`}
-                  title={pinnedFields.includes(key) ? 'Unpin' : 'Pin to top'}
-                  type="button"
-                  onClick={() => {
-                    setPinnedFields(prev => {
-                      const rowId = getRowId(row);
-                      const newPins = prev.includes(key)
-                        ? prev.filter(f => f !== key)
-                        : [...prev, key];
-                      setRowPinnedFields(all => ({ ...all, [rowId]: newPins }));
-                      return newPins;
-                    });
-                  }}
-                >
-                  {pinnedFields.includes(key) ? '📌' : '📍'}
-                </button>
-              )}
-            </div>
-            {/* Special rendering for designImageUrl */}
-            {key === 'designImageUrl' && value && typeof value === 'string' && value.startsWith('http') && (
-              <img src={String(value)} alt="Design" className="mb-2 w-32 h-32 object-contain rounded border border-gray-200" />
-            ) as React.ReactNode}
-            <input
-              className="input input-sm bg-gray-100 border border-gray-200 rounded px-2 py-1 text-xs"
-              value={typeof value === 'object' ? JSON.stringify(value) : String(value ?? '')}
-              readOnly
-            />
-          </div>
-        ))}
+      <div className="p-1">
+        <RenderNestedForm data={row} openSections={openSections} toggleSection={toggleSection} />
       </div>
     );
   };
 
+  // Range selection logic
+  const handleRangeStart = (idx: number) => {
+    setRangeStartIdx(idx);
+    setRangeEndIdx(null);
+    setRangeSelecting(true);
+  };
+  const handleRangeEnd = (idx: number) => {
+    if (rangeStartIdx !== null) {
+      setRangeEndIdx(idx);
+      setRangeSelecting(false);
+      // Select all rows in range
+      const [start, end] = [rangeStartIdx, idx].sort((a, b) => a - b);
+      const idsInRange = data.slice(start, end + 1).map(getRowId);
+      const newSelectedRowIds = new Set(selectedRowIds);
+      idsInRange.forEach(id => newSelectedRowIds.add(id));
+      setSelectedRowIds(newSelectedRowIds);
+      onSelectionChange?.(data.filter(item => newSelectedRowIds.has(getRowId(item))));
+      setRangeStartIdx(null);
+      setRangeEndIdx(null);
+    }
+  };
+  const clearRangeSelection = () => {
+    setRangeStartIdx(null);
+    setRangeEndIdx(null);
+    setRangeSelecting(false);
+  };
+
+  // Handle row click to open modal
+  const handleRowClick = (item: T) => {
+    setSelectedItem(item);
+    setShowRowModal(true);
+  };
+
+  // Helper to get the best image src for any data type
+  const getImageSrc = (item: any) =>
+    // Shopify Products
+    item.image?.src || item.image ||
+    // Pinterest Pins
+    item.Item?.media?.images?.['600x']?.url ||
+    // Pinterest Boards
+    item.Item?.media?.image_cover_url ||
+    // Design Library
+    item.designImageUrl ||
+    // Fallbacks
+    item.image_url || item.cover || item.thumbnail || item.productImage || '';
+
+  const currentIndex = filteredData.findIndex(item => getRowId(item) === getRowId(selectedItem));
+  const handleNext = () => {
+    if (currentIndex < filteredData.length - 1) {
+      setSelectedItem(filteredData[currentIndex + 1]);
+    }
+  };
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      setSelectedItem(filteredData[currentIndex - 1]);
+    }
+  };
+
+  useEffect(() => {
+    if (!showRowModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrev();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showRowModal, currentIndex, filteredData, setSelectedItem]);
+
+  // Add state for grid field selection
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [selectedGridFields, setSelectedGridFields] = useState<string[]>([]);
+
+  // Find image column index for gridColumns or filteredColumns
+  const gridCols = gridColumns || filteredColumns;
+  const imageColIdx = gridCols.findIndex(col => col.header.toLowerCase().includes('image') || col.header.toLowerCase().includes('cover'));
+  const imageCol = gridCols[imageColIdx];
+
+  // Get all possible keys from the first data row (flattened)
+  const allDataKeys: string[] = (data.length > 0 && typeof data[0] === 'object' && data[0] !== null)
+    ? Object.keys(flattenObject(data[0]))
+    : [];
+  // Build available fields: use column header/render if present, else fallback to key
+  const availableGridFields = allDataKeys
+    .filter((key: string) => key !== (imageCol?.accessor && String(imageCol.accessor)))
+    .map((key: string) => {
+      const col = gridCols.find((c) => String(c.accessor) === key);
+      return {
+        header: col?.header || key,
+        accessor: key,
+        render: col?.render,
+      };
+    });
+
+  // Build gridCols to include all selectable fields
+  const gridColsComplete = [
+    ...gridCols.map(col => ({ ...col, accessor: String(col.accessor) })),
+    ...allDataKeys
+      .filter(key => !gridCols.some(col => String(col.accessor) === key))
+      .map(key => ({
+        header: key,
+        accessor: key,
+        render: undefined,
+      })),
+  ];
+
+  // Add before the modal return:
+  const [jsonCheckedFields, setJsonCheckedFields] = useState<Set<string>>(new Set());
+  const [jsonExpandedFields, setJsonExpandedFields] = useState<Set<string>>(new Set());
+  const handleSelectAllJson = (data: any, checked: boolean) => {
+    const allKeys = new Set<string>();
+    const collectKeys = (val: any, key: string) => {
+      allKeys[checked ? 'add' : 'delete'](key);
+      if (typeof val === 'object' && val !== null) {
+        if (Array.isArray(val)) {
+          val.forEach((item, idx) => collectKeys(item, `${key}[${idx}]`));
+        } else {
+          Object.entries(val).forEach(([childKey, childVal]) => collectKeys(childVal, `${key}.${childKey}`));
+        }
+      }
+    };
+    collectKeys(data, 'root');
+    setJsonCheckedFields(allKeys);
+  };
+
+  // Card view: manage modal and selected fields state at the parent level
+  const [cardModalOpenIdx, setCardModalOpenIdx] = useState<number | null>(null);
+  const [cardSelectedFieldsMap, setCardSelectedFieldsMap] = useState<Record<number, string[]>>({});
+
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
-      {/* Top controls: DecoupledHeader (left) and Filter (right) */}
-      <div className="flex flex-row justify-between items-center w-full mb-2 gap-2">
-        <div className="flex-1">
-          <DecoupledHeader columns={columns.map(col => ({ header: col.header, accessor: String(col.accessor) }))} visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            className="input input-sm border border-gray-300 rounded px-2 py-1 text-xs"
-            placeholder="Filter..."
-            value={filterValue}
-            onChange={e => {
-              setFilterValue(e.target.value);
-              onSearch?.(e.target.value);
-            }}
-            style={{ minWidth: 120 }}
-          />
+      {/* Redesigned Top Controls: Card-style container for column selector and filter bar */}
+      <div className="w-full mb-3">
+        <div className="flex flex-col md:flex-row gap-2 items-stretch bg-gray-50 border border-gray-200 rounded-xl shadow-sm px-4 py-3">
+          <div className="flex-1 min-w-0 flex items-center">
+            <DecoupledHeader columns={columns.map(col => ({ header: col.header, accessor: String(col.accessor) }))} visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
+          </div>
+          <div className="flex-shrink-0 flex items-center justify-end">
+            {(!!statusOptions?.length || !!typeOptions?.length || !!boardOptions?.length || !!smartFieldOptions?.length) && smartField && setSmartField && smartValue !== undefined && setSmartValue && onResetFilters && (
+              <div className="w-full md:w-auto">
+                <FilterBar
+                  status={status || ''}
+                  setStatus={setStatus || (() => {})}
+                  statusOptions={statusOptions || []}
+                  type={type || ''}
+                  setType={setType || (() => {})}
+                  typeOptions={typeOptions || []}
+                  board={board || ''}
+                  setBoard={setBoard || (() => {})}
+                  boardOptions={boardOptions || []}
+                  smartField={smartField}
+                  setSmartField={setSmartField}
+                  smartFieldOptions={smartFieldOptions || []}
+                  smartValue={smartValue}
+                  setSmartValue={setSmartValue}
+                  onReset={onResetFilters}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
       {/* Controls header with view toggles right-aligned */}
       <div className="flex flex-row justify-between items-center bg-white border-b p-0 m-0">
         <div />
-        <div className="flex space-x-1 md:space-x-2 justify-end mt-2 sm:mt-0 p-2">
+        <div className="flex space-x-1 md:space-x-2 justify-end mt-2 sm:mt-0 p-2 items-center relative">
           <button
             onClick={() => setViewType('table')}
             className={`p-1 md:p-2 rounded-lg ${
@@ -355,6 +652,18 @@ export default function DataView<T>({
           >
             <Squares2X2Icon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
+          {/* Grid Settings Icon (only show in grid view) */}
+          {viewType === 'grid' && (
+            <div className="relative">
+              <button
+                className="ml-2 p-1 rounded-full bg-white shadow border hover:bg-gray-100"
+                onClick={() => setGridSettingsOpen(true)}
+                title="Configure grid fields"
+              >
+                <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -365,9 +674,6 @@ export default function DataView<T>({
             className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
             onClick={() => {
               setSelectedRowIds(new Set());
-              setLastClickedIdx(null);
-              setRangeSelecting(false);
-              setShowRangeOptionsIdx(null);
               onSelectionChange?.([]);
             }}
           >
@@ -386,210 +692,123 @@ export default function DataView<T>({
         )}
 
         {viewType === 'table' && (
-          <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0 h-full">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm md:text-base">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      checked={selectedRowIds.size === data.length && data.length > 0}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                    />
-                  </th>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    #
-                  </th>
-                  {filteredColumns.map((column) => (
-                    <th
-                      key={String(column.header)}
-                      className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                      onClick={() => onSort?.(column.accessor as any)}
-                    >
-                      {column.header}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.map((item: any, index: number) => {
-                  const rowId = getRowId(item);
-                  const isChecked = selectedRowIds.has(rowId);
-                  // Only allow range selection if nothing is selected or in range mode
-                  const allowStart = !rangeSelecting && selectedRowIds.size === 0;
-                  const allowEnd = rangeSelecting && lastClickedIdx !== null && index !== lastClickedIdx;
-                  return (
-                    <tr
-                      key={rowId}
-                      className={isChecked ? 'bg-blue-50 cursor-pointer' : 'cursor-pointer'}
-                      style={{ height: '32px' }}
-                      onClick={() => {
-                        setSelectedItem(item);
-                        setShowRowModal(true);
-                        setModalTab('json');
-                      }}
-                    >
-                      <td
-                        className="px-2 py-1 whitespace-nowrap text-xs relative"
-                        onMouseEnter={() => setHoveredIdx(index)}
-                        onMouseLeave={() => setHoveredIdx(null)}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          checked={isChecked}
-                          disabled={rangeSelecting}
-                          onChange={e => !rangeSelecting && handleRowSelect(rowId, e.target.checked, index)}
-                          onClick={e => e.stopPropagation()}
-                        />
-                        {/* Range selection popover on hover */}
-                        {hoveredIdx === index && allowStart && (
-                          <span
-                            className="absolute left-8 top-1 z-20 flex gap-1 bg-white shadow-lg border border-gray-200 rounded p-1"
-                            style={{ minWidth: 50 }}
-                          >
-                            <button
-                              className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs border border-green-400 hover:bg-green-200"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setLastClickedIdx(index);
-                                setRangeSelecting(true);
-                                setShowRangeOptionsIdx(null);
-                                // Select the start checkbox
-                                const startId = getRowId(data[index]);
-                                const newSelected = new Set<string>([startId]);
-                                setSelectedRowIds(newSelected);
-                                onSelectionChange?.([data[index]]);
-                              }}
-                            >Start</button>
-                          </span>
-                        )}
-                        {hoveredIdx === index && allowEnd && (
-                          <span
-                            className="absolute left-8 top-1 z-20 flex gap-1 bg-white shadow-lg border border-gray-200 rounded p-1"
-                            style={{ minWidth: 50 }}
-                          >
-                            <button
-                              className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-400 hover:bg-blue-200"
-                              onClick={e => {
-                                e.stopPropagation();
-                                // Select the range from lastClickedIdx to index
-                                if (lastClickedIdx !== null && index !== lastClickedIdx) {
-                                  const [start, end] = [lastClickedIdx, index].sort((a, b) => a - b);
-                                  const ids = new Set<string>(data.slice(start, end + 1).map(getRowId));
-                                  setSelectedRowIds(ids);
-                                  onSelectionChange?.(data.slice(start, end + 1));
-                                }
-                                setLastClickedIdx(null);
-                                setRangeSelecting(false);
-                                setShowRangeOptionsIdx(null);
-                              }}
-                            >End</button>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1 whitespace-nowrap text-xs">
-                        {index + 1}
-                      </td>
-                      {filteredColumns.map((column) => {
-                        const value = item[column.accessor];
-                        // If this is an image column, render a smaller image
-                        if (column.header.toLowerCase().includes('image')) {
-                          let src: string | undefined = undefined;
-                          if (typeof value === 'string') {
-                            src = value;
-                          } else if (value && typeof value === 'object' && 'src' in value) {
-                            src = (value as any).src;
-                          }
-                          return (
-                            <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
-                              {src ? <img src={src} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4 }} /> : null}
-                            </td>
-                          );
-                        }
-                        return (
-                          <td key={String(column.header)} className="px-2 py-1 whitespace-nowrap text-xs">
-                            {column.render ? (column.render(value, item) ?? String(value ?? '')) : String(value ?? '')}
-                          </td>
-                        );
-                      })}
-                      <td className="px-2 py-1 whitespace-nowrap text-xs">
-                        <button
-                          onClick={() => handleRowDownload(item)}
-                          className="text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
-                          title="Download row data"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <TableView 
+            data={filteredData} 
+            columns={filteredColumns} 
+            selectedRows={selectedRowIds}
+            onRowSelect={handleRowSelect}
+            onSelectAll={handleSelectAll}
+            rangeSelecting={rangeSelecting}
+            rangeStartIdx={rangeStartIdx}
+            onRangeStart={handleRangeStart}
+            onRangeEnd={handleRangeEnd}
+            hoveredIdx={hoveredIdx}
+            setHoveredIdx={setHoveredIdx}
+            onRowClick={handleRowClick}
+          />
         )}
         {viewType === 'grid' && (
-          <div className="overflow-auto flex-1 min-h-0 h-full">
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 p-1 gap-1">
-              {filteredData.map((item: any, index: number) => (
-                <div key={index} className="flex flex-col items-center gap-1 p-1 border border-blue-400 bg-white text-xs shadow-md">
-                  {/* Image - clickable for modal */}
-                  <div className="flex justify-center w-full">
-                    {filteredColumns[0].render
-                      ? filteredColumns[0].render(item[filteredColumns[0].accessor], item)
-                      : <img src={String(item[filteredColumns[0].accessor])} alt="" className="w-28 h-28 object-cover rounded-lg" />
-                    }
-                  </div>
-                  {/* Title */}
-                  <div className="font-semibold text-base line-clamp-2 w-full text-center">
-                    {filteredColumns[1].render
-                      ? filteredColumns[1].render(item[filteredColumns[1].accessor], item)
-                      : String(item[filteredColumns[1].accessor])}
-                  </div>
-                  {/* Description */}
-                  <div className="text-gray-600 text-sm line-clamp-3 w-full text-center">
-                    {filteredColumns[2].render
-                      ? filteredColumns[2].render(item[filteredColumns[2].accessor], item)
-                      : String(item[filteredColumns[2].accessor])}
-                  </div>
-                  {/* Date */}
-                  <div className="text-xs text-gray-400 mt-auto w-full text-center">
-                    {filteredColumns[4] && (filteredColumns[4].render
-                      ? filteredColumns[4].render(item[filteredColumns[4].accessor], item)
-                      : String(item[filteredColumns[4].accessor]))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <GridView
+            data={filteredData}
+            columns={gridColsComplete}
+            viewType="grid"
+            onItemClick={(item) => {
+              setSelectedItem(item);
+              setShowRowModal(true);
+              setModalTab('json');
+            }}
+            selectedFields={selectedGridFields}
+            getFlattenedRow={(row: any) => flattenObject(row)}
+          />
         )}
         {viewType === 'card' && (
           <div className="overflow-auto flex-1 min-h-0 h-full">
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 p-2">
-              {filteredData.map((item: any, index: number) => (
-                <div key={index} className="flex flex-col items-center p-1 bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer">
-                  {/* Smaller image for compact card view */}
-                  {filteredColumns[0].render
-                    ? filteredColumns[0].render(item[filteredColumns[0].accessor], item)
-                    : <img src={String(item[filteredColumns[0].accessor])} alt="" className="w-8 h-8 object-cover rounded-lg" />
+              {filteredData.map((item: any, index: number) => {
+                // Image extraction logic (same as GridView)
+                let imageUrl: string | undefined = undefined;
+                // Try to find an image field
+                const imageField = filteredColumns.find(col => {
+                  const header = col.header.toLowerCase();
+                  const accessor = String(col.accessor).toLowerCase();
+                  return ["image", "cover", "thumbnail", "photo", "img"].some(keyword => header.includes(keyword) || accessor.includes(keyword));
+                });
+                let imageValue = imageField ? item[imageField.accessor] : undefined;
+                if (Array.isArray(imageValue) && imageValue[0]?.src) {
+                  imageUrl = imageValue[0].src;
+                } else if (typeof imageValue === 'object' && imageValue !== null && imageValue.src) {
+                  imageUrl = imageValue.src;
+                } else if (typeof imageValue === 'string') {
+                  imageUrl = imageValue;
+                }
+                // Pinterest Pins/Boards
+                if (!imageUrl && item.Item?.media?.images?.['600x']?.url) {
+                  imageUrl = item.Item.media.images['600x'].url;
+                } else if (!imageUrl && item.Item?.media?.image_cover_url) {
+                  imageUrl = item.Item.media.image_cover_url;
+                }
+                // All possible keys from the item (flattened)
+                const flattenObject = (obj: any, prefix = '', result: Record<string, any> = {}) => {
+                  for (const key in obj) {
+                    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+                    const value = obj[key];
+                    const newKey = prefix ? `${prefix}.${key}` : key;
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                      flattenObject(value, newKey, result);
+                    } else {
+                      result[newKey] = value;
+                    }
                   }
-                  {/* Optional: show a label or title below the image */}
-                  {filteredColumns[1] && (
-                    <div className="text-xs text-center mt-1 truncate w-full">
-                      {filteredColumns[1].render
-                        ? filteredColumns[1].render(item[filteredColumns[1].accessor], item)
-                        : String(item[filteredColumns[1].accessor])}
-                    </div>
-                  )}
-                </div>
-              ))}
+                  return result;
+                };
+                const flatItem = flattenObject(item);
+                const allKeys = Object.keys(flatItem);
+                const cardSelectedFields = cardSelectedFieldsMap[index] || [];
+                return (
+                  <div
+                    key={index}
+                    className="relative flex flex-col items-center bg-white rounded shadow-md border-2 border-blue-400 cursor-pointer"
+                  >
+                    {/* Settings Icon */}
+                    <button
+                      className="absolute top-1 right-1 z-10 bg-white rounded-full p-1 shadow border hover:bg-gray-100"
+                      onClick={e => { e.stopPropagation(); setCardModalOpenIdx(index); }}
+                      title="Configure card fields"
+                      type="button"
+                    >
+                      <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+                    </button>
+                    {/* Only render the image */}
+                    {imageUrl ? (
+                      <img src={imageUrl} alt="" className="w-20 h-20 object-cover rounded" />
+                    ) : (
+                      <div className="w-20 h-20 flex items-center justify-center bg-gray-100 text-gray-400 rounded text-xs">No Image</div>
+                    )}
+                    {/* Render selected fields below the image */}
+                    {cardSelectedFields.length > 0 && (
+                      <div className="w-full mt-2 flex flex-col gap-1 items-center">
+                        {cardSelectedFields.map(fieldKey => (
+                          <div key={fieldKey} className="w-full text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 break-all text-center">
+                            <span className="font-semibold text-gray-500 mr-1">{fieldKey}:</span>
+                            <span>{typeof flatItem[fieldKey] === 'object' ? JSON.stringify(flatItem[fieldKey]) : String(flatItem[fieldKey] ?? '')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Card settings modal */}
+                    {cardModalOpenIdx === index && (
+                      <CardConfigModal
+                        open={cardModalOpenIdx === index}
+                        onClose={() => setCardModalOpenIdx(null)}
+                        allKeys={allKeys}
+                        selectedFields={cardSelectedFields}
+                        onChange={fields => setCardSelectedFieldsMap(prev => ({ ...prev, [index]: fields }))}
+                        title="Select fields to show"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -610,8 +829,15 @@ export default function DataView<T>({
 
         {/* Row Modal */}
         {showRowModal && selectedItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-4 relative">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+            onClick={() => setShowRowModal(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-lg max-w-7xl w-full h-[900px] max-h-[90vh] p-6 relative flex flex-col"
+              onClick={e => e.stopPropagation()}
+              tabIndex={0}
+            >
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xl"
                 onClick={() => setShowRowModal(false)}
@@ -621,6 +847,10 @@ export default function DataView<T>({
               </button>
               <div className="flex border-b mb-4">
                 <button
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 ${modalTab === 'image' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500'}`}
+                  onClick={() => setModalTab('image')}
+                >Image & Details</button>
+                <button
                   className={`px-4 py-2 text-sm font-semibold border-b-2 ${modalTab === 'json' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500'}`}
                   onClick={() => setModalTab('json')}
                 >JSON</button>
@@ -629,16 +859,61 @@ export default function DataView<T>({
                   onClick={() => setModalTab('form')}
                 >Form</button>
               </div>
-              <div className="max-h-96 overflow-auto">
-                {modalTab === 'json' && (
-                  <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto">
-                    {JSON.stringify(selectedItem, null, 2)}
-                  </pre>
+              <div className="flex-1 min-h-0 overflow-auto">
+                {modalTab === 'image' && (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <img
+                      src={getImageSrc(selectedItem)}
+                      alt="Large"
+                      className="mb-4 rounded shadow max-h-[600px] object-contain"
+                      style={{ maxWidth: '100%' }}
+                    />
+                  </div>
+                )}
+                {modalTab === 'json' && selectedItem && (
+                  <div className="bg-gray-50 rounded p-2 text-xs overflow-x-auto h-full">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        checked={areAllFieldsChecked(selectedItem, jsonCheckedFields, 'root')}
+                        onChange={e => handleSelectAllJson(selectedItem, e.target.checked)}
+                        className="accent-blue-600"
+                      />
+                      <span className="font-semibold">Select All</span>
+                    </div>
+                    <JsonExplorer
+                      data={selectedItem}
+                      checkedFields={jsonCheckedFields}
+                      setCheckedFields={setJsonCheckedFields}
+                      expandedFields={jsonExpandedFields}
+                      setExpandedFields={setJsonExpandedFields}
+                      parentKey="root"
+                    />
+                  </div>
                 )}
                 {modalTab === 'form' && renderViewOnlyForm(selectedItem)}
               </div>
+              {/* Move ModalNavigator outside scrollable content */}
+              <ModalNavigator
+                currentIndex={currentIndex}
+                total={filteredData.length}
+                onNext={handleNext}
+                onPrev={handlePrev}
+              />
             </div>
           </div>
+        )}
+
+        {/* Grid Settings Modal */}
+        {gridSettingsOpen && (
+          <GridConfigModal<T>
+            open={gridSettingsOpen}
+            onClose={() => setGridSettingsOpen(false)}
+            availableFields={availableGridFields}
+            selectedFields={selectedGridFields}
+            onChange={setSelectedGridFields}
+            title="Select fields to show"
+          />
         )}
       </div>
     </div>

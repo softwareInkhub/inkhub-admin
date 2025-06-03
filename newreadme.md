@@ -1,79 +1,191 @@
-# Inkhub Admin - Shopify, Pinterest, Design Library Analytics
+# Inkhub Admin Dashboard
 
-This project is a [Next.js](https://nextjs.org) admin dashboard for Inkhub, featuring advanced analytics, universal navigation, and a full-featured Design Library. It is bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+A modern, full-featured analytics and management dashboard for Shopify, Pinterest, and a custom Design Library. Built with Next.js, React, Redux Toolkit, Tailwind CSS, and AWS SDK, with advanced caching (disk, Valkey/Redis), universal navigation, and highly customizable data views.
 
-## Features Implemented
+---
+
+## 🚀 Features
 
 ### Universal Navigation & Layout
-- **Universal Tab System**: Persistent, global tab bar for all major sections (Shopify, Pinterest, Design Library, etc.), with open/close/switch and state saved in localStorage.
-- **Universal Analytics Bar**: Reusable analytics controls (filter, group, aggregate) that adapt to the current section/tab, fully wired to DataView for live analytics.
-- **Universal Operation Bar**: Reusable operation/action bar below analytics, with context-aware actions (Download, Upload, etc.) and access to filtered/grouped data.
-- **Secondary Sidebar**: Context-sensitive, collapsible sidebar for section navigation, with support for removing sections and redirecting when the last is closed.
+- **Global Tab System:** Persistent, global tab bar for all major sections (Shopify, Pinterest, Design Library, etc.), with open/close/switch and state saved in localStorage.
+- **Universal Analytics Bar:** Reusable analytics controls (filter, group, aggregate) that adapt to the current section/tab, fully wired to DataView for live analytics.
+- **Universal Operation Bar:** Context-aware actions (Download, Upload, etc.) and access to filtered/grouped data.
+- **Secondary Sidebar:** Context-sensitive, collapsible sidebar for section navigation.
 
 ### DataView Component
-- **Highly Customizable**: Table, grid, and card views, with easy-to-modify layout, effects, and spacing via props.
-- **Responsive**: All views and modals are mobile-friendly and adapt to large screens.
-- **Tag Filtering & Search**: Filter by tags and search by any field.
-- **Edit/Delete Modals**: Responsive modals for editing and deleting items, with clean UX.
-- **Paginated View**: Supports paginated data loading with a Next button for all major sections.
+- **Highly Customizable:** Table, grid, and card views, with easy-to-modify layout, effects, and spacing via props.
+- **Sticky Headers:** Table and grid headers remain visible when scrolling vertically.
+- **Field Selection Modals:** Modern, reusable modals (`GridConfigModal`, `CardConfigModal`) for selecting visible fields in grid and card views.
+- **Advanced Field Handling:** Supports nested fields, robust image detection, and clickable links in form views.
+- **Tag Filtering & Search:** Filter by tags and search by any field.
+- **Edit/Delete Modals:** Responsive modals for editing and deleting items.
+- **Paginated View:** Supports paginated data loading with a Next button for all major sections.
+- **Per-Card Field Customization:** Card view allows per-card field selection with a settings modal for each card.
+- **Grid View Customization:** Grid view supports global field selection with a settings modal.
+- **Collapsible Nested Form/JSON View:** Modals for row details support collapsible sections for nested data.
+- **Modern UI/UX:** All modals and controls use a modern, clean, and accessible design.
 
 ### Shopify Section
-- **Tabbed Interface**: Orders, Products, and Collections, managed by the universal tab system.
-- **Analytics Bar**: Dynamic controls for filtering, grouping, and aggregation, adapting to the active tab.
-- **Orders Analytics**: Filter by status, group by status/customer/date, aggregate by count/sum/average.
-- **Products Analytics**: Filter by status, group by type/vendor, aggregate by count/sum inventory.
-- **Collections Analytics**: (Implementation pending)
-- **Redux Integration**: Centralized state management for Shopify data.
-- **Modern UI**: Responsive, scrollable DataView with search, sorting, and multiple view types.
-- **Disk Cache & Pagination**: Orders and Products use disk-based caching and paginated API with a Next button for efficient data loading.
+- **Tabbed Interface:** Orders, Products, and Collections, managed by the universal tab system.
+- **Analytics Bar:** Dynamic controls for filtering, grouping, and aggregation.
+- **Orders Analytics:** Filter by status, group by status/customer/date, aggregate by count/sum/average.
+- **Products Analytics:** Filter by status, group by type/vendor, aggregate by count/sum inventory.
+- **Redux Integration:** Centralized state management for Shopify data.
+- **Disk/Valkey Cache & Pagination:** Efficient, persistent caching and paginated API with a Next button.
 
 ### Pinterest Section
-- **Boards & Pins**: DataView for boards and pins, with analytics and operations.
-- **Analytics Bar**: Filter/group/aggregate pins and boards.
-- **Redux Integration**: Centralized state management for Pinterest data.
-- **Disk Cache & Pagination**: Boards and Pins use disk-based caching and paginated API with a Next button for efficient data loading.
+- **Boards & Pins:** DataView for boards and pins, with analytics and operations.
+- **Analytics Bar:** Filter/group/aggregate pins and boards.
+- **Redux Integration:** Centralized state management for Pinterest data.
+- **Disk/Valkey Cache & Pagination:** Efficient, persistent caching and paginated API with a Next button.
 
 ### Design Library Section
-- **CRUD Operations**: Create, Read, Update, and Delete designs stored in DynamoDB.
-- **Image Support**: Upload and display design images from S3, with public read access.
-- **Table, Grid, and Card Views**: Switch between layouts, with modals for details and editing.
-- **Tag Filtering & Search**: Filter by tags and search by any field.
-- **Redux Integration**: Centralized state management for design data.
-- **Disk Cache & Pagination**: Design Library uses disk-based caching and paginated API with a Next button for efficient data loading.
+- **CRUD Operations:** Create, Read, Update, and Delete designs stored in DynamoDB.
+- **Image Support:** Upload and display design images from S3, with public read access.
+- **Table, Grid, and Card Views:** Switch between layouts, with modals for details and editing.
+- **Tag Filtering & Search:** Filter by tags and search by any field.
+- **Redux Integration:** Centralized state management for design data.
+- **Disk/Valkey Cache & Pagination:** Efficient, persistent caching and paginated API with a Next button.
 
-### AWS & DynamoDB Integration
-- Uses AWS SDK v3 for DynamoDB access.
-- Table names are configurable via environment variables:
-  - `SHOPIFY_ORDERS_TABLE`
-  - `SHOPIFY_PRODUCTS_TABLE`
-  - `DESIGN_TABLE` (for design library)
-- Credentials and region are loaded from `.env.local` (see below).
-- S3 bucket policy must allow public read for images.
+### Caching System (Disk & Valkey/Redis)
+- **Disk-Based LRU Cache:** Fast, persistent, and scalable data access for all major API routes.
+- **Valkey/Redis Support:** Optionally use Valkey (Redis-compatible) for caching in development or production.
+- **Cache Key Structure:** Resource, page size (`limit`), and pagination key (`lastKey`).
+- **TTL (Time-to-Live):** Default 5 minutes, configurable.
+- **Cache Invalidation:** On any mutation (create/update/delete), relevant cache keys are invalidated.
+- **Pagination Support:** Each page of data is cached separately.
 
-### Powerful Disk Caching System (NEW)
-- **Disk-Based Cache**: All major API routes (orders, products, pins, boards, designs) use a disk-based cache for fast, persistent, and scalable data access.
-- **How It Works:**
-  - Each API request checks the disk cache before querying DynamoDB.
-  - If cached data is found and not expired, it is returned immediately (no DynamoDB call).
-  - If not found or expired, data is fetched from DynamoDB, stored in the disk cache, and returned.
-- **Cache Key Structure:**
-  - Cache keys are based on the resource, page size (`limit`), and pagination key (`lastKey`).
-  - Example: `shopify_orders:100:{"id":"12345"}` for the second page of orders with a limit of 100.
-- **TTL (Time-to-Live):**
-  - Default TTL is **5 minutes** (300,000 ms) for all cache entries.
-  - Configurable per resource or globally in the cache utility.
-- **Cache Invalidation:**
-  - On any mutation (create/update/delete), the relevant cache keys are invalidated (deleted) to ensure fresh data on the next fetch.
-  - The cache utility provides methods for `.get(key)`, `.set(key, value, ttl)`, `.delete(key)`, and `.clear()`.
-- **Pagination Support:**
-  - Each page of data is cached separately using its own cache key (based on `limit` and `lastKey`).
-  - The frontend uses a Next button to load more data, which triggers a paginated API call and checks the cache for that page.
-- **Why Disk Cache?**
-  - Survives server restarts and scales better than in-memory cache for large datasets.
-  - Reduces DynamoDB read costs and latency for repeated queries.
-  - Enables efficient, persistent caching for paginated data.
+### UI/UX Improvements (2024)
+- **Sticky Table/Grid Headers**
+- **Field Selection Modals**
+- **Per-Card and Global Field Customization**
+- **Collapsible Nested Form/JSON View**
+- **Robust Image and Link Handling**
+- **Overflow, Truncation, and Tooltips**
 
-### Environment Setup
+---
+
+## 🏗️ Tech Stack
+- **Next.js 14** (App Router)
+- **React 18**
+- **Redux Toolkit** for state management
+- **Tailwind CSS** for styling
+- **AWS SDK v3** for DynamoDB and S3
+- **Valkey/Redis** and **lru-cache** for caching
+- **TypeScript**
+- **Docker** for local development and caching
+
+---
+
+## 📁 Directory Structure
+
+- `src/components/common/` — Shared UI and logic components (DataView, TableView, GridView, CardConfigModal, GridConfigModal, etc.)
+- `src/components/layout/` — Layout and navigation components (DashboardLayout, Sidebar, TabContext, etc.)
+- `src/store/` — Redux store and slices (shopifySlice, pinterestSlice, designLibrarySlice)
+- `src/app/` — Next.js app directory (routes, pages, layouts for Shopify, Pinterest, Design Library, Settings)
+- `src/utils/` — Utility functions (cache, redis)
+
+---
+
+## 🐳 Docker & Valkey (Redis-Compatible) Caching
+
+You can use [Valkey](https://valkey.io/) (a Redis-compatible in-memory cache) for local development or production caching.
+
+### docker-compose.yml
+```yaml
+version: '3.8'
+
+services:
+  valkey:
+    image: valkey/valkey:latest
+    container_name: valkey-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: inkhub-admin
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_HOST=valkey
+      - REDIS_PORT=6379
+    depends_on:
+      - valkey
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  valkey-data:
+    driver: local
+```
+
+### Dockerfile
+```Dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### Running Locally with Docker
+1. **Build and start everything:**
+   ```bash
+   docker compose up --build
+   ```
+2. The app will be available at [http://localhost:3000](http://localhost:3000)
+3. Valkey will be available at `localhost:6379` for caching.
+
+### Standalone Valkey for Local Dev
+If you want to run only Valkey for local dev (not the app):
+```bash
+docker compose up valkey
+```
+
+---
+
+## ⚡ Cache System
+- **Disk LRU Cache:** Used by default for all API routes if Valkey/Redis is not available.
+- **Valkey/Redis:** If `REDIS_HOST` and `REDIS_PORT` are set, the app uses Valkey for caching (see `src/utils/redis.ts`).
+- **Config:**
+  - Set `REDIS_HOST` and `REDIS_PORT` in your environment or Docker Compose.
+  - Or set `VALKEY_URL=redis://localhost:6379` in `.env.local` for local dev.
+- **Cache Utility:** See `src/utils/cache.ts` and `src/utils/redis.ts` for implementation details.
+
+---
+
+## 🛠️ Setup & Development
+
+### 1. Clone the repo
+```bash
+git clone <repo-url>
+cd inkhub-admin
+```
+
+### 2. Install dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+### 3. Environment Variables
 Create a `.env.local` file in the project root:
 ```
 AWS_REGION=us-east-1
@@ -82,35 +194,58 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 SHOPIFY_ORDERS_TABLE=shopify_inkhub_get_orders
 SHOPIFY_PRODUCTS_TABLE=shopify_inkhub_get_products
 DESIGN_TABLE=admin-design-image
+VALKEY_URL=redis://localhost:6379
 ```
-**Note:** `.env.local` is gitignored for security.
 
-### Security Best Practices
-- **Never commit secrets**: `.env.local` is in `.gitignore`.
-- **Rotate AWS credentials** if they are ever exposed.
-- **Use environment variables** for all sensitive config.
-- **S3 Bucket Policy**: Ensure your S3 bucket allows public read for images if you want them to display in the app.
-
-## Getting Started
-
-Run the development server:
+### 4. Run the development server
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 5. Open the app
+Go to [http://localhost:3000](http://localhost:3000)
 
-## Learn More
+---
+
+## 🧩 Major Components & Slices
+- **DataView:** Universal data display (table, grid, card) with modals, field selection, and more.
+- **TableView, GridView:** Specialized views for tabular and grid data.
+- **CardConfigModal, GridConfigModal:** Modern, reusable modals for field selection.
+- **UniversalAnalyticsBar, UniversalOperationBar:** Analytics and action bars for all sections.
+- **Redux Slices:** `shopifySlice`, `pinterestSlice`, `designLibrarySlice` for state management.
+- **DashboardLayout, Sidebar, TabContext:** Layout and navigation.
+
+---
+
+## 🧑‍💻 Contributing
+- Fork the repo and create a feature branch.
+- Follow the code style and naming conventions.
+- Add/Update tests if needed.
+- Open a PR with a clear description.
+
+---
+
+## 🐞 Troubleshooting
+- **Sticky headers not working?** Make sure the scroll container is set up as in `TableView.tsx` and `GridView.tsx`.
+- **Cache not working?** Check your Valkey/Redis connection and environment variables.
+- **AWS errors?** Double-check your credentials and table names in `.env.local`.
+- **UI bugs?** Check the browser console for errors and inspect the relevant component.
+
+---
+
+## 📚 Learn More
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Learn Next.js](https://nextjs.org/learn)
+- [Valkey (Redis-compatible)](https://valkey.io/)
+- [Redux Toolkit](https://redux-toolkit.js.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
 
-## Deploy on Vercel
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🚀 Deploy
+The easiest way to deploy your Next.js app is to use [Vercel](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) or your own Docker setup.
+
+---
+
+**Inkhub Admin** — Modern analytics and management for Shopify, Pinterest, and your Design Library.

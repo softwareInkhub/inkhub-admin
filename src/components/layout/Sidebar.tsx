@@ -15,12 +15,11 @@ interface SidebarProps {
   onSectionSelect: (section: string) => void;
 }
 
-const navigation = [
-  { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
-  { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
-  { name: 'BRHM', href: '/brhm', icon: PencilSquareIcon },
-  { name: 'Design Library', href: '/design-library', icon: BookOpenIcon },
-];
+// const navigation = [
+//   { name: 'Shopify', href: '/shopify', icon: ShoppingBagIcon },
+//   { name: 'Pinterest', href: '/pinterest', icon: PhotoIcon },
+//   { name: 'Design Library', href: '/design-library', icon: BookOpenIcon },
+// ];
 
 export default function Sidebar({ onSectionSelect }: SidebarProps) {
   const pathname = usePathname();
@@ -37,6 +36,7 @@ export default function Sidebar({ onSectionSelect }: SidebarProps) {
             {isCollapsed ? '→' : '←'}
           </button>
         </div>
+        {/*
         <nav className="space-y-2">
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
@@ -57,6 +57,7 @@ export default function Sidebar({ onSectionSelect }: SidebarProps) {
             );
           })}
         </nav>
+        */}
       </div>
     </div>
   );
