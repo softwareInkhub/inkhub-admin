@@ -335,6 +335,20 @@ async function refreshOrdersInBackground() {
 
   try {
     console.log('[Debug] Starting background refresh of orders...');
+    
+    // First, get the total count
+    const countCommand = new ScanCommand({
+      TableName: process.env.SHOPIFY_ORDERS_TABLE,
+      Select: 'COUNT',
+    });
+    const countResponse = await docClient.send(countCommand);
+    const totalCount = countResponse.Count || 0;
+    
+    // Cache the count
+    await redis.set('shopify_orders:count', totalCount.toString(), 'EX', 3600); // 1 hour TTL
+    console.log('[Debug] Total count updated:', totalCount);
+
+    // Then fetch and cache the orders
     const orders = await fetchAllOrders();
     await redis.set(ALL_ORDERS_CACHE_KEY, JSON.stringify(orders), 'EX', CACHE_TTL);
     console.log('[Debug] Background refresh complete');
@@ -384,6 +398,7 @@ export async function GET(req: Request) {
       await redis.del(ALL_ORDERS_CACHE_KEY);
       await redis.del(PARTIAL_CACHE_KEY);
       await redis.del(LAST_SCAN_POSITION_KEY);
+      await redis.del('shopify_orders:count');
       console.log('[Debug] Orders cache cleared');
     }
 
@@ -392,31 +407,62 @@ export async function GET(req: Request) {
       await forceStartFetching();
     }
 
-    // Get orders from cache or start fetching
-    const allOrders = (await getOrdersFromCache()).map(transformOrder);
-
-    // If we got empty array (cache miss and couldn't acquire lock),
-    // trigger background refresh and return empty result
-    if (allOrders.length === 0) {
-      refreshOrdersInBackground().catch(console.error);
-      return NextResponse.json({ items: [], lastEvaluatedKey: null, total: 0 });
+    // Get the total count
+    let totalCount = 0;
+    const cachedCount = await redis.get('shopify_orders:count');
+    
+    if (cachedCount) {
+      totalCount = parseInt(cachedCount);
+    } else {
+      // If no cached count, perform a count operation
+      const hasLock = await acquireLock();
+      if (hasLock) {
+        try {
+          console.log('[Debug] Performing count operation on DynamoDB...');
+          const countCommand = new ScanCommand({
+            TableName: process.env.SHOPIFY_ORDERS_TABLE,
+            Select: 'COUNT',
+          });
+          const countResponse = await docClient.send(countCommand);
+          totalCount = countResponse.Count || 0;
+          
+          // Cache the count with a shorter TTL than the data
+          await redis.set('shopify_orders:count', totalCount.toString(), 'EX', 3600); // 1 hour TTL
+          console.log('[Debug] Total count cached:', totalCount);
+        } catch (error) {
+          console.error('[Debug] Error getting total count:', error);
+        } finally {
+          await releaseLock();
+        }
+      }
     }
 
-    // Handle pagination
-    const startIndex = lastKey ? allOrders.findIndex((o: ShopifyOrder) => o.id === lastKey.id) + 1 : 0;
-    const endIndex = startIndex + limit;
-    const paginatedOrders = allOrders.slice(startIndex, endIndex);
-    const hasMore = endIndex < allOrders.length;
+    // Fetch the requested page of orders
+    const command = new ScanCommand({
+      TableName: process.env.SHOPIFY_ORDERS_TABLE,
+      Limit: limit,
+      ExclusiveStartKey: lastKey,
+    });
+
+    const response = await docClient.send(command);
+    const items = response.Items || [];
+    const transformedItems = items.map(transformOrder);
+
+    // If this is the first page and we don't have a cached count,
+    // trigger a background count operation
+    if (!lastKey && !cachedCount) {
+      refreshOrdersInBackground().catch(console.error);
+    }
 
     console.log('[Debug] Response prepared:\n' +
-      '- Items: ' + paginatedOrders.length + '\n' +
-      '- Has more: ' + hasMore + '\n' +
-      '- Total: ' + allOrders.length);
+      '- Items: ' + transformedItems.length + '\n' +
+      '- Has more: ' + !!response.LastEvaluatedKey + '\n' +
+      '- Total: ' + totalCount);
 
     const result = {
-      items: paginatedOrders,
-      lastEvaluatedKey: hasMore ? paginatedOrders[paginatedOrders.length - 1] : null,
-      total: allOrders.length
+      items: transformedItems,
+      lastEvaluatedKey: response.LastEvaluatedKey || null,
+      total: totalCount
     };
 
     return NextResponse.json(result);
