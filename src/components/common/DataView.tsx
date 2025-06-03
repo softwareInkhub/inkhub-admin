@@ -5,6 +5,7 @@ import {
   TableCellsIcon,
   Squares2X2Icon,
   ViewColumnsIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useDispatch } from 'react-redux';
 import { updateDesign, deleteDesign, fetchDesigns } from '@/store/slices/designLibrarySlice';
@@ -57,6 +58,21 @@ interface DataViewProps<T> {
 }
 
 type ViewType = 'table' | 'grid' | 'card';
+
+// Utility to flatten nested objects into dot-separated keys
+function flattenObject(obj: any, prefix = '', result: Record<string, any> = {}) {
+  for (const key in obj) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    const value = obj[key];
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenObject(value, newKey, result);
+    } else {
+      result[newKey] = value;
+    }
+  }
+  return result;
+}
 
 export default function DataView<T>({
   data,
@@ -416,6 +432,43 @@ export default function DataView<T>({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showRowModal, currentIndex, filteredData, setSelectedItem]);
 
+  // Add state for grid field selection
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [selectedGridFields, setSelectedGridFields] = useState<string[]>([]);
+
+  // Find image column index for gridColumns or filteredColumns
+  const gridCols = gridColumns || filteredColumns;
+  const imageColIdx = gridCols.findIndex(col => col.header.toLowerCase().includes('image') || col.header.toLowerCase().includes('cover'));
+  const imageCol = gridCols[imageColIdx];
+
+  // Get all possible keys from the first data row (flattened)
+  const allDataKeys: string[] = (data.length > 0 && typeof data[0] === 'object' && data[0] !== null)
+    ? Object.keys(flattenObject(data[0]))
+    : [];
+  // Build available fields: use column header/render if present, else fallback to key
+  const availableGridFields = allDataKeys
+    .filter((key: string) => key !== (imageCol?.accessor && String(imageCol.accessor)))
+    .map((key: string) => {
+      const col = gridCols.find((c) => String(c.accessor) === key);
+      return {
+        header: col?.header || key,
+        accessor: key,
+        render: col?.render,
+      };
+    });
+
+  // Build gridCols to include all selectable fields
+  const gridColsComplete = [
+    ...gridCols.map(col => ({ ...col, accessor: String(col.accessor) })),
+    ...allDataKeys
+      .filter(key => !gridCols.some(col => String(col.accessor) === key))
+      .map(key => ({
+        header: key,
+        accessor: key,
+        render: undefined,
+      })),
+  ];
+
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 p-0 m-0 bg-white">
@@ -454,7 +507,7 @@ export default function DataView<T>({
       {/* Controls header with view toggles right-aligned */}
       <div className="flex flex-row justify-between items-center bg-white border-b p-0 m-0">
         <div />
-        <div className="flex space-x-1 md:space-x-2 justify-end mt-2 sm:mt-0 p-2">
+        <div className="flex space-x-1 md:space-x-2 justify-end mt-2 sm:mt-0 p-2 items-center relative">
           <button
             onClick={() => setViewType('table')}
             className={`p-1 md:p-2 rounded-lg ${
@@ -479,6 +532,18 @@ export default function DataView<T>({
           >
             <Squares2X2Icon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
+          {/* Grid Settings Icon (only show in grid view) */}
+          {viewType === 'grid' && (
+            <div className="relative">
+              <button
+                className="ml-2 p-1 rounded-full bg-white shadow border hover:bg-gray-100"
+                onClick={() => setGridSettingsOpen(true)}
+                title="Configure grid fields"
+              >
+                <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -525,13 +590,15 @@ export default function DataView<T>({
         {viewType === 'grid' && (
           <GridView
             data={filteredData}
-            columns={gridColumns || filteredColumns}
+            columns={gridColsComplete}
             viewType="grid"
             onItemClick={(item) => {
               setSelectedItem(item);
               setShowRowModal(true);
               setModalTab('json');
             }}
+            selectedFields={selectedGridFields}
+            getFlattenedRow={(row: any) => flattenObject(row)}
           />
         )}
         {viewType === 'card' && (
@@ -638,6 +705,67 @@ export default function DataView<T>({
                 onPrev={handlePrev}
               />
             </div>
+          </div>
+        )}
+
+        {/* Grid Settings Modal */}
+        {gridSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity duration-300">
+            <div className="bg-white rounded-xl shadow-2xl p-0 min-w-[320px] max-w-full w-full sm:w-[600px] relative animate-fadeInScale">
+              {/* Sticky Header with Title and Actions */}
+              <div className="sticky top-0 z-10 bg-white rounded-t-xl flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <span className="font-bold text-lg">Select fields to show</span>
+                <div className="flex gap-2 items-center">
+                  <button
+                    className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300 text-gray-700 transition-colors"
+                    onClick={() => setSelectedGridFields([])}
+                    title="Clear all selections"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    className="text-gray-400 hover:text-red-500 text-xl px-2 py-1 rounded transition-colors"
+                    onClick={() => setGridSettingsOpen(false)}
+                    title="Close"
+                  >
+                    &times;
+                  </button>
+                </div>
+              </div>
+              {/* Checkbox Grid */}
+              <div className="max-h-[80vh] overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {availableGridFields.map((col) => (
+                  <label
+                    key={col.accessor}
+                    className="flex items-center gap-2 cursor-pointer py-2 px-2 rounded border border-gray-200 bg-white shadow-sm hover:shadow-md hover:bg-gray-50 focus-within:bg-gray-100 transition-all"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedGridFields.includes(String(col.accessor))}
+                      onChange={() => {
+                        setSelectedGridFields(prev => {
+                          const accessor = String(col.accessor);
+                          return prev.includes(accessor)
+                            ? prev.filter(f => f !== accessor)
+                            : [...prev, accessor];
+                        });
+                      }}
+                      className="accent-blue-600"
+                    />
+                    <span className="truncate" title={col.header}>{col.header}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <style jsx>{`
+              @keyframes fadeInScale {
+                0% { opacity: 0; transform: scale(0.95); }
+                100% { opacity: 1; transform: scale(1); }
+              }
+              .animate-fadeInScale {
+                animation: fadeInScale 0.25s cubic-bezier(0.4,0,0.2,1);
+              }
+            `}</style>
           </div>
         )}
       </div>
