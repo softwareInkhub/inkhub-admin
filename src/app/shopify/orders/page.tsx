@@ -45,14 +45,12 @@ export default function ShopifyOrders() {
   // Smart filter states
   const [smartField, setSmartField] = useState('order_number');
   const [smartValue, setSmartValue] = useState('');
-  const [page, setPage] = useState(1);
-  const pageSize = 50;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsInitialLoad(true);
-        await dispatch(fetchOrders({ limit: pageSize })).unwrap();
+        await dispatch(fetchOrders({ limit: 1000 })).unwrap();
       } catch (err) {
         console.error('Error fetching orders:', err);
       } finally {
@@ -66,8 +64,7 @@ export default function ShopifyOrders() {
     if (!ordersLastEvaluatedKey || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      await dispatch(fetchOrders({ limit: pageSize, lastKey: ordersLastEvaluatedKey })).unwrap();
-      setPage(prev => prev + 1);
+      await dispatch(fetchOrders({ limit: 1000, lastKey: ordersLastEvaluatedKey })).unwrap();
     } catch (err) {
       console.error('Error loading more orders:', err);
     } finally {
@@ -102,12 +99,11 @@ export default function ShopifyOrders() {
     { label: 'Updated', value: 'updated_at' },
   ];
 
-  // Multi-filter logic with pagination
+  // Multi-filter logic
   let filteredOrders = flatOrders.filter((row: any) =>
     (status === 'All' || row.financial_status === status) &&
     (fulfillment === 'All' || row.fulfillment_status === fulfillment)
   );
-
   // Smart filter logic
   if (smartValue) {
     filteredOrders = filteredOrders.filter((row: any) => {
@@ -189,15 +185,12 @@ export default function ShopifyOrders() {
   // Example grouping/aggregation (can be extended as needed)
   // For now, just pass through data as grouping/aggregation is not defined for orders
 
-  // Reset all filters and pagination
+  // Reset all filters
   const handleResetFilters = () => {
     setStatus('All');
     setFulfillment('All');
     setSmartField('order_number');
     setSmartValue('');
-    setPage(1);
-    // Reset the orders list
-    dispatch(fetchOrders({ limit: pageSize }));
   };
 
   if ((loading && isInitialLoad) || isInitialLoad) {
@@ -226,18 +219,18 @@ export default function ShopifyOrders() {
 
   return (
     <div className="h-full flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={filteredOrders.length} />
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={tableData.length} />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 
         analytics={analytics} 
-        data={filteredOrders}
+        data={tableData}
         selectedData={selectedRows}
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={filteredOrders}
+            data={tableData}
             columns={filteredColumns}
             onSort={(column) => {
               // Implement sorting logic
@@ -266,8 +259,6 @@ export default function ShopifyOrders() {
             smartValue={smartValue}
             setSmartValue={setSmartValue}
             onResetFilters={handleResetFilters}
-            currentPage={page}
-            totalPages={Math.ceil(totalOrders / pageSize)}
           />
         </div>
       </div>

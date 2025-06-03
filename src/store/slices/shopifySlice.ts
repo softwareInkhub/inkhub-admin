@@ -62,14 +62,9 @@ const shopifySlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Orders
-      .addCase(fetchOrders.pending, (state, action) => {
+      .addCase(fetchOrders.pending, (state) => {
         state.loading = true;
         state.error = null;
-        // Clear existing data if this is not a pagination request
-        if (!action.meta.arg.lastKey) {
-          state.orders = [];
-          state.ordersLastEvaluatedKey = null;
-        }
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
