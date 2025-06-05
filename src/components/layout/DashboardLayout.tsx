@@ -33,6 +33,7 @@ function getSectionFromPath(pathname: string) {
   if (pathname.startsWith('/shopify')) return 'shopify';
   if (pathname.startsWith('/pinterest')) return 'pinterest';
   if (pathname.startsWith('/design-library')) return 'design-library';
+  if (pathname.startsWith('/settings')) return 'settings';
   return null;
 }
 
@@ -48,6 +49,9 @@ const secondaryNavMap: Record<string, { name: string; href: string }[]> = {
   ],
   'design-library': [
     { name: 'Designs', href: '/design-library/designs' },
+  ],
+  settings: [
+    { name: 'General', href: '/settings' },
   ],
 };
 

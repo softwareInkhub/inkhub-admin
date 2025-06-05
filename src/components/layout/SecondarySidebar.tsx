@@ -29,6 +29,13 @@ const sidebarConfig = [
       { name: 'Designs', href: '/design-library/designs' },
     ],
   },
+  {
+    title: 'Settings',
+    key: 'settings',
+    items: [
+      { name: 'General', href: '/settings' },
+    ],
+  },
 ];
 
 interface SecondarySidebarProps {
