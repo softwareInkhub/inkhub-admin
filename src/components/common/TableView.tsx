@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface TableViewProps<T> {
   data: T[];
@@ -17,6 +17,7 @@ interface TableViewProps<T> {
   onRangeEnd?: (idx: number) => void;
   hoveredIdx?: number | null;
   setHoveredIdx?: (idx: number | null) => void;
+  onClearRange?: () => void;
 }
 
 function TableView<T>({ 
@@ -31,10 +32,13 @@ function TableView<T>({
   onRangeStart,
   onRangeEnd,
   hoveredIdx = null,
-  setHoveredIdx
+  setHoveredIdx,
+  onClearRange
 }: TableViewProps<T>) {
   // Helper to get unique key for a row
   const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
+  // Track which context menu is open
+  const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
 
   return (
     <div className="overflow-auto max-h-[70vh]">
@@ -77,8 +81,8 @@ function TableView<T>({
                 className="cursor-pointer hover:bg-gray-50 relative"
                 style={{ height: '24px' }}
                 onClick={() => onRowClick?.(item)}
-                onMouseEnter={() => setHoveredIdx?.(rowIdx)}
-                onMouseLeave={() => setHoveredIdx?.(null)}
+                onMouseEnter={() => { setHoveredIdx?.(rowIdx); setOpenMenuIdx(null); }}
+                onMouseLeave={() => { setHoveredIdx?.(null); setOpenMenuIdx(null); }}
               >
                 <td className="px-1 py-0 whitespace-nowrap relative">
                   <input
@@ -91,28 +95,24 @@ function TableView<T>({
                     }}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  {/* Range selection UI */}
-                  {!rangeSelecting && isHovered && (
-                    <button
-                      className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs border border-green-200 absolute left-7 top-1/2 -translate-y-1/2 z-10"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onRangeStart?.(rowIdx);
-                      }}
-                    >
-                      Start
-                    </button>
-                  )}
-                  {rangeSelecting && !isStart && isHovered && (
-                    <button
-                      className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs border border-blue-200 absolute left-7 top-1/2 -translate-y-1/2 z-10"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onRangeEnd?.(rowIdx);
-                      }}
-                    >
-                      End
-                    </button>
+                  {/* Direct context menu for range selection on hover */}
+                  {isHovered && (
+                    <div className="absolute left-7 top-1/2 -translate-y-1/2 z-20 bg-white border border-gray-200 rounded shadow-lg min-w-[100px] flex flex-col text-xs">
+                      <button
+                        className="px-3 py-1 hover:bg-blue-100 text-left"
+                        onClick={e => { e.stopPropagation(); onRangeStart?.(rowIdx); }}
+                      >Start</button>
+                      {rangeSelecting && !isStart && (
+                        <button
+                          className="px-3 py-1 hover:bg-blue-100 text-left"
+                          onClick={e => { e.stopPropagation(); onRangeEnd?.(rowIdx); }}
+                        >End</button>
+                      )}
+                      <button
+                        className="px-3 py-1 hover:bg-red-100 text-left"
+                        onClick={e => { e.stopPropagation(); onClearRange?.(); }}
+                      >Clear Selection</button>
+                    </div>
                   )}
                   {isStart && rangeSelecting && (
                     <span className="ml-2 px-2 py-0.5 bg-green-200 text-green-900 rounded text-xs border border-green-300 absolute left-7 top-1/2 -translate-y-1/2 z-10">Start</span>

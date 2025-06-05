@@ -201,7 +201,7 @@ async function fetchAllOrders() {
       
       const command = new ScanCommand({
         TableName: process.env.SHOPIFY_ORDERS_TABLE,
-        Limit: 1000,
+        Limit: 100, // Reduced from 1000 to 100 for better performance
         ExclusiveStartKey: lastEvaluatedKey,
       });
 
@@ -213,14 +213,19 @@ async function fetchAllOrders() {
       // Cache partial results as we go
       if (items.length > 0) {
         allItems.push(...items);
-        await redis.set(PARTIAL_CACHE_KEY, JSON.stringify(allItems), 'EX', CACHE_TTL);
-        console.log('[Debug] Cached ' + allItems.length + ' partial orders');
+        // Only cache every 500 items to reduce Redis operations
+        if (allItems.length % 500 === 0) {
+          await redis.set(PARTIAL_CACHE_KEY, JSON.stringify(allItems), 'EX', CACHE_TTL);
+          console.log('[Debug] Cached ' + allItems.length + ' partial orders');
+        }
       }
 
       lastEvaluatedKey = response.LastEvaluatedKey;
       if (!lastEvaluatedKey) {
         // Clear the last scan position when we're done
         await redis.del(LAST_SCAN_POSITION_KEY);
+        // Cache the final result
+        await redis.set(ALL_ORDERS_CACHE_KEY, JSON.stringify(allItems), 'EX', CACHE_TTL);
         break;
       }
 
@@ -228,6 +233,7 @@ async function fetchAllOrders() {
       await redis.set(LAST_SCAN_POSITION_KEY, JSON.stringify(lastEvaluatedKey), 'EX', CACHE_TTL);
       console.log('[Debug] Saved scan position for resume');
 
+      // Add a small delay between scans to prevent throttling
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
@@ -368,63 +374,79 @@ async function forceStartFetching(): Promise<void> {
 }
 
 export async function GET(req: Request) {
+  const requestStart = Date.now();
   try {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get('limit')) || 50;
-    const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')!) : undefined;
-    const forceRefresh = searchParams.get('forceRefresh') === 'true';
-    const forceStart = searchParams.get('forceStart') === 'true';
+    const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')) : undefined;
+    const cacheKey = `shopify_orders:chunk:${lastKey ? Buffer.from(JSON.stringify(lastKey)).toString('base64') : 'start'}:limit:${limit}`;
 
-    console.log('[Debug] Request received:\n' +
-      '- Method: ' + req.method + '\n' +
-      '- URL: ' + req.url);
+    // Request metadata
+    console.log(`[Debug] --- Incoming GET /api/shopify/orders ---`);
+    console.log(`[Debug] Time: ${new Date().toISOString()}`);
+    console.log(`[Debug] URL: ${req.url}`);
+    console.log(`[Debug] Method: ${req.method}`);
+    if ('headers' in req) {
+      // @ts-ignore
+      console.log(`[Debug] Headers:`, req.headers);
+    }
+    // IP is not always available in Next.js API routes, but you can log x-forwarded-for if present
+    // @ts-ignore
+    const ip = req.headers?.get?.('x-forwarded-for') || 'unknown';
+    console.log(`[Debug] Client IP: ${ip}`);
+    console.log(`[Debug] Params: limit=${limit}, lastKey=${lastKey ? JSON.stringify(lastKey) : 'start'}`);
+    console.log(`[Debug] Cache key: ${cacheKey}`);
 
-    if (forceRefresh) {
-      console.log('[Debug] Force refresh requested for orders, clearing cache...');
-      await redis.del(ALL_ORDERS_CACHE_KEY);
-      await redis.del(PARTIAL_CACHE_KEY);
-      await redis.del(LAST_SCAN_POSITION_KEY);
-      console.log('[Debug] Orders cache cleared');
+    // 1. Try cache
+    const cacheStart = Date.now();
+    const cached = await redis.get(cacheKey);
+    const cacheDuration = Date.now() - cacheStart;
+    if (cached) {
+      console.log(`[Debug] Cache HIT for key: ${cacheKey} (checked in ${cacheDuration}ms, size: ${cached.length} bytes)`);
+      console.log(`[Debug] --- Request complete (served from cache) in ${Date.now() - requestStart}ms ---`);
+      return NextResponse.json(JSON.parse(cached));
+    } else {
+      console.log(`[Debug] Cache MISS for key: ${cacheKey} (checked in ${cacheDuration}ms)`);
     }
 
-    if (forceStart) {
-      console.log('[Debug] Force start requested for orders...');
-      await forceStartFetching();
-    }
+    // 2. Fetch from DynamoDB
+    const dynamoStart = Date.now();
+    console.log(`[Debug] Fetching chunk from DynamoDB: limit=${limit}, lastKey=${lastKey ? JSON.stringify(lastKey) : 'start'}`);
+    const command = new ScanCommand({
+      TableName: process.env.SHOPIFY_ORDERS_TABLE,
+      Limit: limit,
+      ExclusiveStartKey: lastKey,
+    });
+    const response = await docClient.send(command);
+    const dynamoDuration = Date.now() - dynamoStart;
 
-    // Get orders from cache or start fetching
-    const allOrders = (await getOrdersFromCache()).map(transformOrder);
-
-    // If we got empty array (cache miss and couldn't acquire lock),
-    // trigger background refresh and return empty result
-    if (allOrders.length === 0) {
-      refreshOrdersInBackground().catch(console.error);
-      return NextResponse.json({ items: [], lastEvaluatedKey: null, total: 0 });
-    }
-
-    // Handle pagination
-    const startIndex = lastKey ? allOrders.findIndex((o: ShopifyOrder) => o.id === lastKey.id) + 1 : 0;
-    const endIndex = startIndex + limit;
-    const paginatedOrders = allOrders.slice(startIndex, endIndex);
-    const hasMore = endIndex < allOrders.length;
-
-    console.log('[Debug] Response prepared:\n' +
-      '- Items: ' + paginatedOrders.length + '\n' +
-      '- Has more: ' + hasMore + '\n' +
-      '- Total: ' + allOrders.length);
-
+    // 3. Transform and cache this chunk
+    const items = (response.Items || []).map(transformOrder);
     const result = {
-      items: paginatedOrders,
-      lastEvaluatedKey: hasMore ? paginatedOrders[paginatedOrders.length - 1] : null,
-      total: allOrders.length
+      items,
+      lastEvaluatedKey: response.LastEvaluatedKey || null,
+      total: undefined // (Optional: You can count total separately if needed)
     };
+    const resultString = JSON.stringify(result);
+    const cacheWriteStart = Date.now();
+    await redis.set(cacheKey, resultString, 'EX', 60 * 60 * 24 * 7); // 7 days TTL
+    const cacheWriteDuration = Date.now() - cacheWriteStart;
 
+    // Detailed DynamoDB and cache info
+    console.log(`[Debug] DynamoDB response:`);
+    console.log(`  - Items fetched: ${items.length}`);
+    console.log(`  - lastEvaluatedKey: ${result.lastEvaluatedKey ? JSON.stringify(result.lastEvaluatedKey) : 'null'}`);
+    console.log(`  - Raw response size: ${JSON.stringify(response).length} bytes`);
+    console.log(`[Debug] Cached chunk for key: ${cacheKey} (size: ${resultString.length} bytes, TTL: 7 days, write took ${cacheWriteDuration}ms)`);
+
+    // 4. Return
+    console.log(`[Debug] Returning chunk: items=${items.length}, lastEvaluatedKey=${result.lastEvaluatedKey ? JSON.stringify(result.lastEvaluatedKey) : 'null'}`);
+    console.log(`[Debug] --- Request complete (DynamoDB+cache) in ${Date.now() - requestStart}ms ---`);
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('[Debug] Error occurred while fetching orders:', error);
-    const errorMessage = getErrorMessage(error);
+    console.error('[Debug] Error in GET /api/shopify/orders:', error);
     return NextResponse.json(
-      { error: errorMessage },
+      { error: error.message || 'Failed to fetch orders' },
       { status: 500 }
     );
   }

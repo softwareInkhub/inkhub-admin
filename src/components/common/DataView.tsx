@@ -19,6 +19,7 @@ import FilterBar from './FilterBar';
 import ModalNavigator from './ModalNavigator';
 import CardConfigModal from './CardConfigModal';
 import GridConfigModal from './GridConfigModal';
+import TableConfigModal from './TableConfigModal';
 
 interface DataViewProps<T> {
   data: T[];
@@ -483,6 +484,8 @@ export default function DataView<T>({
     setRangeStartIdx(null);
     setRangeEndIdx(null);
     setRangeSelecting(false);
+    setSelectedRowIds(new Set());
+    onSelectionChange?.([]);
   };
 
   // Handle row click to open modal
@@ -542,7 +545,19 @@ export default function DataView<T>({
   const allDataKeys: string[] = (data.length > 0 && typeof data[0] === 'object' && data[0] !== null)
     ? Object.keys(flattenObject(data[0]))
     : [];
-  // Build available fields: use column header/render if present, else fallback to key
+
+  // Build available fields for table configuration
+  const availableTableFields = allDataKeys
+    .map((key: string) => {
+      const col = columns.find((c) => String(c.accessor) === key);
+      return {
+        header: col?.header || key,
+        accessor: key,
+        render: col?.render as ((value: any, row: T, viewType?: 'table' | 'grid' | 'card' | string) => React.ReactNode) | undefined,
+      };
+    });
+
+  // Build available fields for grid configuration
   const availableGridFields = allDataKeys
     .filter((key: string) => key !== (imageCol?.accessor && String(imageCol.accessor)))
     .map((key: string) => {
@@ -550,7 +565,7 @@ export default function DataView<T>({
       return {
         header: col?.header || key,
         accessor: key,
-        render: col?.render,
+        render: col?.render as ((value: any, row: T, viewType?: 'table' | 'grid' | 'card' | string) => React.ReactNode) | undefined,
       };
     });
 
@@ -588,6 +603,10 @@ export default function DataView<T>({
   // Card view: manage modal and selected fields state at the parent level
   const [cardModalOpenIdx, setCardModalOpenIdx] = useState<number | null>(null);
   const [cardSelectedFieldsMap, setCardSelectedFieldsMap] = useState<Record<number, string[]>>({});
+
+  // Add state for table configuration
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const [selectedTableFields, setSelectedTableFields] = useState<string[]>([]);
 
   // Controls: stack vertically on mobile, horizontally on desktop
   return (
@@ -652,35 +671,24 @@ export default function DataView<T>({
           >
             <Squares2X2Icon className="h-4 w-4 md:h-5 md:w-5" />
           </button>
-          {/* Grid Settings Icon (only show in grid view) */}
-          {viewType === 'grid' && (
-            <div className="relative">
-              <button
-                className="ml-2 p-1 rounded-full bg-white shadow border hover:bg-gray-100"
-                onClick={() => setGridSettingsOpen(true)}
-                title="Configure grid fields"
-              >
-                <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-          )}
+          {/* Settings Icon (show based on view type) */}
+          <div className="relative">
+            <button
+              className="ml-2 p-1 rounded-full bg-white shadow border hover:bg-gray-100"
+              onClick={() => {
+                if (viewType === 'grid') {
+                  setGridSettingsOpen(true);
+                } else if (viewType === 'table') {
+                  setTableSettingsOpen(true);
+                }
+              }}
+              title={`Configure ${viewType} fields`}
+            >
+              <Cog6ToothIcon className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Clear Selection Button */}
-      {selectedRowIds.size > 0 && (
-        <div className="flex items-center gap-2 mb-2">
-          <button
-            className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
-            onClick={() => {
-              setSelectedRowIds(new Set());
-              onSelectionChange?.([]);
-            }}
-          >
-            Clear Selection
-          </button>
-        </div>
-      )}
 
       {/* Scrollable Content Section */}
       <div className="flex-1 min-h-0 h-0 overflow-auto relative p-0 m-0">
@@ -694,7 +702,7 @@ export default function DataView<T>({
         {viewType === 'table' && (
           <TableView 
             data={filteredData} 
-            columns={filteredColumns} 
+            columns={filteredColumns.filter(col => selectedTableFields.length === 0 || selectedTableFields.includes(String(col.accessor)))} 
             selectedRows={selectedRowIds}
             onRowSelect={handleRowSelect}
             onSelectAll={handleSelectAll}
@@ -705,6 +713,7 @@ export default function DataView<T>({
             hoveredIdx={hoveredIdx}
             setHoveredIdx={setHoveredIdx}
             onRowClick={handleRowClick}
+            onClearRange={clearRangeSelection}
           />
         )}
         {viewType === 'grid' && (
@@ -913,6 +922,18 @@ export default function DataView<T>({
             selectedFields={selectedGridFields}
             onChange={setSelectedGridFields}
             title="Select fields to show"
+          />
+        )}
+
+        {/* Table Settings Modal */}
+        {tableSettingsOpen && (
+          <TableConfigModal<T>
+            open={tableSettingsOpen}
+            onClose={() => setTableSettingsOpen(false)}
+            availableFields={availableTableFields}
+            selectedFields={selectedTableFields}
+            onChange={setSelectedTableFields}
+            title="Select columns to show"
           />
         )}
       </div>

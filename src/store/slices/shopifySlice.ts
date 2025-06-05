@@ -23,6 +23,13 @@ const initialState: ShopifyState = {
   totalProducts: 0,
 };
 
+export const setInitialOrders = createAsyncThunk(
+  'shopify/setInitialOrders',
+  async (data: { items: any[]; lastEvaluatedKey: any; total: number }) => {
+    return data;
+  }
+);
+
 export const fetchOrders = createAsyncThunk(
   'shopify/fetchOrders',
   async ({ limit = 50, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
@@ -61,6 +68,12 @@ const shopifySlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Initial orders
+      .addCase(setInitialOrders.fulfilled, (state, action) => {
+        state.orders = action.payload.items;
+        state.ordersLastEvaluatedKey = action.payload.lastEvaluatedKey;
+        state.totalOrders = action.payload.total;
+      })
       // Orders
       .addCase(fetchOrders.pending, (state) => {
         state.loading = true;
@@ -68,18 +81,14 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
-        const { items = [], lastEvaluatedKey, total } = action.payload || {};
-        // Unwrap 'item' if present
-        const flatItems = items.map(order => order.item ? order.item : order);
-        if (action.meta.arg && action.meta.arg.lastKey) {
-          // Pagination: append
-          state.orders = [...state.orders, ...flatItems];
+        // If lastKey is present, append; else, replace
+        if (action.meta.arg.lastKey) {
+          state.orders = [...state.orders, ...action.payload.items];
         } else {
-          // First page: replace
-          state.orders = flatItems;
+          state.orders = action.payload.items;
         }
-        state.ordersLastEvaluatedKey = lastEvaluatedKey || null;
-        state.totalOrders = typeof total === 'number' ? total : state.orders.length;
+        state.ordersLastEvaluatedKey = action.payload.lastEvaluatedKey || null;
+        state.totalOrders = typeof action.payload.total === 'number' ? action.payload.total : state.orders.length;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
