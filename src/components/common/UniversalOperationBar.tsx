@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowDownTrayIcon } from '@heroicons/react/24/solid';
+
 interface UniversalOperationBarProps {
   section: string;
   tabKey: string;
@@ -25,20 +27,21 @@ export default function UniversalOperationBar({ section, tabKey, analytics, data
   };
 
   return (
-    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4">
+    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4 justify-end">
       <div className="flex flex-col items-center justify-center">
-        <div className="border-2 border-blue-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[80px] flex flex-col items-center">
+        <div className="rounded-xl px-4 py-2 bg-gradient-to-br from-blue-50/40 to-white flex flex-col items-center min-w-[120px]">
           <button
-            className="btn btn-secondary rounded-full px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors mb-1"
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
             onClick={() => {
               console.log('Download selectedData:', selectedData);
               handleDownload();
             }}
           >
+            <ArrowDownTrayIcon className="w-5 h-5" />
             Download Data
           </button>
           {selectedData.length > 0 && (
-            <span className="mt-1 text-xs text-blue-700 font-semibold bg-blue-50 rounded-full px-2 py-0.5">
+            <span className="mt-2 text-xs text-blue-700 font-semibold bg-blue-50 rounded-full px-2 py-0.5">
               {selectedData.length} selected
             </span>
           )}

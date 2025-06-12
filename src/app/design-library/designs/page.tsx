@@ -11,6 +11,7 @@ import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
 import ImageCell from '@/components/common/ImageCell';
 import FilterBar from '@/components/common/FilterBar';
+import ViewsBar from '@/components/common/ViewsBar';
 
 export default function DesignLibrary() {
   const dispatch = useDispatch<AppDispatch>();
@@ -143,6 +144,7 @@ export default function DesignLibrary() {
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
+      <ViewsBar />
       <UniversalOperationBar 
         section="design library" 
         tabKey="designs" 

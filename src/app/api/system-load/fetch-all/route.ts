@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import redis from '@/utils/redis';
+import { getPriorityList, setLastKey, getLastKey, clearProgress, setLiveProgress } from '@/utils/cacheProgress';
 
 // --- Helper Functions (copy or adapt from each resource route) ---
 
@@ -84,11 +85,13 @@ const resources = [
   },
 ];
 
-async function fetchResource(resource: any) {
+async function fetchResourceBatched(resource: any) {
   let status = 'Fetching...';
   let progress = 0;
   let items: any[] = [];
   let error = null;
+  let lastEvaluatedKey = await getLastKey(resource.key);
+  let page = 1;
   try {
     // Try full cache
     const cached = await redis.get(resource.cacheKey);
@@ -96,6 +99,7 @@ async function fetchResource(resource: any) {
       items = JSON.parse(cached);
       status = 'Complete';
       progress = 100;
+      await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
       return { status, progress, items, error };
     }
     // Try partial cache
@@ -103,35 +107,104 @@ async function fetchResource(resource: any) {
     if (partial) {
       items = JSON.parse(partial);
       status = 'Fetching...';
-      // Estimate progress by number of items (not perfect)
       progress = Math.min(99, Math.floor((items.length / 1000) * 100));
+      await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
     }
-    // If not complete, fetch from DynamoDB
-    const command = new ScanCommand({
-      TableName: resource.table,
-      Limit: resource.limit,
-    });
-    const response = await docClient.send(command);
-    if (response.Items) {
-      items = response.Items;
-      await redis.set(resource.cacheKey, JSON.stringify(items), 'EX', resource.ttl);
-      status = 'Complete';
-      progress = 100;
+    // Batched fetching with resume
+    let done = false;
+    while (!done) {
+      // Check for per-resource pause flag before each batch
+      const isPaused = await redis.get(`systemload:paused:${resource.key}`);
+      if (isPaused) {
+        status = 'Paused';
+        await setLiveProgress(resource.key, {
+          status,
+          progress: Math.min(99, Math.floor((items.length / 1000) * 100)),
+          count: items.length,
+          page,
+          error: null,
+        });
+        break;
+      }
+      const command = new ScanCommand({
+        TableName: resource.table,
+        Limit: resource.limit,
+        ExclusiveStartKey: lastEvaluatedKey || undefined,
+      });
+      const response = await docClient.send(command);
+      if (response.Items) {
+        // Log batch fetch details
+        console.log(`[SystemLoad] Resource: ${resource.key}, Page: ${page}, Batch size: ${response.Items.length}`);
+        // Cache this batch
+        await redis.set(`${resource.key}:page:${page}`, JSON.stringify(response.Items), 'EX', resource.ttl);
+        items = items.concat(response.Items);
+        await redis.set(resource.partialKey, JSON.stringify(items), 'EX', resource.ttl);
+      }
+      lastEvaluatedKey = response.LastEvaluatedKey;
+      await setLastKey(resource.key, lastEvaluatedKey);
+      // --- Live progress update ---
+      await setLiveProgress(resource.key, {
+        status: 'Fetching...',
+        progress: Math.min(99, Math.floor((items.length / 1000) * 100)),
+        count: items.length,
+        page,
+        error: null,
+      });
+      page++;
+      if (!lastEvaluatedKey) {
+        done = true;
+        await redis.set(resource.cacheKey, JSON.stringify(items), 'EX', resource.ttl);
+        status = 'Complete';
+        progress = 100;
+        await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
+      } else {
+        progress = Math.min(99, Math.floor((items.length / 1000) * 100));
+      }
     }
   } catch (e: any) {
     error = getErrorMessage(e, resource.key);
     status = 'Error';
     progress = 0;
     items = [];
+    await setLiveProgress(resource.key, { status, progress, count: 0, page, error });
   }
   return { status, progress, items, error };
 }
 
-export async function GET() {
-  const results = await Promise.all(resources.map(fetchResource));
+export async function GET(req: Request) {
+  // Check for refresh param
+  const url = new URL(req.url);
+  const refresh = url.searchParams.get('refresh') === 'true';
+
+  if (refresh) {
+    // Clear all cache and progress for all resources
+    for (const resource of resources) {
+      await redis.del(resource.cacheKey);
+      await redis.del(resource.partialKey);
+      await clearProgress(resource.key);
+      // Optionally, clear all batch/page keys
+      let page = 1;
+      while (await redis.get(`${resource.key}:page:${page}`)) {
+        await redis.del(`${resource.key}:page:${page}`);
+        page++;
+      }
+    }
+  }
+
+  // Get user-set priority or default order
+  let priority: string[] = await getPriorityList();
+  if (!priority.length) priority = resources.map((r: any) => r.key);
+  // Sort resources by priority
+  const sortedResources: any[] = priority.map((key: string) => resources.find((r: any) => r.key === key)).filter(Boolean);
+  const results: any[] = [];
+  for (const resource of sortedResources) {
+    if (!resource) continue;
+    const result = await fetchResourceBatched(resource);
+    results.push(result);
+  }
   const response: any = {};
-  resources.forEach((r, i) => {
-    response[r.key] = results[i];
+  sortedResources.forEach((r: any, i: number) => {
+    if (r) response[r.key] = results[i];
   });
   return NextResponse.json(response);
 } 

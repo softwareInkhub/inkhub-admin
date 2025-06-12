@@ -1,13 +1,17 @@
 import Redis from 'ioredis';
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-};
+const globalForRedis = global as unknown as { redis?: InstanceType<typeof Redis> };
 
-const redis = new Redis(redisConfig);
+const redis =
+  globalForRedis.redis ||
+  new Redis({
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+  });
 
-redis.on('error', (error) => {
+if (process.env.NODE_ENV !== 'production') globalForRedis.redis = redis;
+
+redis.on('error', (error: any) => {
   console.error('Redis connection error:', error);
 });
 

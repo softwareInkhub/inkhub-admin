@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { ChartBarIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
 
 interface UniversalAnalyticsBarProps {
   section: string;
@@ -63,21 +64,27 @@ export default function UniversalAnalyticsBar({ section, tabKey, total, currentC
   return (
     <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4">
       <div className="flex flex-col items-center justify-center">
-        <div className="border-2 border-gray-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[80px]">
-          <div className="text-xs font-semibold mb-0.5">Total Data</div>
-          <div className="text-lg font-bold text-blue-700">{typeof total === 'number' ? total : '--'}</div>
+        <div className="border-2 border-blue-100 rounded-xl px-4 py-2 bg-gradient-to-br from-blue-50/40 to-white shadow text-center min-w-[80px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-lg">
+          <div className="flex items-center justify-center mb-0.5">
+            <ChartBarIcon className="w-5 h-5 text-blue-400 mr-1" />
+            <span className="text-xs font-semibold text-blue-900">Total Data</span>
+          </div>
+          <div className="text-lg font-extrabold text-blue-700 tracking-wide">{typeof total === 'number' ? total : '--'}</div>
         </div>
       </div>
       <div className="flex flex-col items-center justify-center ml-2">
-        <div className="border-2 border-gray-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[80px]">
-          <div className="text-xs font-semibold mb-0.5">Loaded Data</div>
-          <div className="text-lg font-bold text-green-700">{typeof currentCount === 'number' ? currentCount : '--'}</div>
+        <div className="border-2 border-green-100 rounded-xl px-4 py-2 bg-gradient-to-br from-green-50/40 to-white shadow text-center min-w-[80px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-lg">
+          <div className="flex items-center justify-center mb-0.5">
+            <CheckCircleIcon className="w-5 h-5 text-green-400 mr-1" />
+            <span className="text-xs font-semibold text-green-900">Loaded Data</span>
+          </div>
+          <div className="text-lg font-extrabold text-green-700 tracking-wide">{typeof currentCount === 'number' ? currentCount : '--'}</div>
         </div>
       </div>
       {[3,4,5,6,7,8,9,10,11].map((num) => (
         <div key={num} className="flex flex-col items-center justify-center ml-2">
-          <div className="border-2 border-gray-400 rounded-lg px-4 py-2 bg-white shadow text-center min-w-[120px]">
-            <div className="text-xs font-semibold mb-0.5">Box {num}</div>
+          <div className="border-2 border-gray-200 rounded-xl px-4 py-2 bg-gradient-to-br from-gray-50 to-white shadow text-center min-w-[120px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-lg">
+            <div className="text-xs font-semibold mb-0.5 text-gray-800">Box {num}</div>
             <div className="text-lg font-bold text-gray-700">--</div>
           </div>
         </div>

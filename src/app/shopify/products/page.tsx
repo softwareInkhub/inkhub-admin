@@ -12,6 +12,7 @@ import DecoupledHeader from '@/components/common/DecoupledHeader';
 import ImageCell from '@/components/common/ImageCell';
 import GridView from '@/components/common/GridView';
 import FilterBar from '@/components/common/FilterBar';
+import ViewsBar from '@/components/common/ViewsBar';
 
 // Reusable image cell component
 function ProductImageCell({ src, alt, viewType }: { src: string; alt: string; viewType?: string }) {
@@ -159,6 +160,7 @@ export default function ShopifyProducts() {
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
+      <ViewsBar />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="products" 

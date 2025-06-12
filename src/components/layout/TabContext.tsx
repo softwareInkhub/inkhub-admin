@@ -34,9 +34,23 @@ export const TabProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const storedTabs = localStorage.getItem("universalTabs");
     const storedActive = localStorage.getItem("universalActiveTab");
-    if (storedTabs) setOpenTabs(JSON.parse(storedTabs));
-    if (storedActive) setActiveTabState(storedActive);
-  }, []);
+    let tabs = storedTabs ? JSON.parse(storedTabs) : [];
+    if (tabs.length === 0) {
+      // If no tabs, add the current page as a tab
+      const label = pathname.split("/").filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ") || "Home";
+      tabs = [{ key: pathname, label, path: pathname }];
+    } else if (!tabs.find((tab: Tab) => tab.path === pathname)) {
+      // If current page is not in tabs, add it
+      const label = pathname.split("/").filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ") || "Home";
+      tabs.push({ key: pathname, label, path: pathname });
+    }
+    setOpenTabs(tabs);
+    if (storedActive) {
+      setActiveTabState(storedActive);
+    } else {
+      setActiveTabState(pathname);
+    }
+  }, [pathname]);
 
   // Persist tabs to localStorage
   useEffect(() => {
@@ -45,6 +59,12 @@ export const TabProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (activeTab) localStorage.setItem("universalActiveTab", activeTab);
   }, [activeTab]);
+
+  // Restore active tab from localStorage on mount
+  useEffect(() => {
+    const storedActive = localStorage.getItem("universalActiveTab");
+    if (storedActive) setActiveTabState(storedActive);
+  }, []);
 
   // Update active tab on route change
   useEffect(() => {

@@ -11,6 +11,7 @@ import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import ImageCell from '@/components/common/ImageCell';
 import FilterBar from '@/components/common/FilterBar';
+import ViewsBar from '@/components/common/ViewsBar';
 
 export default function PinterestPins() {
   const dispatch = useDispatch<AppDispatch>();
@@ -154,6 +155,7 @@ export default function PinterestPins() {
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={filteredPins.length} />
+      <ViewsBar />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="pins" 

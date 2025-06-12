@@ -48,14 +48,13 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
   }, [open]);
 
   return (
-    <div className="flex justify-between items-center w-full relative bg-white p-0 m-0 gap-0"
-         style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap', minHeight: 0 }}>
+    <div className="flex justify-between items-center w-full relative bg-gradient-to-r from-white via-blue-50 to-white rounded-xl shadow p-2 gap-2 border border-blue-100" style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap', minHeight: 0 }}>
       {/* Active columns as chips (left) */}
-      <div className="flex flex-wrap gap-x-0.5 gap-y-0 items-center min-h-0 p-0 m-0">
+      <div className="flex flex-wrap gap-x-1 gap-y-1 items-center min-h-0 p-0 m-0">
         {columns.filter(col => visibleColumns.includes(col.accessor)).map(col => (
           <span
             key={col.accessor}
-            className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] border border-blue-200 font-normal"
+            className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs border border-blue-200 font-medium shadow-sm hover:bg-blue-200 transition-colors cursor-pointer"
             style={{lineHeight: '1.1', margin: 0}}
           >
             {col.header}
@@ -65,11 +64,11 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
       {/* Settings button (right) */}
       <button
         ref={buttonRef}
-        className="p-2 rounded-full hover:bg-gray-200 focus:outline-none"
+        className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 focus:outline-none shadow-md border border-blue-200 transition-colors flex items-center justify-center"
         onClick={() => setOpen(o => !o)}
         title="Configure columns"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
       </button>

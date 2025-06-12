@@ -41,11 +41,11 @@ function TableView<T>({
   const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
 
   return (
-    <div className="overflow-auto max-h-[70vh]">
+    <div className="overflow-auto max-h-[45vh]">
       <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm md:text-base">
-        <thead className="bg-gray-50 sticky top-0 z-10">
+        <thead className="bg-white sticky top-0 z-20 shadow-md">
           <tr>
-            <th className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-white">
               <input
                 type="checkbox"
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -54,7 +54,7 @@ function TableView<T>({
               />
             </th>
             <th
-              className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap truncate overflow-hidden"
+              className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap truncate overflow-hidden bg-white"
               style={{ textOverflow: 'ellipsis', maxWidth: 60 }}
             >
               #
@@ -62,7 +62,7 @@ function TableView<T>({
             {columns.map((column, idx) => (
               <th
                 key={idx}
-                className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap truncate overflow-hidden"
+                className="px-1 py-0 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap truncate overflow-hidden bg-white"
                 style={{ textOverflow: 'ellipsis', maxWidth: 140 }}
               >
                 {column.header}
@@ -70,7 +70,12 @@ function TableView<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+
+        <tbody className="align-top">
+          {/* Add a gap row after the header */}
+          <tr>
+            <td colSpan={columns.length + 2} className="bg-white" style={{ height: '6px', border: 'none', padding: 0 }}></td>
+          </tr>
           {data.map((item, rowIdx) => {
             const rowId = getRowId(item);
             const isHovered = hoveredIdx === rowIdx;

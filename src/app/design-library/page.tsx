@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import UniversalAnalyticsBar from '@/components/UniversalAnalyticsBar';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 
 export default function DesignLibraryIndexRedirect() {
   redirect('/design-library/designs');

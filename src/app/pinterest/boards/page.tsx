@@ -10,6 +10,7 @@ import UniversalOperationBar from '@/components/common/UniversalOperationBar';
 import DecoupledHeader from '@/components/common/DecoupledHeader';
 import ImageCell from '@/components/common/ImageCell';
 import FilterBar from '@/components/common/FilterBar';
+import ViewsBar from '@/components/common/ViewsBar';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -124,6 +125,7 @@ export default function PinterestBoards() {
   return (
     <div className="h-full flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={filteredBoards.length} />
+      <ViewsBar />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 

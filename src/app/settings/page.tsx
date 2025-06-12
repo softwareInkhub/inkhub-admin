@@ -80,7 +80,7 @@ export default function SettingsPage() {
   }));
 
   return (
-    <div className="max-w-7xl mx-auto mt-12 px-4">
+    <div className="w-full h-[100vh] min-h-screen p-6 md:p-12 bg-white animate-fade-in">
       <SystemLoadStatus resources={resourceStatus} />
       {/* DataViews for each resource */}
       {RESOURCES.map(resource => (
