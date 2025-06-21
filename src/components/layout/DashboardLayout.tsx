@@ -10,10 +10,13 @@ import {
   Cog6ToothIcon,
   CubeIcon,
   TagIcon,
+  UserGroupIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import SecondarySidebar from './SecondarySidebar';
 import { useTabContext } from "@/components/layout/TabContext";
 import Sidebar from './Sidebar';
+import Cookies from 'js-cookie';
 
 interface NavItem {
   name: string;
@@ -37,6 +40,7 @@ function getSectionFromPath(pathname: string) {
   if (pathname.startsWith('/pinterest')) return 'pinterest';
   if (pathname.startsWith('/design-library')) return 'design-library';
   if (pathname.startsWith('/settings')) return 'settings';
+  if (pathname.startsWith('/user-management')) return 'user-management';
   return null;
 }
 
@@ -56,6 +60,10 @@ const secondaryNavMap: Record<string, { name: string; href: string }[]> = {
   settings: [
     { name: 'General', href: '/settings' },
   ],
+  'user-management': [
+    { name: 'Register User', href: '/user-management/register' },
+    { name: 'Existing User', href: '/user-management/existing' },
+  ],
 };
 
 // Map the activeTab to the correct analytics key for UniversalAnalyticsBar
@@ -74,6 +82,10 @@ function getAnalyticsTabKey(section: string, activeTab: string): string {
   if (section === 'design-library') {
     if (tab.includes('designs')) return 'designs';
   }
+  if (section === 'user-management') {
+    if (tab.includes('register')) return 'register-user';
+    if (tab.includes('existing')) return 'existing-user';
+  }
   return '';
 }
 
@@ -85,6 +97,7 @@ function getTabIcon(tab) {
   if (label.includes('board')) return BookOpenIcon;
   if (label.includes('design')) return BookOpenIcon;
   if (label.includes('general') || label.includes('setting')) return Cog6ToothIcon;
+  if (label.includes('user')) return UserGroupIcon;
   return CubeIcon;
 }
 
@@ -103,12 +116,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setSelectedSection(getSectionFromPath(pathname) || 'shopify');
   }, [pathname]);
 
+  const handleLogout = () => {
+    // Clear all localStorage and sessionStorage for a full cleanup
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Remove the session cookie
+    Cookies.remove('id_token');
+    
+    // Redirect to the login page to start a new session
+    router.push('/login');
+  };
+
   return (
     <div className="min-h-screen h-screen bg-gray-100 flex flex-col overflow-hidden">
       {/* Top Header */}
-      <header className="w-full border-b bg-white shadow sticky top-0 z-50 px-6 flex flex-col">
-        <div className="flex items-center justify-center h-12">
+      <header className="w-full border-b bg-white shadow sticky top-0 z-50 px-6 flex items-center justify-between h-12">
+        {/* This div is for spacing, to keep the title centered */}
+        <div className="w-1/3"></div>
+        <div className="w-1/3 flex items-center justify-center">
           <h1 className="text-2xl font-bold text-black">INKHUB</h1>
+        </div>
+        <div className="w-1/3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-x-2 p-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            <ArrowRightOnRectangleIcon
+              className="h-6 w-6 text-gray-500"
+              aria-hidden="true"
+            />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
         </div>
       </header>
       <div className="flex flex-1 min-h-0 overflow-hidden">

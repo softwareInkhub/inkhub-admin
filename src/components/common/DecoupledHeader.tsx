@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -5,6 +7,7 @@ interface DecoupledHeaderProps {
   columns: { header: string; accessor: string }[];
   visibleColumns: string[];
   onColumnsChange: (visible: string[]) => void;
+  setSidebarOpen: (open: boolean) => void;
 }
 
 export default function DecoupledHeader({ columns, visibleColumns, onColumnsChange }: DecoupledHeaderProps) {
@@ -14,11 +17,21 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const handleToggleColumn = (accessor: string) => {
-    if (visibleColumns.includes(accessor)) {
-      onColumnsChange(visibleColumns.filter(col => col !== accessor));
-    } else {
-      onColumnsChange([...visibleColumns, accessor]);
+    const newVisibleColumns = visibleColumns.includes(accessor)
+      ? visibleColumns.filter(col => col !== accessor)
+      : [...visibleColumns, accessor];
+    onColumnsChange(newVisibleColumns);
+  };
+
+  const handleDropdownToggle = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+      });
     }
+    setOpen(prev => !prev);
   };
 
   // Click-away to close dropdown
@@ -30,79 +43,48 @@ export default function DecoupledHeader({ columns, visibleColumns, onColumnsChan
     }
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [open]);
 
-  // Set dropdown position when opening
-  useEffect(() => {
-    if (open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: rect.right - 224 + window.scrollX, // 224px = w-56
-      });
-    }
-  }, [open]);
-
   return (
-    <div className="flex justify-between items-center w-full relative bg-gradient-to-r from-white via-blue-50 to-white rounded-xl shadow p-2 gap-2 border border-blue-100" style={{ maxWidth: 700, width: '100%', flexWrap: 'wrap', minHeight: 0 }}>
-      {/* Active columns as chips (left) */}
-      <div className="flex flex-wrap gap-x-1 gap-y-1 items-center min-h-0 p-0 m-0">
-        {columns.filter(col => visibleColumns.includes(col.accessor)).map(col => (
-          <span
-            key={col.accessor}
-            className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs border border-blue-200 font-medium shadow-sm hover:bg-blue-200 transition-colors cursor-pointer"
-            style={{lineHeight: '1.1', margin: 0}}
-          >
-            {col.header}
-          </span>
-        ))}
-      </div>
-      {/* Settings button (right) */}
+    <div className="relative inline-block text-left">
       <button
         ref={buttonRef}
-        className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 focus:outline-none shadow-md border border-blue-200 transition-colors flex items-center justify-center"
-        onClick={() => setOpen(o => !o)}
-        title="Configure columns"
+        type="button"
+        className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+        onClick={handleDropdownToggle}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
+        Columns
       </button>
-      {open && dropdownPos && createPortal(
-        <div
-          ref={dropdownRef}
-          className="fixed w-56 bg-white border border-gray-200 rounded shadow-lg z-50 p-3"
-          style={{ top: dropdownPos.top, left: dropdownPos.left }}
-        >
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-semibold text-sm text-gray-700">Show Columns</span>
-            <button
-              className="ml-2 text-gray-400 hover:text-red-500 text-lg font-bold px-1"
-              onClick={() => setOpen(false)}
-              title="Close"
-            >
-              &times;
-            </button>
-          </div>
-          <div className="flex flex-col gap-1">
-            {columns.map(col => (
-              <label key={col.accessor} className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={visibleColumns.includes(col.accessor)}
-                  onChange={() => handleToggleColumn(col.accessor)}
-                />
-                {col.header}
-              </label>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
+
+      {open && dropdownPos &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="origin-top-right absolute mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50"
+            style={{ top: `${dropdownPos.top}px`, left: `${dropdownPos.left}px` }}
+          >
+            <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+              {columns.map(column => (
+                <div key={column.accessor} className="flex items-center px-4 py-2">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.includes(column.accessor)}
+                    onChange={() => handleToggleColumn(column.accessor)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <label className="ml-3 text-sm text-gray-700">{column.header}</label>
+                </div>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

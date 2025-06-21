@@ -6,6 +6,7 @@ import {
   BookOpenIcon,
   HomeIcon,
   Cog6ToothIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { SiPinterest, SiShopify } from 'react-icons/si';
 
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Shopify', key: 'shopify', icon: SiShopify },
   { name: 'Pinterest', key: 'pinterest', icon: SiPinterest },
   { name: 'Design Library', key: 'design-library', icon: BookOpenIcon },
+  { name: 'User Management', key: 'user-management', icon: UserGroupIcon },
 ];
 
 const settingsNav = { name: 'Settings', key: 'settings', icon: Cog6ToothIcon };

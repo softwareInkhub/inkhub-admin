@@ -37,7 +37,14 @@ const sidebarConfig = [
       { name: 'Health Check', href: '/settings/health' },
     ],
   },
- 
+  {
+    title: 'User Management',
+    key: 'user-management',
+    items: [
+      { name: 'Register User', href: '/user-management/register' },
+      { name: 'Existing User', href: '/user-management/existing' },
+    ],
+  },
 ];
 
 interface SecondarySidebarProps {
