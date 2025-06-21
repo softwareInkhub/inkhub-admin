@@ -53,7 +53,13 @@ export default function Sidebar({ onSectionSelect }: SidebarProps) {
         {/* Icon Navigation */}
         <nav className="flex flex-col gap-4 w-full items-center mt-2">
           {navigation.map((item) => {
-            const isActive = activeSection === item.key || pathname.startsWith(`/${item.key}`);
+            const currentPath = pathname.split('/')[1];
+            const isActive =
+              activeSection === item.key ||
+              (activeSection === '' &&
+                (item.key === 'home'
+                  ? pathname === '/'
+                  : currentPath === item.key));
             return (
               <div key={item.key} className="relative group w-full flex justify-center">
                 <button
@@ -82,7 +88,8 @@ export default function Sidebar({ onSectionSelect }: SidebarProps) {
           <button
             onClick={() => handleIconClick(settingsNav.key)}
             className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors border-2 ${
-              activeSection === settingsNav.key || pathname.startsWith('/settings')
+              activeSection === settingsNav.key ||
+              (activeSection === '' && pathname.startsWith('/settings'))
                 ? 'bg-white border-blue-500 text-blue-600 shadow-md'
                 : 'bg-transparent border-transparent text-gray-400 hover:bg-blue-50 hover:text-blue-500'
             }`}
