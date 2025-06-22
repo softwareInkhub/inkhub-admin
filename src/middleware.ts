@@ -54,8 +54,9 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = authConfig.pages.signIn;
     // Clear the invalid cookie
-    url.cookies.delete('id_token');
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    response.cookies.delete('id_token');
+    return response;
   }
 }
 

@@ -10,6 +10,6 @@ export const authConfig = {
     '/shopify': ['Admin', 'Super-Admin'],
     '/pinterest': ['Admin', 'Super-Admin'],
     '/design-library': ['Designer', 'Admin', 'Super-Admin'],
-    '/settings': ['Super-Admin'],
+    '/settings': ['Admin', 'Super-Admin'],
   },
 }; 

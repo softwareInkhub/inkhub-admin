@@ -11,15 +11,21 @@ import { useDispatch } from 'react-redux';
 import { updateDesign, deleteDesign, fetchDesigns } from '@/store/slices/designLibrarySlice';
 import type { AppDispatch } from '@/store/store';
 import React from 'react';
+import dynamic from 'next/dynamic';
 import DecoupledHeader from './DecoupledHeader';
-import GridView from './GridView';
-import TableView from './TableView';
 import UniversalOperationBar from './UniversalOperationBar';
 import FilterBar from './FilterBar';
 import ModalNavigator from './ModalNavigator';
-import CardConfigModal from './CardConfigModal';
-import GridConfigModal from './GridConfigModal';
-import TableConfigModal from './TableConfigModal';
+
+const GridView = dynamic(() => import('./GridView'), {
+  loading: () => <div className="p-4">Loading Grid...</div>,
+});
+const TableView = dynamic(() => import('./TableView'), {
+  loading: () => <div className="p-4">Loading Table...</div>,
+});
+const CardConfigModal = dynamic(() => import('./CardConfigModal'), { ssr: false });
+const GridConfigModal = dynamic(() => import('./GridConfigModal'), { ssr: false });
+const TableConfigModal = dynamic(() => import('./TableConfigModal'), { ssr: false });
 
 interface DataViewProps<T> {
   data: T[];

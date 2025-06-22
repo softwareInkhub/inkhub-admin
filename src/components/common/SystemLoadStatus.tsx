@@ -227,7 +227,7 @@ export default function SystemLoadStatus({ resources, onRefresh }: SystemLoadSta
   };
 
   return (
-    <div className="w-full h-[100vh] min-h-screen p-6 md:p-12 bg-white animate-fade-in">
+    <div className="w-full min-h-screen p-6 pb-24 md:p-12 md:pb-32 bg-white animate-fade-in">
       {/* Engine Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
