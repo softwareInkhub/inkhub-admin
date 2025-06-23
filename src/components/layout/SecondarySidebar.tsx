@@ -43,6 +43,7 @@ const sidebarConfig = [
     items: [
       { name: 'Register User', href: '/user-management/register' },
       { name: 'Existing User', href: '/user-management/existing' },
+      { name: 'Access Control', href: '/user-management/access-control' },
     ],
   },
 ];
