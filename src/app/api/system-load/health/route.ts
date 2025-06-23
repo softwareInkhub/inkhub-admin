@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb';
-import redis from '@/utils/redis';
+import { redis } from '@/utils/redis';
 
 export async function GET() {
   // API/server status (always up if this runs)

@@ -158,7 +158,7 @@ export default function ShopifyProducts() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className=" flex flex-col">
       <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
       <ViewsBar />
       <UniversalOperationBar 

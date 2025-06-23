@@ -153,7 +153,7 @@ export default function PinterestPins() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className=" flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={filteredPins.length} />
       <ViewsBar />
       <UniversalOperationBar 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import redis from '@/utils/redis';
+import { redis } from '@/utils/redis';
 import { getPriorityList, setLastKey, getLastKey, clearProgress, setLiveProgress } from '@/utils/cacheProgress';
 
 // --- Helper Functions (copy or adapt from each resource route) ---

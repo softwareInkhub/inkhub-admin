@@ -1,4 +1,4 @@
-import redis from './redis';
+import { redis } from './redis';
 
 const PRIORITY_KEY = 'systemload:priority';
 const PROGRESS_KEY_PREFIX = 'systemload:progress:'; // e.g., systemload:progress:orders

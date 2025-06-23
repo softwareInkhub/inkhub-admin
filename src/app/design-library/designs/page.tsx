@@ -142,7 +142,7 @@ export default function DesignLibrary() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className=" flex flex-col">
       <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
       <ViewsBar />
       <UniversalOperationBar 

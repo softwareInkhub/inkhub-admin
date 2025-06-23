@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, PutCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import redis from '@/utils/redis';
+import { redis } from '@/utils/redis';
 
 // Helper function to create a user-friendly error message
 function getErrorMessage(error: any): string {

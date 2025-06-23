@@ -123,7 +123,7 @@ export default function PinterestBoards() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className=" flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={filteredBoards.length} />
       <ViewsBar />
       <UniversalOperationBar 

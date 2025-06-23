@@ -43,6 +43,7 @@ export default function SystemLoadStatus({ resources, onRefresh }: SystemLoadSta
   const [liveProgress, setLiveProgress] = useState<Record<string, any>>({});
   const [paused, setPaused] = useState(false);
   const [resourcePaused, setResourcePaused] = useState<Record<string, boolean>>({});
+  const [clearing, setClearing] = useState<Record<string, boolean>>({});
 
   const fetchCounts = async (refresh = false) => {
     try {
@@ -226,6 +227,29 @@ export default function SystemLoadStatus({ resources, onRefresh }: SystemLoadSta
     setResourcePaused(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleClearCache = async (key: string) => {
+    if (clearing[key] || fetchingAll) return;
+  
+    setClearing(prev => ({ ...prev, [key]: true }));
+  
+    try {
+      const res = await fetch(`/api/system-load/clear-cache/${key}`, {
+        method: 'POST',
+      });
+  
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error(`Failed to clear cache for ${key}:`, errorData.details);
+        alert(`Error: Could not clear cache for ${key}.`);
+      }
+    } catch (error) {
+      console.error('Error in clear cache request:', error);
+      alert(`An unexpected error occurred while clearing cache for ${key}.`);
+    } finally {
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="w-full min-h-screen p-6 pb-24 md:p-12 md:pb-32 bg-white animate-fade-in">
       {/* Engine Header */}
@@ -327,88 +351,116 @@ export default function SystemLoadStatus({ resources, onRefresh }: SystemLoadSta
         </button>
       </div>
       {/* Resource Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {priority.map((key) => {
-          const resource = resources.find(r => r.key === key);
-          if (!resource) return null;
-          const totalCount = getTotalCount(resource.key);
-          // Use live progress if available
-          const live = liveProgress[resource.key] || {};
-          const dataCount = typeof live.count === 'number' ? live.count : resource.dataCount;
-          const percentage = totalCount > 0 ? Math.round((dataCount / totalCount) * 100) : 0;
-          let displayStatus = live.status || resource.status;
-          if (totalCount > 0) {
-            if (dataCount >= totalCount) {
-              displayStatus = 'Complete';
-            } else if (dataCount > 0) {
-              displayStatus = 'In Progress';
-            } else {
-              displayStatus = 'Not Started';
-            }
-          }
-          const currentPage = typeof live.page === 'number' ? live.page : Math.ceil(dataCount / (totalCount / 10));
-          const isPaused = resourcePaused[resource.key];
-          return (
-            <div
-              key={resource.key}
-              className={`relative border rounded-2xl p-5 bg-gradient-to-br from-white to-blue-50 shadow-md flex flex-col gap-2 transition-all duration-300 ${getStatusColor(displayStatus)} cursor-pointer hover:shadow-xl hover:-translate-y-1`}
-              tabIndex={0}
-              role="button"
-              aria-label={`View details for ${resource.label}`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex flex-col gap-2 flex-center item" >
-                  <h3 className="text-lg font-semibold text-gray-900">{resource.label}</h3>
-                  <p className="text-sm text-gray-500">
-                    {dataCount} of {totalCount} items loaded ({percentage}%)
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">Current Batch: Page {currentPage}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        {priority
+          .map(key => resources.find(r => r.key === key))
+          .filter(Boolean)
+          .map((resource, idx) => {
+            if (!resource) return null;
+            const key = resource.key;
+            const total = getTotalCount(key);
+            const currentProgress = liveProgress[key] ?? {};
+            const count = currentProgress.count ?? resource.dataCount;
+            const percentage = total > 0 ? Math.min(Math.round((count / total) * 100), 100) : resource.progress;
+            const status = percentage === 100 ? 'Complete' : resource.status;
+            const isPaused = resourcePaused[key];
+
+            return (
+              <div
+                key={key}
+                className="relative rounded-xl border bg-white p-6 shadow-sm transition-all duration-300"
+                draggable
+                onDragStart={e => onDragStart(e, idx)}
+                onDrop={e => onDrop(e, idx)}
+                onDragOver={onDragOver}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-4">
+                    {resourceIcons[key] || <BoltIcon className="w-6 h-6 text-gray-400" />}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{resource.label}</h3>
+                      <p className="text-sm text-gray-500">
+                        {count} of {total} items loaded ({percentage}%)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    {getStatusIcon(status)}
+                    <span
+                      className={`text-xs font-semibold ${
+                        status === 'Complete'
+                          ? 'text-green-600'
+                          : status === 'Error'
+                          ? 'text-red-600'
+                          : isPaused
+                          ? 'text-yellow-600'
+                          : 'text-blue-600'
+                      }`}
+                    >
+                      {isPaused ? 'Paused' : status}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2 items-center">
-                <div className="flex flex-col items-center gap-2">
-                  {getStatusIcon(displayStatus)}
-                  <span className={`text-sm font-medium ${displayStatus === 'Complete' ? 'text-green-600' : displayStatus === 'Error' ? 'text-red-600' : 'text-blue-600'}`}>
-                    {isPaused ? 'Paused' : displayStatus}
-                  </span>
+
+                {/* Progress bar and controls */}
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className={`h-2.5 rounded-full ${
+                        status === 'Complete'
+                          ? 'bg-green-500'
+                          : status === 'Error'
+                          ? 'bg-red-500'
+                          : isPaused
+                          ? 'bg-yellow-500'
+                          : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs text-gray-500">Page: {currentProgress.page ?? 1}</p>
+                    <div className="flex items-center gap-2">
+                      {(status === 'Fetching...' || isPaused) && (
+                        <button
+                          className={`w-8 h-8 flex items-center justify-center rounded-full border shadow-sm transition-colors ${
+                            isPaused
+                              ? 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200'
+                              : 'bg-blue-100 border-blue-300 hover:bg-blue-200'
+                          }`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleResourcePauseResume(key);
+                          }}
+                          title={isPaused ? 'Resume' : 'Pause'}
+                        >
+                          {isPaused ? (
+                            <PlayIcon className="w-5 h-5 text-yellow-700" />
+                          ) : (
+                            <PauseIcon className="w-5 h-5 text-blue-700" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleClearCache(key)}
+                        disabled={clearing[key]}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-600 font-semibold text-xs border border-red-200 shadow-sm hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {clearing[key] ? (
+                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <ExclamationCircleIcon className="w-4 h-4" />
+                        )}
+                        {clearing[key] ? 'Clearing...' : 'Clear Cache'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                  {/* Pause/Resume Button */}
-                  {(displayStatus === 'In Progress' || isPaused) && (
-                  <button
-                    className={` w-8 h-8 flex items-center justify-center rounded-full border shadow-sm transition-colors
-                      ${isPaused ? 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200' : 'bg-blue-100 border-blue-300 hover:bg-blue-200'}`}
-                    onClick={() => handleResourcePauseResume(resource.key)}
-                    title={isPaused ? 'Resume' : 'Pause'}
-                    style={{ zIndex: 10 }}
-                  >
-                    {isPaused ? (
-                      <PlayIcon className="w-5 h-5 text-yellow-700" />
-                    ) : (
-                      <PauseIcon className="w-5 h-5 text-blue-700" />
-                    )}
-                  </button>
-                )}
-                </div>
+
+                {resource.error && <p className="text-sm text-red-500 mt-2">{resource.error}</p>}
               </div>
-              <div className="relative w-full mb-6">
-              
-                {/* Progress bar */}
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-8">
-                  <div
-                    className={`h-2.5 rounded-full ${displayStatus === 'Complete' ? 'bg-green-500' : displayStatus === 'Error' ? 'bg-red-500' : isPaused ? 'bg-yellow-500' : 'bg-blue-500'}`}
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-              {resource.error && (
-                <p className="text-sm text-red-600 mt-2">{resource.error}</p>
-              )}
-              {/* Paused badge */}
-              {/* {isPaused && (
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-bold border border-yellow-200">⏸️ Paused</div>
-              )} */}
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
        {paused && (
         <div className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold text-sm border border-yellow-200 flex items-center gap-2 mt-2">

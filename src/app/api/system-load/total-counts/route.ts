@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, ScanCommandInput, ScanCommandOutput } from '@aws-sdk/lib-dynamodb';
-import redis from '@/utils/redis';
+import { redis } from '@/utils/redis';
 
 const client = new DynamoDBClient({ 
   region: process.env.AWS_REGION,

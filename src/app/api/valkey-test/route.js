@@ -1,4 +1,4 @@
-import redis from '@/utils/redis';
+import { redis } from '@/utils/redis';
 
 export async function GET() {
   // Set a value in Valkey
