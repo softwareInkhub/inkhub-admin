@@ -272,20 +272,24 @@ export async function GET(req: Request) {
       await forceStartFetching();
     }
     // Get all products from cache or DB
-    const allProducts = await getProductsFromCache();
+    let products = await getProductsFromCache();
+    // Ensure products are always flat
+    if (products && products.length && products[0]?.Item) {
+      products = products.map(transformProduct);
+    }
     // If we got empty array (cache miss and couldn't acquire lock),
     // trigger background refresh and return empty result
-    if (allProducts.length === 0) {
+    if (products.length === 0) {
       refreshProductsInBackground().catch(console.error);
       return NextResponse.json({ items: [], lastEvaluatedKey: null, total: 0 });
     }
     // Handle pagination
-    const startIndex = lastKey ? allProducts.findIndex((p: ShopifyProduct) => p.id === lastKey.id) + 1 : 0;
+    const startIndex = lastKey ? products.findIndex((p: ShopifyProduct) => p.id === lastKey.id) + 1 : 0;
     const endIndex = startIndex + limit;
-    const paginatedProducts = allProducts.slice(startIndex, endIndex);
-    const hasMore = endIndex < allProducts.length;
+    const paginatedProducts = products.slice(startIndex, endIndex);
+    const hasMore = endIndex < products.length;
     console.log(`[Debug] 📤 Response prepared:
-      - Total items: ${allProducts.length}
+      - Total items: ${products.length}
       - Paginated items: ${paginatedProducts.length}
       - Has more: ${hasMore}
       - Start index: ${startIndex}
@@ -295,7 +299,7 @@ export async function GET(req: Request) {
     const result = {
       items: paginatedProducts,
       lastEvaluatedKey: hasMore ? paginatedProducts[paginatedProducts.length - 1] : null,
-      total: allProducts.length
+      total: products.length
     };
     return NextResponse.json(result);
   } catch (error: any) {

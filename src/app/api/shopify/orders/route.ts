@@ -206,6 +206,7 @@ async function fetchAllOrders() {
       });
 
       const response = await docClient.send(command);
+      console.log('DynamoDB response.Items:', response.Items);
       const items = response.Items || [];
       
       console.log('[Debug] DynamoDB Scan #' + scanCount + ' for orders complete. Items fetched: ' + (response.Items?.length || 0));
