@@ -50,6 +50,16 @@ export default function PinterestBoards() {
     }
   };
 
+  // Auto-load all pages without scrolling
+  useEffect(() => {
+    if (boardsLastEvaluatedKey && !isLoadingMore) {
+      const timer = setTimeout(() => {
+        handleNextPage();
+      }, 200); // 200ms delay between loads
+      return () => clearTimeout(timer);
+    }
+  }, [boardsLastEvaluatedKey, isLoadingMore]);
+
   // Build filter options from data
   const privacyOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.privacy).filter(Boolean)))];
   const ownerOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.owner?.username).filter(Boolean)))];

@@ -375,6 +375,13 @@ async function forceStartFetching(): Promise<void> {
 }
 
 export async function GET(req: Request) {
+  // Debug: log all headers and query params
+  const { searchParams } = new URL(req.url);
+  const headers = {};
+  req.headers?.forEach?.((value, key) => { headers[key] = value; });
+  console.log('[Debug] Incoming GET /api/shopify/orders');
+  console.log('[Debug] Query Params:', Object.fromEntries(searchParams.entries()));
+  console.log('[Debug] Headers:', headers);
   const requestStart = Date.now();
   try {
     const { searchParams } = new URL(req.url);
@@ -398,7 +405,25 @@ export async function GET(req: Request) {
     console.log(`[Debug] Params: limit=${limit}, lastKey=${lastKey ? JSON.stringify(lastKey) : 'start'}`);
     console.log(`[Debug] Cache key: ${cacheKey}`);
 
-    // 1. Try cache
+    // 1. Always try to get all orders from Redis
+    const allOrdersRaw = await redis.get(ALL_ORDERS_CACHE_KEY);
+    if (allOrdersRaw) {
+      const allOrders = JSON.parse(allOrdersRaw);
+      let startIndex = 0;
+      if (lastKey) {
+        startIndex = allOrders.findIndex(order => order.id === lastKey.id) + 1;
+      }
+      const endIndex = startIndex + limit;
+      const paginatedOrders = allOrders.slice(startIndex, endIndex).map(o => o.Item || o);
+      const hasMore = endIndex < allOrders.length;
+      return NextResponse.json({
+        items: paginatedOrders,
+        lastEvaluatedKey: hasMore ? paginatedOrders[paginatedOrders.length - 1] : null,
+        total: allOrders.length
+      });
+    }
+
+    // 2. Try cache
     const cacheStart = Date.now();
     const cached = await redis.get(cacheKey);
     const cacheDuration = Date.now() - cacheStart;
@@ -410,7 +435,7 @@ export async function GET(req: Request) {
       console.log(`[Debug] Cache MISS for key: ${cacheKey} (checked in ${cacheDuration}ms)`);
     }
 
-    // 2. Fetch from DynamoDB
+    // 3. Fetch from DynamoDB
     const dynamoStart = Date.now();
     console.log(`[Debug] Fetching chunk from DynamoDB: limit=${limit}, lastKey=${lastKey ? JSON.stringify(lastKey) : 'start'}`);
     const command = new ScanCommand({
@@ -421,7 +446,7 @@ export async function GET(req: Request) {
     const response = await docClient.send(command);
     const dynamoDuration = Date.now() - dynamoStart;
 
-    // 3. Transform and cache this chunk
+    // 4. Transform and cache this chunk
     const items = (response.Items || []).map(transformOrder);
     const result = {
       items,
@@ -440,7 +465,7 @@ export async function GET(req: Request) {
     console.log(`  - Raw response size: ${JSON.stringify(response).length} bytes`);
     console.log(`[Debug] Cached chunk for key: ${cacheKey} (size: ${resultString.length} bytes, TTL: 7 days, write took ${cacheWriteDuration}ms)`);
 
-    // 4. Return
+    // 5. Return
     console.log(`[Debug] Returning chunk: items=${items.length}, lastEvaluatedKey=${result.lastEvaluatedKey ? JSON.stringify(result.lastEvaluatedKey) : 'null'}`);
     console.log(`[Debug] --- Request complete (DynamoDB+cache) in ${Date.now() - requestStart}ms ---`);
     return NextResponse.json(result);

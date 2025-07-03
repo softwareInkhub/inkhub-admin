@@ -10,6 +10,8 @@ interface ShopifyState {
   productsLastEvaluatedKey: any | null;
   totalOrders: number;
   totalProducts: number;
+  hasMore: boolean;
+  currentPage: number;
 }
 
 const initialState: ShopifyState = {
@@ -21,23 +23,26 @@ const initialState: ShopifyState = {
   productsLastEvaluatedKey: null,
   totalOrders: 0,
   totalProducts: 0,
+  hasMore: true,
+  currentPage: 1,
 };
 
 export const setInitialOrders = createAsyncThunk(
   'shopify/setInitialOrders',
-  async (data: { items: any[]; lastEvaluatedKey: any; total: number }) => {
+  async (data: { items: any[]; lastEvaluatedKey: any; total: number; hasMore?: boolean; page?: number }) => {
     return data;
   }
 );
 
 export const fetchOrders = createAsyncThunk(
   'shopify/fetchOrders',
-  async ({ limit = 50, lastKey = null }: { limit?: number; lastKey?: any | null }, { rejectWithValue }) => {
+  async ({ page = 1 }: { page?: number }, { rejectWithValue }) => {
     try {
-      const params = new URLSearchParams({ limit: String(limit) });
-      if (lastKey) params.append('lastKey', JSON.stringify(lastKey));
-      const response = await axios.get(`/api/shopify/orders?${params}`);
-      return response.data; // { items, lastEvaluatedKey }
+      const params = new URLSearchParams({ page: String(page) });
+      const url = `/api/orders?${params}`;
+      console.log('[Redux fetchOrders] Fetching orders from:', url);
+      const response = await axios.get(url);
+      return response.data; // { items, page, hasMore }
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to fetch orders');
     }
@@ -65,6 +70,11 @@ const shopifySlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    resetOrders: (state) => {
+      state.orders = [];
+      state.hasMore = true;
+      state.currentPage = 1;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -73,6 +83,8 @@ const shopifySlice = createSlice({
         state.orders = action.payload.items;
         state.ordersLastEvaluatedKey = action.payload.lastEvaluatedKey;
         state.totalOrders = action.payload.total;
+        state.hasMore = typeof action.payload.hasMore === 'boolean' ? action.payload.hasMore : true;
+        state.currentPage = action.payload.page || 1;
       })
       // Orders
       .addCase(fetchOrders.pending, (state) => {
@@ -81,14 +93,9 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
-        // If lastKey is present, append; else, replace
-        if (action.meta.arg.lastKey) {
-          state.orders = [...state.orders, ...action.payload.items];
-        } else {
-          state.orders = action.payload.items;
-        }
-        state.ordersLastEvaluatedKey = action.payload.lastEvaluatedKey || null;
-        state.totalOrders = typeof action.payload.total === 'number' ? action.payload.total : state.orders.length;
+        state.orders = action.payload.items;
+        state.hasMore = typeof action.payload.hasMore === 'boolean' ? action.payload.hasMore : true;
+        state.currentPage = action.payload.page || 1;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
@@ -119,5 +126,5 @@ const shopifySlice = createSlice({
   },
 });
 
-export const { clearError } = shopifySlice.actions;
+export const { clearError, resetOrders } = shopifySlice.actions;
 export default shopifySlice.reducer; 

@@ -6,7 +6,7 @@ function absoluteUrl(path: string) {
 
 export async function fetchInitialOrders() {
   try {
-    const response = await fetch(absoluteUrl('/api/shopify/orders?limit=50&isServerSide=true'), {
+    const response = await fetch(absoluteUrl('/api/orders'), {
       cache: 'no-store' // Ensure we get fresh data
     });
     

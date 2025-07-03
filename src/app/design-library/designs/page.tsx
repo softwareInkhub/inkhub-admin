@@ -36,7 +36,7 @@ export default function DesignLibrary() {
 
   useEffect(() => {
     if (!initialLoaded) {
-      dispatch(fetchDesigns({ limit: 100 }));
+      dispatch(fetchDesigns({ limit: 2000 }));
       setInitialLoaded(true);
     }
   }, [dispatch, initialLoaded]);
@@ -44,10 +44,20 @@ export default function DesignLibrary() {
   const handleNextPage = () => {
     if (lastEvaluatedKey && !isLoadingMore) {
       setIsLoadingMore(true);
-      dispatch(fetchDesigns({ limit: 100, lastKey: lastEvaluatedKey }))
+      dispatch(fetchDesigns({ limit: 2000, lastKey: lastEvaluatedKey }))
         .finally(() => setIsLoadingMore(false));
     }
   };
+
+  // Auto-load all pages without scrolling
+  useEffect(() => {
+    if (lastEvaluatedKey && !isLoadingMore) {
+      const timer = setTimeout(() => {
+        handleNextPage();
+      }, 200); // 200ms delay between loads
+      return () => clearTimeout(timer);
+    }
+  }, [lastEvaluatedKey, isLoadingMore]);
 
   // Build filter options from data
   const statusOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.designStatus).filter(Boolean)))];
@@ -84,7 +94,7 @@ export default function DesignLibrary() {
     {
       header: 'Image',
       accessor: 'designImageUrl',
-      render: (value: string, _row: any, viewType?: string) => (
+      render: (value: string, _row: any, viewType?: 'table' | 'grid' | 'card') => (
         <ImageCell src={value} alt="Design" viewType={viewType} />
       ),
     },

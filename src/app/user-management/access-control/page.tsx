@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const PERMISSIONS = [
   {
@@ -25,9 +25,9 @@ const PERMISSIONS = [
     label: 'Design Library',
     children: [
       { label: 'Designs' },
-      { label: 'Upload' },
-      { label: 'Edit' },
-      { label: 'Delete' },
+      // { label: 'Upload' },
+      // { label: 'Edit' },
+      // { label: 'Delete' },
     ],
   },
   {
@@ -47,10 +47,26 @@ const PERMISSIONS = [
   },
 ];
 
-function PermissionTree({ permissions, checked, onCheck, parentKey = '' }) {
+type Permission = {
+  label: string;
+  children?: Permission[];
+};
+
+type User = {
+  username: string;
+  email: string;
+  role: string;
+};
+
+function PermissionTree({ permissions, checked, onCheck, parentKey = '' }: {
+  permissions: Permission[];
+  checked: string[];
+  onCheck: (key: string) => void;
+  parentKey?: string;
+}) {
   return (
     <ul style={{ listStyle: 'none', paddingLeft: 16 }}>
-      {permissions.map((perm, idx) => {
+      {permissions.map((perm: Permission, idx: number) => {
         const key = parentKey ? `${parentKey}.${perm.label}` : perm.label;
         const isChecked = checked.includes(key);
         return (
@@ -79,28 +95,47 @@ function PermissionTree({ permissions, checked, onCheck, parentKey = '' }) {
 }
 
 export default function AccessControlPage() {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [accessType, setAccessType] = useState('User');
-  const [checked, setChecked] = useState([]);
-  const [search, setSearch] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [name, setName] = useState<string>('');
+  const [role, setRole] = useState<string>('');
+  const [checked, setChecked] = useState<string[]>([]);
+  const [search, setSearch] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCheck = (key) => {
-    setChecked((prev) =>
+  // Fetch users on mount
+  useEffect(() => {
+    fetch('/api/user-management/users')
+      .then(res => res.json())
+      .then((data: User[]) => setUsers(data));
+  }, []);
+
+  // When a user is selected, populate the name
+  useEffect(() => {
+    if (!selectedUser) return;
+    const user = users.find((u: User) => u.username === selectedUser);
+    if (user) {
+      setName(user.username);
+    }
+  }, [selectedUser, users]);
+
+  const handleCheck = (key: string) => {
+    setChecked((prev: string[]) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   };
 
   const handleSelectAll = () => {
-    if (checked.length === getAllKeys(PERMISSIONS)) {
+    if (checked.length === getAllKeys(PERMISSIONS).length) {
       setChecked([]);
     } else {
       setChecked(getAllKeys(PERMISSIONS));
     }
   };
 
-  function getAllKeys(perms, parentKey = '') {
-    let keys = [];
+  function getAllKeys(perms: Permission[], parentKey = ''): string[] {
+    let keys: string[] = [];
     for (const perm of perms) {
       const key = parentKey ? `${parentKey}.${perm.label}` : perm.label;
       keys.push(key);
@@ -112,10 +147,10 @@ export default function AccessControlPage() {
   }
 
   // Filter permissions by search
-  function filterPermissions(perms, query) {
+  function filterPermissions(perms: Permission[], query: string): Permission[] {
     if (!query) return perms;
     return perms
-      .map((perm) => {
+      .map((perm: Permission) => {
         if (perm.label.toLowerCase().includes(query.toLowerCase())) return perm;
         if (perm.children) {
           const filteredChildren = filterPermissions(perm.children, query);
@@ -123,15 +158,63 @@ export default function AccessControlPage() {
         }
         return null;
       })
-      .filter(Boolean);
+      .filter((p): p is Permission => Boolean(p));
   }
 
   const filteredPermissions = filterPermissions(PERMISSIONS, search);
 
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/user-management/access-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: selectedUser,
+          permissions: checked,
+          role,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Permissions saved successfully!');
+        setSelectedUser('');
+        setName('');
+        setRole('');
+        setChecked([]);
+        setSearch('');
+      } else {
+        setError(data.error || 'Failed to save permissions');
+        alert('Failed to save permissions: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Unknown error');
+      alert('Failed to save permissions: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-xl w-full mx-auto p-8 mt-1">
-      {/* <h2 className="text-3xl font-bold mb-8">Edit Access Control</h2> */}
-      <form className="flex flex-col gap-6">
+      <form className="flex flex-col gap-6" onSubmit={handleSave}>
+        <div>
+          <label className="block font-semibold mb-1">Email:</label>
+          <select
+            className="w-full border rounded px-3 py-2"
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
+          >
+            <option value="">Select a user</option>
+            {users.map((user: User) => (
+              <option key={user.email} value={user.email}>
+                {user.email} ({user.role || 'User'})
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="block font-semibold mb-1">Name:</label>
           <input
@@ -139,26 +222,21 @@ export default function AccessControlPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="User or Role Name"
+            disabled={!!selectedUser}
           />
         </div>
-        {/* <div>
-          <label className="block font-semibold mb-1">Description:</label>
-          <textarea
-            className="w-full border rounded px-3 py-2"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the access for this user or role"
-          />
-        </div> */}
         <div>
-          <label className="block font-semibold mb-1">Access Type:</label>
+          <label className="block font-semibold mb-1">Role:</label>
           <select
             className="w-full border rounded px-3 py-2"
-            value={accessType}
-            onChange={(e) => setAccessType(e.target.value)}
+            value={role}
+            onChange={e => setRole(e.target.value)}
           >
-            <option value="User">User</option>
-            <option value="Role">Role</option>
+            <option value="">Select a role</option>
+            <option value="super admin">super admin</option>
+            <option value="admin">admin</option>
+            <option value="designer">designer</option>
+            <option value="developer">developer</option>
           </select>
         </div>
         <div>
@@ -183,7 +261,7 @@ export default function AccessControlPage() {
         </div>
         <div className="flex justify-end gap-4 mt-4">
           <button type="button" className="px-6 py-2 rounded bg-gray-200 text-gray-700 font-semibold" onClick={() => { /* TODO: handle cancel */ }}>Cancel</button>
-          <button type="submit" className="px-6 py-2 rounded bg-blue-600 text-white font-semibold" onClick={(e) => { e.preventDefault(); /* TODO: handle save */ }}>Save</button>
+          <button type="submit" className="px-6 py-2 rounded bg-blue-600 text-white font-semibold" disabled={loading}>Save</button>
         </div>
       </form>
     </div>

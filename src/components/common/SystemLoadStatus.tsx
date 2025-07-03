@@ -421,7 +421,7 @@ export default function SystemLoadStatus({ resources, onRefresh }: SystemLoadSta
                   <div className="flex items-center justify-between mt-3">
                     <p className="text-xs text-gray-500">Page: {currentProgress.page ?? 1}</p>
                     <div className="flex items-center gap-2">
-                      {(status === 'Fetching...' || isPaused) && (
+                      {(['Fetching...', 'Waiting...'].includes(status) || isPaused) && (
                         <button
                           className={`w-8 h-8 flex items-center justify-center rounded-full border shadow-sm transition-colors ${
                             isPaused

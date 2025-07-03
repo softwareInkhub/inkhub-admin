@@ -72,6 +72,16 @@ export default function ShopifyProducts() {
     }
   };
 
+  // Auto-load all pages without scrolling
+  useEffect(() => {
+    if (productsLastEvaluatedKey && !isLoadingMore) {
+      const timer = setTimeout(() => {
+        handleNextPage();
+      }, 200); // 200ms delay between loads
+      return () => clearTimeout(timer);
+    }
+  }, [productsLastEvaluatedKey, isLoadingMore]);
+
   // Build filter options from data
   const statusOptions = ['All', ...Array.from(new Set(products.map((d: any) => d.status).filter(Boolean)))];
   const typeOptions = ['All', ...Array.from(new Set(products.map((d: any) => d.product_type).filter(Boolean)))];

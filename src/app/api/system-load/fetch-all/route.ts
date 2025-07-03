@@ -41,7 +41,7 @@ const resources = [
     lastScanKey: 'shopify_orders:last_scan_position',
     lockKey: 'shopify_orders:lock',
     ttl: 7 * 24 * 60 * 60,
-    limit: 100,
+    limit: 2000,
   },
   {
     key: 'products',
@@ -88,7 +88,7 @@ const resources = [
 async function fetchResourceBatched(resource: any) {
   let status = 'Fetching...';
   let progress = 0;
-  let items: any[] = [];
+  let totalCount = 0;
   let error = null;
   let lastEvaluatedKey = await getLastKey(resource.key);
   let page = 1;
@@ -96,22 +96,24 @@ async function fetchResourceBatched(resource: any) {
     // Try full cache
     const cached = await redis.get(resource.cacheKey);
     if (cached) {
-      items = JSON.parse(cached);
+      const cachedItems = JSON.parse(cached);
       status = 'Complete';
       progress = 100;
-      await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
-      return { status, progress, items, error };
+      await setLiveProgress(resource.key, { status, progress, count: cachedItems.length, page, error });
+      return { status, progress, items: cachedItems, error };
     }
     // Try partial cache
     const partial = await redis.get(resource.partialKey);
     if (partial) {
-      items = JSON.parse(partial);
+      const partialItems = JSON.parse(partial);
       status = 'Fetching...';
-      progress = Math.min(99, Math.floor((items.length / 1000) * 100));
-      await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
+      progress = Math.min(99, Math.floor((partialItems.length / 1000) * 100));
+      await setLiveProgress(resource.key, { status, progress, count: partialItems.length, page, error });
     }
     // Batched fetching with resume
     let done = false;
+    let chunkBuffer: any[] = [];
+    let chunkPage = 1;
     while (!done) {
       // Check for per-resource pause flag before each batch
       const isPaused = await redis.get(`systemload:paused:${resource.key}`);
@@ -119,8 +121,8 @@ async function fetchResourceBatched(resource: any) {
         status = 'Paused';
         await setLiveProgress(resource.key, {
           status,
-          progress: Math.min(99, Math.floor((items.length / 1000) * 100)),
-          count: items.length,
+          progress: Math.min(99, Math.floor((totalCount / 1000) * 100)),
+          count: totalCount,
           page,
           error: null,
         });
@@ -134,41 +136,59 @@ async function fetchResourceBatched(resource: any) {
       const response = await docClient.send(command);
       if (response.Items) {
         // Log batch fetch details
-        console.log(`[SystemLoad] Resource: ${resource.key}, Page: ${page}, Batch size: ${response.Items.length}`);
-        // Cache this batch
-        await redis.set(`${resource.key}:page:${page}`, JSON.stringify(response.Items), 'EX', resource.ttl);
-        items = items.concat(response.Items);
-        await redis.set(resource.partialKey, JSON.stringify(items), 'EX', resource.ttl);
+        console.log(`[SystemLoad] Resource: ${resource.key}, Page: ${page}, Batch size: ${response.Items.length}, LastEvaluatedKey: ${JSON.stringify(lastEvaluatedKey)}`);
+        chunkBuffer = chunkBuffer.concat(response.Items);
+        totalCount += response.Items.length;
+        while (chunkBuffer.length >= resource.limit) {
+          const chunk = chunkBuffer.slice(0, resource.limit);
+          const chunkKey = `${resource.key}:page:${chunkPage}`;
+          await redis.set(chunkKey, JSON.stringify(chunk), 'EX', resource.ttl);
+          console.log(`[SystemLoad] Buffered chunk: Stored ${chunk.length} items in Redis at key: ${chunkKey}`);
+          chunkBuffer = chunkBuffer.slice(resource.limit);
+          chunkPage++;
+        }
+        // Optionally, update partial progress count in Redis (store just the count or skip this for memory efficiency)
+        await setLiveProgress(resource.key, {
+          status: 'Fetching...',
+          progress: Math.min(99, Math.floor((totalCount / 1000) * 100)),
+          count: totalCount,
+          page,
+          error: null,
+        });
+        console.log(`[SystemLoad] Running total items: ${totalCount}`);
       }
       lastEvaluatedKey = response.LastEvaluatedKey;
+      if (lastEvaluatedKey) {
+        console.log(`[SystemLoad] Next LastEvaluatedKey: ${JSON.stringify(lastEvaluatedKey)}`);
+      }
       await setLastKey(resource.key, lastEvaluatedKey);
       // --- Live progress update ---
-      await setLiveProgress(resource.key, {
-        status: 'Fetching...',
-        progress: Math.min(99, Math.floor((items.length / 1000) * 100)),
-        count: items.length,
-        page,
-        error: null,
-      });
+      // Already updated above after each batch
       page++;
       if (!lastEvaluatedKey) {
         done = true;
-        await redis.set(resource.cacheKey, JSON.stringify(items), 'EX', resource.ttl);
+        // Write any remaining orders in the buffer as the final chunk
+        if (chunkBuffer.length > 0) {
+          const chunkKey = `${resource.key}:page:${chunkPage}`;
+          await redis.set(chunkKey, JSON.stringify(chunkBuffer), 'EX', resource.ttl);
+          console.log(`[SystemLoad] Final buffered chunk: Stored ${chunkBuffer.length} items in Redis at key: ${chunkKey}`);
+        }
+        // Optionally, you can store just the total count or a summary, but do not store all items in memory
         status = 'Complete';
         progress = 100;
-        await setLiveProgress(resource.key, { status, progress, count: items.length, page, error });
+        await setLiveProgress(resource.key, { status, progress, count: totalCount, page, error });
       } else {
-        progress = Math.min(99, Math.floor((items.length / 1000) * 100));
+        progress = Math.min(99, Math.floor((totalCount / 1000) * 100));
       }
     }
   } catch (e: any) {
     error = getErrorMessage(e, resource.key);
     status = 'Error';
     progress = 0;
-    items = [];
+    totalCount = 0;
     await setLiveProgress(resource.key, { status, progress, count: 0, page, error });
   }
-  return { status, progress, items, error };
+  return { status, progress, count: totalCount, error };
 }
 
 export async function GET(req: Request) {
