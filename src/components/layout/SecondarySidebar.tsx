@@ -102,6 +102,19 @@ export default function SecondarySidebar({ section }: SecondarySidebarProps) {
             </div>
             {/* Menu Items */}
             <nav className="flex flex-col gap-1 px-4 pt-2">
+              {/* Dashboard menu item for Pinterest (above Pins and Boards) */}
+              {section === 'pinterest' && (
+                <button
+                  className={`text-left px-4 py-2 rounded-lg transition-colors font-medium text-base mb-1 ${
+                    pathname === '/pinterest/dashboard'
+                      ? 'bg-blue-50 text-blue-600 font-semibold shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                  onClick={() => openTab({ key: '/pinterest/dashboard', label: 'Dashboard', path: '/pinterest/dashboard' })}
+                >
+                  Dashboard
+                </button>
+              )}
               {sectionData.items.map(item => {
                 const isActive = pathname === item.href;
                 return (

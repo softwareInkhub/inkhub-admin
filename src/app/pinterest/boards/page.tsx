@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
 import { fetchBoards } from '@/store/slices/pinterestSlice';
@@ -11,6 +11,7 @@ import DecoupledHeader from '@/components/common/DecoupledHeader';
 import ImageCell from '@/components/common/ImageCell';
 import FilterBar from '@/components/common/FilterBar';
 import ViewsBar from '@/components/common/ViewsBar';
+import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 
 export default function PinterestBoards() {
   const dispatch = useDispatch<AppDispatch>();
@@ -20,9 +21,6 @@ export default function PinterestBoards() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'Item.media.image_cover_url', 'Item.name', 'Item.description', 'Item.pin_count', 'Item.privacy', 'Item.owner.username', 'Item.created_at'
-  ]);
 
   // Multi-filter states
   const [privacy, setPrivacy] = useState('All');
@@ -30,6 +28,22 @@ export default function PinterestBoards() {
   // Smart filter states
   const [smartField, setSmartField] = useState('Item.name');
   const [smartValue, setSmartValue] = useState('');
+
+  // Active accounts state
+  const [activeAccountNames, setActiveAccountNames] = useState<string[]>([]);
+
+  // Fetch active accounts on mount
+  useEffect(() => {
+    const fetchActiveAccounts = async () => {
+      const res = await fetch('/api/pinterest/accounts');
+      const data = await res.json();
+      const names = (data.accounts || [])
+        .filter((acc: any) => acc.active !== false)
+        .map((acc: any) => acc.accountName);
+      setActiveAccountNames(names);
+    };
+    fetchActiveAccounts();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +86,10 @@ export default function PinterestBoards() {
 
   // Multi-filter logic
   let filteredBoards = boards.filter(board => board.Item)
+    // Only show boards whose owner.username is in activeAccountNames
+    .filter((row: any) =>
+      activeAccountNames.includes(row.Item?.owner?.username)
+    )
     .filter((row: any) =>
       (privacy === 'All' || row.Item?.privacy === privacy) &&
       (owner === 'All' || row.Item?.owner?.username === owner)
@@ -103,18 +121,40 @@ export default function PinterestBoards() {
     { header: 'Created At', accessor: 'Item.created_at', render: (_: any, row: any) => row.Item?.created_at || '—' },
   ];
 
-  // Filter columns based on visibleColumns
-  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
-
-  // Example grouping/aggregation (can be extended as needed)
-  // For now, just pass through data as grouping/aggregation is not defined for boards
-
   // Reset all filters
   const handleResetFilters = () => {
     setPrivacy('All');
     setOwner('All');
     setSmartField('Item.name');
     setSmartValue('');
+  };
+
+  const [searchValue, setSearchValue] = useState('');
+  const [sortValue, setSortValue] = useState('');
+  const sortOptions = [
+    { label: 'Created At: Latest', value: 'created_at_desc' },
+    { label: 'Created At: Oldest', value: 'created_at_asc' },
+  ];
+
+  // Add saved filter state
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<any[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `pinterest#boards`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, []);
+
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
   };
 
   if (loading && isInitialLoad) {
@@ -135,7 +175,11 @@ export default function PinterestBoards() {
   return (
     <div className=" flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={filteredBoards.length} />
-      <ViewsBar />
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        activeFilterId={activeSavedFilter?.id}
+      />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 
@@ -145,24 +189,36 @@ export default function PinterestBoards() {
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
+          <FilterBar
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onSearchSubmit={() => setSmartValue(searchValue)}
+            sortOptions={sortOptions}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            statusOptions={ownerOptions}
+            statusValue={owner}
+            onStatusChange={setOwner}
+            showStatus={true}
+            onResetFilters={handleResetFilters}
+          />
           <DataView
-            data={filteredBoards}
-            columns={filteredColumns}
+            data={dataOverride || tableData}
+            columns={columns}
+            onSort={() => {}}
+            onSearch={() => {}}
             section="pinterest"
             tabKey="boards"
             onSelectionChange={setSelectedRows}
             onLoadMore={handleNextPage}
             hasMore={!!boardsLastEvaluatedKey}
             isLoadingMore={isLoadingMore}
-            status={privacy}
-            setStatus={setPrivacy}
-            statusOptions={privacyOptions}
-            type={owner}
-            setType={setOwner}
-            typeOptions={ownerOptions}
-            board={''}
-            setBoard={() => {}}
-            boardOptions={[]}
+            privacy={privacy}
+            setPrivacy={setPrivacy}
+            privacyOptions={privacyOptions}
+            owner={owner}
+            setOwner={setOwner}
+            ownerOptions={ownerOptions}
             smartField={smartField}
             setSmartField={setSmartField}
             smartFieldOptions={smartFieldOptions}

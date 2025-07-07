@@ -1,15 +1,30 @@
 import React from 'react';
 
-export default function ViewsBar() {
+type SavedFilter = {
+  id: string;
+  filterName?: string;
+  [key: string]: any;
+};
+
+type ViewsBarProps = {
+  savedFilters?: SavedFilter[];
+  onSelect?: (filter: SavedFilter) => void;
+  activeFilterId?: string;
+};
+
+export default function ViewsBar({ savedFilters = [], onSelect, activeFilterId }: ViewsBarProps) {
+  if (!savedFilters.length) return null;
+  
   return (
     <div className="flex flex-row items-center w-full mb-2 gap-2">
-      {[...Array(8)].map((_, idx) => (
-        <div
-          key={idx}
-          className="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg shadow-sm min-w-[70px] min-h-[32px] text-gray-700 font-semibold text-xs"
+      {savedFilters.map((filter) => (
+        <button
+          key={filter.id}
+          className={`px-4 py-2 rounded border font-semibold ${activeFilterId === filter.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+          onClick={() => onSelect?.(filter)}
         >
-          Views
-        </div>
+          {filter.filterName || 'Unnamed'}
+        </button>
       ))}
     </div>
   );

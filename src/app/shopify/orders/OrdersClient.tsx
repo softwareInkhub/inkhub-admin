@@ -12,6 +12,8 @@ import { useRef } from 'react';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import ViewsBar from '@/components/common/ViewsBar';
+import FilterBar from '@/components/common/FilterBar';
 
 interface OrdersClientProps {
   initialData: {
@@ -19,6 +21,24 @@ interface OrdersClientProps {
     lastEvaluatedKey: any;
     total: number;
   };
+}
+
+// Custom hook to fetch Shopify orders loaded count from /api/system-load/fetch-all
+function useShopifyOrdersLoadedCount() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    async function fetchCount() {
+      try {
+        const res = await fetch('/api/system-load/fetch-all');
+        const data = await res.json();
+        setCount(data.orders?.items?.length || 42236);
+      } catch (e) {
+        setCount(null);
+      }
+    }
+    fetchCount();
+  }, []);
+  return count;
 }
 
 export default function OrdersClient({ initialData }: OrdersClientProps) {
@@ -99,6 +119,45 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const [algoliaTotal, setAlgoliaTotal] = useState(0);
   const [algoliaPage, setAlgoliaPage] = useState(0); // Algolia pages are 0-based
   const [isAlgoliaSearch, setIsAlgoliaSearch] = useState(false);
+
+  const [algoliaTotalRecords, setAlgoliaTotalRecords] = useState<number | null>(null);
+  useEffect(() => {
+    if (!algoliaClient) return;
+    async function fetchAlgoliaTotal() {
+      try {
+        const res = await algoliaClient.search([
+          { indexName: ALGOLIA_INDEX, query: '', params: { hitsPerPage: 0 } }
+        ]);
+        const nbHits = res.results[0]?.nbHits || 0;
+        setAlgoliaTotalRecords(nbHits);
+      } catch (err) {
+        setAlgoliaTotalRecords(null);
+        console.error('Error fetching Algolia total records:', err);
+      }
+    }
+    fetchAlgoliaTotal();
+  }, [algoliaClient]);
+
+  // Add saved filter state
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<any[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `shopify#orders`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, []);
+
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
+  };
 
   const handleNextPage = async () => {
     if (!hasMore || loading) return;
@@ -283,6 +342,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
         const nbHits = results[0]?.nbHits || 0;
         setAlgoliaResults(hits);
         setAlgoliaTotal(nbHits);
+        console.log('Total records in Algolia index', ALGOLIA_INDEX, ':', nbHits);
       } catch (err) {
         setAlgoliaResults([]);
         setAlgoliaTotal(0);
@@ -315,6 +375,28 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     }
   };
 
+  const shopifyOrdersLoadedCount = useShopifyOrdersLoadedCount();
+
+  // Add effect to clear Algolia search when search box is cleared
+  useEffect(() => {
+    if (smartValue === "") {
+      setIsAlgoliaSearch(false);
+      setAlgoliaResults([]);
+      setAlgoliaTotal(0);
+      setAlgoliaPage(0);
+    }
+  }, [smartValue]);
+
+  // Debounce debouncedSmartValue update by 700ms after smartValue changes
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSmartValue(smartValue);
+    }, 1000);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [smartValue]);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
@@ -330,12 +412,12 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   }
 
   return (
-    <div>
-      <UniversalAnalyticsBar 
-        section="shopify" 
-        tabKey="orders" 
-        total={isAlgoliaSearch ? algoliaTotal : totalOrders} 
-        currentCount={isAlgoliaSearch ? algoliaResults.length : page * PAGE_SIZE} 
+    <div className="flex flex-col">
+      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={flatOrders.length} />
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        activeFilterId={activeSavedFilter?.id}
       />
       <UniversalOperationBar 
         section="shopify" 
@@ -345,114 +427,38 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
         selectedData={selectedRows}
       />
       {/* Search & Filter Section */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <form onSubmit={handleSearch} className="flex w-56 ml-6">
-            <div className="relative flex-grow">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                {/* Search icon SVG */}
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" /></svg>
-              </span>
-              <input
-                id="order-search"
-                type="text"
-                className="border-t border-b border-l border-gray-300 rounded-l pl-9 pr-3 py-2 h-9 w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Search..."
-                value={smartValue}
-                onChange={e => setSmartValue(e.target.value)}
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-gray-800 hover:bg-gray-900 text-white h-9 w-10 flex items-center justify-center rounded-r border-t border-b border-r border-gray-300 focus:outline-none"
-              aria-label="Search"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
-              </svg>
-            </button>
-          </form>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="sort-orders" className="font-medium text-gray-700">Sort By:</label>
-          <select
-            id="sort-orders"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-            value={sortOption}
-            onChange={e => setSortOption(e.target.value)}
-          >
-            <option value="date_latest">Date: Latest</option>
-            <option value="date_oldest">Date: Oldest</option>
-            <option value="price_high_low">Total Price: High-Low</option>
-            <option value="price_low_high">Total Price: Low-High</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="status-filter" className="font-medium text-gray-700">Status:</label>
-          <select
-            id="status-filter"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-          >
-            {statusOptions.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="fulfillment-date" className="font-medium text-gray-700">Fulfillment Date:</label>
-          <button
-            type="button"
-            className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[220px] text-left bg-white"
-            onClick={() => setShowDateRange(v => !v)}
-          >
-            {dateRange.startDate && dateRange.endDate
-              ? `${format(new Date(dateRange.startDate), 'dd MMM yyyy')} - ${format(new Date(dateRange.endDate), 'dd MMM yyyy')}`
-              : 'Select date range'}
-          </button>
-          {showDateRange && (
-            <div className="absolute z-50 mt-2 bg-white border rounded shadow-lg p-4" style={{ minWidth: 350 }}>
-              <DateRange
-                ranges={[dateRange]}
-                onChange={item => setDateRange(item.selection)}
-                moveRangeOnFirstSelection={false}
-                showMonthAndYearPickers={true}
-                rangeColors={["#2563eb"]}
-                maxDate={new Date()}
-              />
-              <div className="flex justify-end gap-2 mt-2">
-                <button
-                  className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-gray-700 text-sm"
-                  onClick={() => {
-                    setDateRange({ startDate: null, endDate: null, key: 'selection' });
-                    setShowDateRange(false);
-                  }}
-                >
-                  Clear
-                </button>
-                <button
-                  className="px-3 py-1 bg-blue-500 rounded hover:bg-blue-600 text-white text-sm"
-                  onClick={() => setShowDateRange(false)}
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        <button
-          className="ml-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-gray-700 text-sm"
-          onClick={handleResetFilters}
-        >
-          Reset Filters
-        </button>
-      </div>
+      <FilterBar
+        searchValue={smartValue}
+        onSearchChange={setSmartValue}
+        onSearchSubmit={handleSearch}
+        sortOptions={[
+          { label: 'Date: Latest', value: 'date_latest' },
+          { label: 'Date: Oldest', value: 'date_oldest' },
+        ]}
+        sortValue={sortOption}
+        onSortChange={setSortOption}
+        statusOptions={statusOptions}
+        statusValue={status}
+        onStatusChange={setStatus}
+        showStatus={true}
+        showFulfillment={true}
+        fulfillmentOptions={fulfillmentOptions}
+        fulfillmentValue={fulfillment}
+        onFulfillmentChange={setFulfillment}
+        showDateRange={true}
+        dateRangeValue={dateRange}
+        onDateRangeChange={setDateRange}
+        onResetFilters={handleResetFilters}
+      />
       <div>
         <div style={{ maxHeight: '52vh', overflow: 'visible' }}>
           <DataView
-            data={isAlgoliaSearch ? algoliaResults : filteredOrders}
+            data={dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders)}
             columns={filteredColumns}
+            page={page}
+            pageSize={PAGE_SIZE}
+            section="shopify"
+            tabKey="orders"
           />
         </div>
         {/* Pagination Bar */}

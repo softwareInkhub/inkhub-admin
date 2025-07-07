@@ -1,87 +1,73 @@
-import React from "react";
-import Filtering from "./Filtering";
+import React from 'react';
 
-interface FilterBarProps {
-  status: string;
-  setStatus: (v: string) => void;
-  statusOptions: string[];
-  type: string;
-  setType: (v: string) => void;
-  typeOptions: string[];
-  board: string;
-  setBoard: (v: string) => void;
-  boardOptions: string[];
-  smartField: string;
-  setSmartField: (v: string) => void;
-  smartFieldOptions: { label: string; value: string }[];
-  smartValue: string;
-  setSmartValue: (v: string) => void;
-  onReset: () => void;
-}
+type FilterBarProps = {
+  searchValue: string;
+  onSearchChange: (v: string) => void;
+  onSearchSubmit: () => void;
+  sortOptions?: { label: string; value: string }[];
+  sortValue?: string;
+  onSortChange?: (v: string) => void;
+  statusOptions?: string[];
+  statusValue?: string;
+  onStatusChange?: (v: string) => void;
+  showStatus?: boolean;
+  showFulfillment?: boolean;
+  fulfillmentOptions?: string[];
+  fulfillmentValue?: string;
+  onFulfillmentChange?: (v: string) => void;
+  showDateRange?: boolean;
+  dateRangeValue?: any;
+  onDateRangeChange?: (v: any) => void;
+  onResetFilters?: () => void;
+  children?: React.ReactNode;
+};
 
-export default function FilterBar({
-  status, setStatus, statusOptions = [],
-  type, setType, typeOptions = [],
-  board, setBoard, boardOptions = [],
-  smartField, setSmartField, smartFieldOptions = [],
-  smartValue, setSmartValue,
-  onReset
-}: FilterBarProps) {
+export default function FilterBar(props: FilterBarProps) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg px-2 py-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 shadow-sm m-0">
-      <div className="flex flex-wrap gap-1 flex-1 items-center m-0 p-0">
-        {statusOptions.length > 1 && (
-          <Filtering
-            filters={statusOptions}
-            value={status}
-            onFilterChange={setStatus}
-            label="Status"
-          />
-        )}
-        {typeOptions.length > 1 && (
-          <Filtering
-            filters={typeOptions}
-            value={type}
-            onFilterChange={setType}
-            label="Type"
-          />
-        )}
-        {boardOptions.length > 1 && (
-          <Filtering
-            filters={boardOptions}
-            value={board}
-            onFilterChange={setBoard}
-            label="Board"
-          />
-        )}
-        {/* Smart field+value filter */}
-        <div className="flex items-center gap-2">
-          <select
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            value={smartField}
-            onChange={e => setSmartField(e.target.value)}
-          >
-            {smartFieldOptions.map(f => (
-              <option key={f.value} value={f.value}>{f.label}</option>
-            ))}
-          </select>
-          <input
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            type="text"
-            value={smartValue}
-            onChange={e => setSmartValue(e.target.value)}
-            placeholder={`Filter by ${smartFieldOptions.find(f => f.value === smartField)?.label || ""}`}
-          />
-        </div>
-      </div>
-      <button
-        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 text-[11px] font-medium transition-colors m-0"
-        onClick={onReset}
-        title="Clear all filters"
-        type="button"
-      >
-        Clear
-      </button>
+    <div className="flex gap-2 items-center bg-gray-100 p-2 rounded">
+      <input
+        type="text"
+        value={props.searchValue}
+        onChange={e => props.onSearchChange(e.target.value)}
+        placeholder="Search..."
+        className="border rounded px-2 py-1"
+        onKeyDown={e => { if (e.key === 'Enter') props.onSearchSubmit(); }}
+      />
+      <button onClick={props.onSearchSubmit} className="px-2 py-1 bg-gray-800 text-white rounded">🔍</button>
+      {props.sortOptions && (
+        <select value={props.sortValue} onChange={e => props.onSortChange?.(e.target.value)} className="border rounded px-2 py-1">
+          {props.sortOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      )}
+      {props.showStatus && props.statusOptions && (
+        <select value={props.statusValue} onChange={e => props.onStatusChange?.(e.target.value)} className="border rounded px-2 py-1">
+          {props.statusOptions.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      )}
+      {props.showFulfillment && props.fulfillmentOptions && (
+        <select value={props.fulfillmentValue} onChange={e => props.onFulfillmentChange?.(e.target.value)} className="border rounded px-2 py-1">
+          {props.fulfillmentOptions.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      )}
+      {props.showDateRange && (
+        <input
+          type="text"
+          value={props.dateRangeValue || ''}
+          onChange={e => props.onDateRangeChange?.(e.target.value)}
+          placeholder="Select date range"
+          className="border rounded px-2 py-1"
+        />
+      )}
+      {props.onResetFilters && (
+        <button onClick={props.onResetFilters} className="px-3 py-1 bg-gray-200 rounded">Reset Filters</button>
+      )}
+      {props.children}
     </div>
   );
 } 

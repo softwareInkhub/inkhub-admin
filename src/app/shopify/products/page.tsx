@@ -52,6 +52,33 @@ export default function ShopifyProducts() {
   // Smart filter states
   const [smartField, setSmartField] = useState('title');
   const [smartValue, setSmartValue] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [sortValue, setSortValue] = useState('');
+  const sortOptions = [
+    { label: 'Created At: Latest', value: 'created_at_desc' },
+    { label: 'Created At: Oldest', value: 'created_at_asc' },
+  ];
+
+  // Add saved filter state
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<any[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `shopify#products`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, []);
+
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,7 +197,11 @@ export default function ShopifyProducts() {
   return (
     <div className=" flex flex-col">
       <UniversalAnalyticsBar section="shopify" tabKey="products" total={totalProducts} currentCount={tableData.length} />
-      <ViewsBar />
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        activeFilterId={activeSavedFilter?.id}
+      />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="products" 
@@ -180,8 +211,17 @@ export default function ShopifyProducts() {
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
+          <FilterBar
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onSearchSubmit={() => setSmartValue(searchValue)}
+            sortOptions={sortOptions}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            onResetFilters={() => {/* implement reset logic */}}
+          />
           <DataView
-            data={tableData}
+            data={dataOverride || tableData}
             columns={filteredColumns}
             gridColumns={gridColumns}
             onSort={() => {}}

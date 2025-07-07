@@ -32,6 +32,51 @@ export default function PinterestPins() {
   const [smartField, setSmartField] = useState('Item.title');
   const [smartValue, setSmartValue] = useState('');
 
+  // Active accounts state
+  const [activeAccountNames, setActiveAccountNames] = useState<string[]>([]);
+
+  // Add state for search, sort, etc. if not present
+  const [searchValue, setSearchValue] = useState('');
+  const [sortValue, setSortValue] = useState('');
+  const sortOptions = [
+    { label: 'Created At: Latest', value: 'created_at_desc' },
+    { label: 'Created At: Oldest', value: 'created_at_asc' },
+  ];
+
+  // Add saved filter state
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<any[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `pinterest#pins`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, []);
+
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
+  };
+
+  // Fetch active accounts on mount
+  useEffect(() => {
+    const fetchActiveAccounts = async () => {
+      const res = await fetch('/api/pinterest/accounts');
+      const data = await res.json();
+      const names = (data.accounts || [])
+        .filter((acc: any) => acc.active !== false)
+        .map((acc: any) => acc.accountName);
+      setActiveAccountNames(names);
+    };
+    fetchActiveAccounts();
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsInitialLoad(true);
@@ -72,6 +117,10 @@ export default function PinterestPins() {
 
   // Multi-filter logic
   let filteredPins = pins.filter(pin => pin.Item)
+    // Only show pins whose board_owner.username is in activeAccountNames
+    .filter((row: any) =>
+      activeAccountNames.length === 0 || activeAccountNames.includes(row.Item?.board_owner?.username)
+    )
     .filter((row: any) =>
       (board === 'All' || row.Item?.board_owner?.username === board)
     );
@@ -165,7 +214,11 @@ export default function PinterestPins() {
   return (
     <div className=" flex flex-col">
       <UniversalAnalyticsBar section="pinterest" tabKey="pins" total={totalPins} currentCount={filteredPins.length} />
-      <ViewsBar />
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        activeFilterId={activeSavedFilter?.id}
+      />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="pins" 
@@ -175,8 +228,21 @@ export default function PinterestPins() {
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
+          <FilterBar
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onSearchSubmit={() => setSmartValue(searchValue)}
+            sortOptions={sortOptions}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            statusOptions={boardOptions}
+            statusValue={board}
+            onStatusChange={setBoard}
+            showStatus={true}
+            onResetFilters={handleResetFilters}
+          />
           <DataView
-            data={filteredPins}
+            data={dataOverride || filteredPins}
             columns={filteredColumns}
             onSort={() => {}}
             onSearch={() => {}}

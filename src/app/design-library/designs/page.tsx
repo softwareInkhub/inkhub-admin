@@ -34,6 +34,34 @@ export default function DesignLibrary() {
     'designImageUrl', 'designName', 'designPrice', 'designSize', 'designStatus', 'designType', 'orderName', 'designTags', 'designCreatedAt', 'designUpdateAt'
   ]);
 
+  const [searchValue, setSearchValue] = useState('');
+  const [sortValue, setSortValue] = useState('');
+  const sortOptions = [
+    { label: 'Created At: Latest', value: 'created_at_desc' },
+    { label: 'Created At: Oldest', value: 'created_at_asc' },
+  ];
+
+  // Add saved filter state
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<any[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `design-library#designs`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, []);
+
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
+  };
+
   useEffect(() => {
     if (!initialLoaded) {
       dispatch(fetchDesigns({ limit: 2000 }));
@@ -154,7 +182,11 @@ export default function DesignLibrary() {
   return (
     <div className=" flex flex-col">
       <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
-      <ViewsBar />
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        activeFilterId={activeSavedFilter?.id}
+      />
       <UniversalOperationBar 
         section="design library" 
         tabKey="designs" 
@@ -164,32 +196,23 @@ export default function DesignLibrary() {
       />
       <div className="flex-1 min-h-0">
         <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
+          <FilterBar
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onSearchSubmit={() => setSmartValue(searchValue)}
+            sortOptions={sortOptions}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            onResetFilters={() => {/* implement reset logic */}}
+          />
           <DataView
-            data={tableData}
+            data={dataOverride || tableData}
             columns={filteredColumns}
-            onSort={() => {}}
-            onSearch={() => {}}
             section="design library"
             tabKey="designs"
-            onSelectionChange={setSelectedRows}
             onLoadMore={handleNextPage}
             hasMore={!!lastEvaluatedKey}
             isLoadingMore={isLoadingMore}
-            status={status}
-            setStatus={setStatus}
-            statusOptions={statusOptions}
-            type={type}
-            setType={setType}
-            typeOptions={typeOptions}
-            board={board}
-            setBoard={setBoard}
-            boardOptions={boardOptions}
-            smartField={smartField}
-            setSmartField={setSmartField}
-            smartFieldOptions={smartFieldOptions}
-            smartValue={smartValue}
-            setSmartValue={setSmartValue}
-            onResetFilters={handleResetFilters}
           />
         </div>
       </div>

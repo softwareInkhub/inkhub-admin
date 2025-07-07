@@ -8,6 +8,7 @@ interface UniversalAnalyticsBarProps {
   total?: number;
   currentCount?: number;
   onChange?: (options: any) => void;
+  algoliaTotal?: number | null;
 }
 
 const configs: Record<string, any> = {
@@ -49,7 +50,7 @@ const configs: Record<string, any> = {
   },
 };
 
-export default function UniversalAnalyticsBar({ section, tabKey, total, currentCount, onChange }: UniversalAnalyticsBarProps) {
+export default function UniversalAnalyticsBar({ section, tabKey, total, currentCount, onChange, algoliaTotal }: UniversalAnalyticsBarProps) {
   const config = configs[section?.toLowerCase()]?.[tabKey?.toLowerCase()];
   const [filter, setFilter] = useState(config?.filter?.[0] || "All");
   const [groupBy, setGroupBy] = useState(config?.groupBy?.[0] || "None");
@@ -81,7 +82,15 @@ export default function UniversalAnalyticsBar({ section, tabKey, total, currentC
           <div className="text-lg font-extrabold text-green-700 tracking-wide">{typeof currentCount === 'number' ? currentCount : '--'}</div>
         </div>
       </div>
-      {[3,4,5,6,7,8,9,10,11].map((num) => (
+      {/* Box 3: Algolia Total Records */}
+      <div className="flex flex-col items-center justify-center ml-2">
+        <div className="border-2 border-purple-400 rounded-xl px-4 py-2 bg-gradient-to-br from-blue-400 to-purple-500 shadow-lg text-center min-w-[120px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-2xl">
+          <div className="text-xs font-semibold mb-0.5 text-white drop-shadow">Algolia Count</div>
+          <div className="text-lg font-extrabold text-white drop-shadow tracking-wide">{typeof algoliaTotal === 'number' ? algoliaTotal : '--'}</div>
+        </div>
+      </div>
+      {/* Render the rest of the boxes as before */}
+      {[4,5,6,7,8,9,10,11].map((num) => (
         <div key={num} className="flex flex-col items-center justify-center ml-2">
           <div className="border-2 border-gray-200 rounded-xl px-4 py-2 bg-gradient-to-br from-gray-50 to-white shadow text-center min-w-[120px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-lg">
             <div className="text-xs font-semibold mb-0.5 text-gray-800">Box {num}</div>
