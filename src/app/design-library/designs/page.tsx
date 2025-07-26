@@ -1,160 +1,175 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '@/store/store';
-import { fetchDesigns } from '@/store/slices/designLibrarySlice';
 import DataView from '@/components/common/DataView';
-import Image from 'next/image';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
-import DecoupledHeader from '@/components/common/DecoupledHeader';
-import ImageCell from '@/components/common/ImageCell';
-import FilterBar from '@/components/common/FilterBar';
 import ViewsBar from '@/components/common/ViewsBar';
+import { fetchAllChunks } from '@/utils/cache';
 
 export default function DesignLibrary() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { designs, loading, error, lastEvaluatedKey, totalDesigns } = useSelector((state: RootState) => state.designLibrary);
+  const [designs, setDesigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Multi-filter states
-  const [status, setStatus] = useState('All');
-  const [type, setType] = useState('All');
-  const [board, setBoard] = useState('All');
-  // Smart filter states
-  const [smartField, setSmartField] = useState('designName');
-  const [smartValue, setSmartValue] = useState('');
+  // Load more states
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadedChunks, setLoadedChunks] = useState<any[]>([]);
+  const [allAvailableData, setAllAvailableData] = useState<any[]>([]);
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
+
+  useEffect(() => {
+    const fetchDesigns = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const allItems = await fetchAllChunks('design-library-inkhub-get-designs');
+        setAllAvailableData(allItems);
+        // Initially load first chunk (first 100 items)
+        const initialChunk = allItems.slice(0, 100);
+        setLoadedChunks(initialChunk);
+        setHasMore(allItems.length > 100);
+        setIsFullyLoaded(false);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch designs');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDesigns();
+  }, []);
+
+  // Load more functionality
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Load next chunk of data (next 100 items)
+      const currentCount = loadedChunks.length;
+      const nextChunk = allAvailableData.slice(currentCount, currentCount + 100);
+      
+      if (nextChunk.length > 0) {
+        setLoadedChunks(prev => [...prev, ...nextChunk]);
+        const newCount = currentCount + nextChunk.length;
+        setHasMore(newCount < allAvailableData.length);
+        setIsFullyLoaded(newCount >= allAvailableData.length);
+      } else {
+        setHasMore(false);
+        setIsFullyLoaded(true);
+      }
+    } catch (err: any) {
+      console.error('Failed to load more designs:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Load less functionality
+  const handleLoadLess = () => {
+    // Reset to initial chunk (first 100 items)
+    const initialChunk = allAvailableData.slice(0, 100);
+    setLoadedChunks(initialChunk);
+    setHasMore(allAvailableData.length > 100);
+    setIsFullyLoaded(false);
+  };
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
-  const [initialLoaded, setInitialLoaded] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'designImageUrl', 'designName', 'designPrice', 'designSize', 'designStatus', 'designType', 'orderName', 'designTags', 'designCreatedAt', 'designUpdateAt'
+    'id', 'name', 'description', 'status', 'type', 'created_at', 'updated_at'
   ]);
-
-  const [searchValue, setSearchValue] = useState('');
-  const [sortValue, setSortValue] = useState('');
-  const sortOptions = [
-    { label: 'Created At: Latest', value: 'created_at_desc' },
-    { label: 'Created At: Oldest', value: 'created_at_asc' },
-  ];
 
   // Add saved filter state
   const [savedFilters, setSavedFilters] = useState<any[]>([]);
   const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
   const [dataOverride, setDataOverride] = useState<any[] | null>(null);
 
-  // Fetch saved filters for this user and page
-  useEffect(() => {
-    const userId = (window as any).currentUserId || 'demo-user';
-    const sectionTabKey = `design-library#designs`;
-    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
-      .then(res => res.json())
-      .then(data => setSavedFilters(data.filters || []));
-  }, []);
-
+  // Handle saved filter selection
   const handleApplySavedFilter = (filter: any) => {
     setActiveSavedFilter(filter);
-    if (filter.filteredData) {
-      setDataOverride(filter.filteredData);
-    }
+    // Apply the filter logic here
+    console.log('Applying filter:', filter);
   };
 
-  useEffect(() => {
-    if (!initialLoaded) {
-      dispatch(fetchDesigns({ limit: 2000 }));
-      setInitialLoaded(true);
-    }
-  }, [dispatch, initialLoaded]);
-
-  const handleNextPage = () => {
-    if (lastEvaluatedKey && !isLoadingMore) {
-      setIsLoadingMore(true);
-      dispatch(fetchDesigns({ limit: 2000, lastKey: lastEvaluatedKey }))
-        .finally(() => setIsLoadingMore(false));
-    }
-  };
-
-  // Auto-load all pages without scrolling
-  useEffect(() => {
-    if (lastEvaluatedKey && !isLoadingMore) {
-      const timer = setTimeout(() => {
-        handleNextPage();
-      }, 200); // 200ms delay between loads
-      return () => clearTimeout(timer);
-    }
-  }, [lastEvaluatedKey, isLoadingMore]);
-
-  // Build filter options from data
-  const statusOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.designStatus).filter(Boolean)))];
-  const typeOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.designType).filter(Boolean)))];
-  const boardOptions = ['All', ...Array.from(new Set(designs.map((d: any) => d.orderName).filter(Boolean)))];
-  const smartFieldOptions = [
-    { label: 'Name', value: 'designName' },
-    { label: 'Status', value: 'designStatus' },
-    { label: 'Type', value: 'designType' },
-    { label: 'Board', value: 'orderName' },
-    { label: 'Tags', value: 'designTags' },
-    { label: 'Price', value: 'designPrice' },
-    { label: 'Size', value: 'designSize' },
-  ];
-
-  // Multi-filter logic
-  let filteredDesigns = designs.filter((row: any) =>
-    (status === 'All' || row.designStatus === status) &&
-    (type === 'All' || row.designType === type) &&
-    (board === 'All' || row.orderName === board)
-  );
-  // Smart filter logic
-  if (smartValue) {
-    filteredDesigns = filteredDesigns.filter((row: any) => {
-      const val = row[smartField];
-      if (Array.isArray(val)) {
-        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
+  // Handle saved filter editing
+  const handleEditSavedFilter = (filter: any) => {
+    const newName = prompt('Edit filter name:', filter.filterName || 'Unnamed');
+    if (newName && newName.trim() !== filter.filterName) {
+      const updatedFilter = { ...filter, filterName: newName.trim() };
+      setSavedFilters(prev => prev.map(f => f.id === filter.id ? updatedFilter : f));
+      if (activeSavedFilter?.id === filter.id) {
+        setActiveSavedFilter(updatedFilter);
       }
-      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
-    });
-  }
+    }
+  };
 
-  let columns = [
+  const columns = [
     {
       header: 'Image',
-      accessor: 'designImageUrl',
-      render: (value: string, _row: any, viewType?: 'table' | 'grid' | 'card') => (
-        <ImageCell src={value} alt="Design" viewType={viewType} />
-      ),
+      accessor: 'image',
+      render: (_: any, row: any) => {
+        const imageSrc = row.image?.url || row.designImageUrl || row.Item?.image?.url;
+        return (
+          <div className="flex items-center justify-center">
+            {imageSrc ? (
+              <img
+                src={imageSrc}
+                alt={row.name || 'Design'}
+                className="w-8 h-8 object-cover rounded"
+              />
+            ) : (
+              <span className="text-gray-400">No Image</span>
+            )}
+          </div>
+        );
+      }
     },
-    { header: 'Name', accessor: 'designName' },
-    { header: 'Price', accessor: 'designPrice', render: (value: string) => value ? `₹${value}` : 'N/A' },
-    { header: 'Size', accessor: 'designSize' },
-    { header: 'Status', accessor: 'designStatus' },
-    { header: 'Type', accessor: 'designType' },
-    { header: 'Order', accessor: 'orderName' },
-    {
-      header: 'Tags',
-      accessor: 'designTags',
-      render: (tags: string[]) => (
-        <div className="flex flex-wrap gap-1">
-          {tags?.map((tag, idx) => (
-            <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-              {tag}
-            </span>
-          ))}
-        </div>
-      ),
+    { 
+      header: 'ID', 
+      accessor: 'id',
+      render: (_: any, row: any) => row.id || row.Item?.id || '—'
     },
-    { header: 'Created At', accessor: 'designCreatedAt', render: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A' },
-    { header: 'Updated At', accessor: 'designUpdateAt', render: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A' },
+    { 
+      header: 'Name', 
+      accessor: 'name',
+      render: (_: any, row: any) => row.name || row.Item?.name || '—'
+    },
+    { 
+      header: 'Description', 
+      accessor: 'description',
+      render: (_: any, row: any) => {
+        const desc = row.description || row.Item?.description || '';
+        return desc.length > 50 ? `${desc.substring(0, 50)}...` : desc || '—';
+      }
+    },
+    { 
+      header: 'Status', 
+      accessor: 'status',
+      render: (_: any, row: any) => row.status || row.Item?.status || '—'
+    },
+    { 
+      header: 'Type', 
+      accessor: 'type',
+      render: (_: any, row: any) => row.type || row.Item?.type || '—'
+    },
+    { 
+      header: 'Created At', 
+      accessor: 'created_at',
+      render: (_: any, row: any) => row.created_at || row.Item?.created_at || '—'
+    },
+    { 
+      header: 'Updated At', 
+      accessor: 'updated_at',
+      render: (_: any, row: any) => row.updated_at || row.Item?.updated_at || '—'
+    },
   ];
 
   // Filter columns based on visibleColumns
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
-  let tableData = filteredDesigns;
-
-  if (loading && !initialLoaded) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -170,51 +185,72 @@ export default function DesignLibrary() {
     );
   }
 
-  // Reset all filters
-  const handleResetFilters = () => {
-    setStatus('All');
-    setType('All');
-    setBoard('All');
-    setSmartField('designName');
-    setSmartValue('');
-  };
-
   return (
-    <div className=" flex flex-col">
-      <UniversalAnalyticsBar section="design library" tabKey="designs" total={totalDesigns} currentCount={tableData.length} onChange={setAnalytics} />
+    <div className="flex flex-col">
+      <UniversalAnalyticsBar section="design-library" tabKey="designs" total={allAvailableData.length} currentCount={loadedChunks.length} />
       <ViewsBar
         savedFilters={savedFilters}
         onSelect={handleApplySavedFilter}
+        onEdit={handleEditSavedFilter}
         activeFilterId={activeSavedFilter?.id}
       />
       <UniversalOperationBar 
-        section="design library" 
+        section="design-library" 
         tabKey="designs" 
         analytics={analytics} 
-        data={tableData}
+        data={loadedChunks}
         selectedData={selectedRows}
       />
       <div className="flex-1 min-h-0">
-        <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-          <FilterBar
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            onSearchSubmit={() => setSmartValue(searchValue)}
-            sortOptions={sortOptions}
-            sortValue={sortValue}
-            onSortChange={setSortValue}
-            onResetFilters={() => {/* implement reset logic */}}
-          />
+        <div className="bg-white rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={dataOverride || tableData}
+            data={dataOverride || loadedChunks}
             columns={filteredColumns}
-            section="design library"
+            section="design-library"
             tabKey="designs"
-            onLoadMore={handleNextPage}
-            hasMore={!!lastEvaluatedKey}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
             isLoadingMore={isLoadingMore}
           />
         </div>
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Load More Data
+                </>
+              )}
+            </button>
+          </div>
+        )}
+        {/* Load Less Button */}
+        {isFullyLoaded && (
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={handleLoadLess}
+              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Load Less Data
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

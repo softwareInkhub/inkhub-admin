@@ -27,7 +27,7 @@ export default function UniversalOperationBar({ section, tabKey, analytics, data
   };
 
   return (
-    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4 justify-end">
+    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full justify-end">
       {/* Removed Export Data and Copy Data buttons */}
     </div>
   );

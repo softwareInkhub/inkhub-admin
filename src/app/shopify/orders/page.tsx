@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import OrdersClient from './OrdersClient';
-import { fetchInitialOrders } from '@/utils/api';
 
 export default async function ShopifyOrdersPage() {
-  // Fetch initial data on the server
-  const initialData = await fetchInitialOrders();
+  // Fetch initial data from the new cache API route
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/cache/shopify-orders`, { cache: 'no-store' });
+  const initialData = await res.json();
 
   return (
     <Suspense fallback={

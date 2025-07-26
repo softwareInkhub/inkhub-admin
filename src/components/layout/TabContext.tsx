@@ -6,6 +6,7 @@ export interface Tab {
   key: string;
   label: string;
   path: string;
+  pinned?: boolean;
 }
 
 interface TabContextType {
@@ -14,6 +15,8 @@ interface TabContextType {
   openTab: (tab: Tab) => void;
   closeTab: (key: string) => void;
   setActiveTab: (key: string) => void;
+  pinTab: (key: string) => void;
+  unpinTab: (key: string) => void;
 }
 
 const TabContext = createContext<TabContextType | undefined>(undefined);
@@ -105,8 +108,24 @@ export const TabProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const pinTab = (key: string) => {
+    setOpenTabs(prev => {
+      return prev.map(tab =>
+        tab.key === key ? { ...tab, pinned: true } : tab
+      ).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    });
+  };
+
+  const unpinTab = (key: string) => {
+    setOpenTabs(prev => {
+      return prev.map(tab =>
+        tab.key === key ? { ...tab, pinned: false } : tab
+      );
+    });
+  };
+
   return (
-    <TabContext.Provider value={{ openTabs, activeTab, openTab, closeTab, setActiveTab }}>
+    <TabContext.Provider value={{ openTabs, activeTab, openTab, closeTab, setActiveTab, pinTab, unpinTab }}>
       {children}
     </TabContext.Provider>
   );

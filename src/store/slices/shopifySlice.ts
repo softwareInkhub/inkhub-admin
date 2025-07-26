@@ -99,7 +99,7 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch orders';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to fetch orders';
       })
       // Products
       .addCase(fetchProducts.pending, (state) => {
@@ -121,7 +121,7 @@ const shopifySlice = createSlice({
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch products';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to fetch products';
       });
   },
 });

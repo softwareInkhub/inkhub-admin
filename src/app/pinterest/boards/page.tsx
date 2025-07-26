@@ -1,169 +1,189 @@
 'use client';
 
-import { useEffect, useState, Fragment, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '@/store/store';
-import { fetchBoards } from '@/store/slices/pinterestSlice';
+import { useEffect, useState } from 'react';
 import DataView from '@/components/common/DataView';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
-import DecoupledHeader from '@/components/common/DecoupledHeader';
-import ImageCell from '@/components/common/ImageCell';
-import FilterBar from '@/components/common/FilterBar';
 import ViewsBar from '@/components/common/ViewsBar';
-import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
+import { fetchAllChunks } from '@/utils/cache';
 
 export default function PinterestBoards() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { boards, loading, error, boardsLastEvaluatedKey, totalBoards } = useSelector((state: RootState) => state.pinterest);
+  const [boards, setBoards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Load more states
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadedChunks, setLoadedChunks] = useState<any[]>([]);
+  const [allAvailableData, setAllAvailableData] = useState<any[]>([]);
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
 
-  // Multi-filter states
-  const [privacy, setPrivacy] = useState('All');
-  const [owner, setOwner] = useState('All');
-  // Smart filter states
-  const [smartField, setSmartField] = useState('Item.name');
-  const [smartValue, setSmartValue] = useState('');
-
-  // Active accounts state
-  const [activeAccountNames, setActiveAccountNames] = useState<string[]>([]);
-
-  // Fetch active accounts on mount
   useEffect(() => {
-    const fetchActiveAccounts = async () => {
-      const res = await fetch('/api/pinterest/accounts');
-      const data = await res.json();
-      const names = (data.accounts || [])
-        .filter((acc: any) => acc.active !== false)
-        .map((acc: any) => acc.accountName);
-      setActiveAccountNames(names);
+    const fetchBoards = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const allItems = await fetchAllChunks('pinterest-inkhub-get-boards');
+        setAllAvailableData(allItems);
+        // Initially load first chunk (first 100 items)
+        const initialChunk = allItems.slice(0, 100);
+        setLoadedChunks(initialChunk);
+        setHasMore(allItems.length > 100);
+        setIsFullyLoaded(false);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch boards');
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchActiveAccounts();
+    fetchBoards();
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsInitialLoad(true);
-      await dispatch(fetchBoards({ limit: 100 }));
-      setIsInitialLoad(false);
-    };
-    fetchData();
-  }, [dispatch]);
-
-  const handleNextPage = async () => {
-    if (!boardsLastEvaluatedKey || isLoadingMore) return;
+  // Load more functionality
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
     setIsLoadingMore(true);
     try {
-      await dispatch(fetchBoards({ limit: 100, lastKey: boardsLastEvaluatedKey }));
+      // Load next chunk of data (next 100 items)
+      const currentCount = loadedChunks.length;
+      const nextChunk = allAvailableData.slice(currentCount, currentCount + 100);
+      
+      if (nextChunk.length > 0) {
+        setLoadedChunks(prev => [...prev, ...nextChunk]);
+        const newCount = currentCount + nextChunk.length;
+        setHasMore(newCount < allAvailableData.length);
+        setIsFullyLoaded(newCount >= allAvailableData.length);
+      } else {
+        setHasMore(false);
+        setIsFullyLoaded(true);
+      }
+    } catch (err: any) {
+      console.error('Failed to load more boards:', err);
     } finally {
       setIsLoadingMore(false);
     }
   };
 
-  // Auto-load all pages without scrolling
-  useEffect(() => {
-    if (boardsLastEvaluatedKey && !isLoadingMore) {
-      const timer = setTimeout(() => {
-        handleNextPage();
-      }, 200); // 200ms delay between loads
-      return () => clearTimeout(timer);
-    }
-  }, [boardsLastEvaluatedKey, isLoadingMore]);
-
-  // Build filter options from data
-  const privacyOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.privacy).filter(Boolean)))];
-  const ownerOptions = ['All', ...Array.from(new Set(boards.map((d: any) => d.Item?.owner?.username).filter(Boolean)))];
-  const smartFieldOptions = [
-    { label: 'Name', value: 'Item.name' },
-    { label: 'Description', value: 'Item.description' },
-    { label: 'Owner', value: 'Item.owner.username' },
-    { label: 'Privacy', value: 'Item.privacy' },
-  ];
-
-  // Multi-filter logic
-  let filteredBoards = boards.filter(board => board.Item)
-    // Only show boards whose owner.username is in activeAccountNames
-    .filter((row: any) =>
-      activeAccountNames.includes(row.Item?.owner?.username)
-    )
-    .filter((row: any) =>
-      (privacy === 'All' || row.Item?.privacy === privacy) &&
-      (owner === 'All' || row.Item?.owner?.username === owner)
-    );
-  // Smart filter logic
-  if (smartValue) {
-    filteredBoards = filteredBoards.filter((row: any) => {
-      const val = smartField.split('.').reduce((acc, key) => acc?.[key], row);
-      if (Array.isArray(val)) {
-        return val.some((v) => String(v).toLowerCase().includes(smartValue.toLowerCase()));
-      }
-      return String(val ?? '').toLowerCase().includes(smartValue.toLowerCase());
-    });
-  }
-
-  let tableData = filteredBoards;
-  let columns = [
-    {
-      header: 'Cover',
-      accessor: 'Item.media.image_cover_url',
-      render: (_: any, row: any, viewType?: string) =>
-        <ImageCell src={row.Item?.media?.image_cover_url} alt={row.Item?.name} viewType={viewType} />,
-    },
-    { header: 'Name', accessor: 'Item.name', render: (_: any, row: any) => row.Item?.name || '—' },
-    { header: 'Description', accessor: 'Item.description', render: (_: any, row: any) => row.Item?.description || '—' },
-    { header: 'Pins', accessor: 'Item.pin_count', render: (_: any, row: any) => row.Item?.pin_count ?? '—' },
-    { header: 'Privacy', accessor: 'Item.privacy', render: (_: any, row: any) => row.Item?.privacy || '—' },
-    { header: 'Owner', accessor: 'Item.owner.username', render: (_: any, row: any) => row.Item?.owner?.username || '—' },
-    { header: 'Created At', accessor: 'Item.created_at', render: (_: any, row: any) => row.Item?.created_at || '—' },
-  ];
-
-  // Reset all filters
-  const handleResetFilters = () => {
-    setPrivacy('All');
-    setOwner('All');
-    setSmartField('Item.name');
-    setSmartValue('');
+  // Load less functionality
+  const handleLoadLess = () => {
+    // Reset to initial chunk (first 100 items)
+    const initialChunk = allAvailableData.slice(0, 100);
+    setLoadedChunks(initialChunk);
+    setHasMore(allAvailableData.length > 100);
+    setIsFullyLoaded(false);
   };
 
-  const [searchValue, setSearchValue] = useState('');
-  const [sortValue, setSortValue] = useState('');
-  const sortOptions = [
-    { label: 'Created At: Latest', value: 'created_at_desc' },
-    { label: 'Created At: Oldest', value: 'created_at_asc' },
-  ];
+  const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'id', 'name', 'description', 'url', 'privacy', 'created_at', 'updated_at'
+  ]);
 
   // Add saved filter state
   const [savedFilters, setSavedFilters] = useState<any[]>([]);
   const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
   const [dataOverride, setDataOverride] = useState<any[] | null>(null);
 
-  // Fetch saved filters for this user and page
-  useEffect(() => {
-    const userId = (window as any).currentUserId || 'demo-user';
-    const sectionTabKey = `pinterest#boards`;
-    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
-      .then(res => res.json())
-      .then(data => setSavedFilters(data.filters || []));
-  }, []);
-
+  // Handle saved filter selection
   const handleApplySavedFilter = (filter: any) => {
     setActiveSavedFilter(filter);
-    if (filter.filteredData) {
-      setDataOverride(filter.filteredData);
+    // Apply the filter logic here
+    console.log('Applying filter:', filter);
+  };
+
+  // Handle saved filter editing
+  const handleEditSavedFilter = (filter: any) => {
+    const newName = prompt('Edit filter name:', filter.filterName || 'Unnamed');
+    if (newName && newName.trim() !== filter.filterName) {
+      const updatedFilter = { ...filter, filterName: newName.trim() };
+      setSavedFilters(prev => prev.map(f => f.id === filter.id ? updatedFilter : f));
+      if (activeSavedFilter?.id === filter.id) {
+        setActiveSavedFilter(updatedFilter);
+      }
     }
   };
 
-  if (loading && isInitialLoad) {
+  const columns = [
+    {
+      header: 'Image',
+      accessor: 'image',
+      render: (_: any, row: any) => {
+        const imageSrc = row.image?.thumbnail?.url || row.image?.url || row.Item?.image?.thumbnail?.url;
+        return (
+          <div className="flex items-center justify-center">
+            {imageSrc ? (
+              <img
+                src={imageSrc}
+                alt={row.name || 'Board'}
+                className="w-8 h-8 object-cover rounded"
+              />
+            ) : (
+              <span className="text-gray-400">No Image</span>
+            )}
+          </div>
+        );
+      }
+    },
+    { 
+      header: 'ID', 
+      accessor: 'id',
+      render: (_: any, row: any) => row.id || row.Item?.id || '—'
+    },
+    { 
+      header: 'Name', 
+      accessor: 'name',
+      render: (_: any, row: any) => row.name || row.Item?.name || '—'
+    },
+    { 
+      header: 'Description', 
+      accessor: 'description',
+      render: (_: any, row: any) => {
+        const desc = row.description || row.Item?.description || '';
+        return desc.length > 50 ? `${desc.substring(0, 50)}...` : desc || '—';
+      }
+    },
+    { 
+      header: 'URL', 
+      accessor: 'url',
+      render: (_: any, row: any) => {
+        const url = row.url || row.Item?.url || '';
+        return url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+            View
+          </a>
+        ) : '—';
+      }
+    },
+    { 
+      header: 'Privacy', 
+      accessor: 'privacy',
+      render: (_: any, row: any) => row.privacy || row.Item?.privacy || '—'
+    },
+    { 
+      header: 'Created At', 
+      accessor: 'created_at',
+      render: (_: any, row: any) => row.created_at || row.Item?.created_at || '—'
+    },
+    { 
+      header: 'Updated At', 
+      accessor: 'updated_at',
+      render: (_: any, row: any) => row.updated_at || row.Item?.updated_at || '—'
+    },
+  ];
+
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -173,60 +193,71 @@ export default function PinterestBoards() {
   }
 
   return (
-    <div className=" flex flex-col">
-      <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={totalBoards} currentCount={filteredBoards.length} />
+    <div className="flex flex-col">
+      <UniversalAnalyticsBar section="pinterest" tabKey="boards" total={allAvailableData.length} currentCount={loadedChunks.length} />
       <ViewsBar
         savedFilters={savedFilters}
         onSelect={handleApplySavedFilter}
+        onEdit={handleEditSavedFilter}
         activeFilterId={activeSavedFilter?.id}
       />
       <UniversalOperationBar 
         section="pinterest" 
         tabKey="boards" 
         analytics={analytics} 
-        data={filteredBoards}
+        data={loadedChunks}
         selectedData={selectedRows}
       />
       <div className="flex-1 min-h-0">
-        <div className="bg-white p-6 rounded-lg shadow h-full overflow-auto">
-          <FilterBar
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            onSearchSubmit={() => setSmartValue(searchValue)}
-            sortOptions={sortOptions}
-            sortValue={sortValue}
-            onSortChange={setSortValue}
-            statusOptions={ownerOptions}
-            statusValue={owner}
-            onStatusChange={setOwner}
-            showStatus={true}
-            onResetFilters={handleResetFilters}
-          />
+        <div className="bg-white rounded-lg shadow h-full overflow-auto">
           <DataView
-            data={dataOverride || tableData}
-            columns={columns}
-            onSort={() => {}}
-            onSearch={() => {}}
+            data={dataOverride || loadedChunks}
+            columns={filteredColumns}
             section="pinterest"
             tabKey="boards"
-            onSelectionChange={setSelectedRows}
-            onLoadMore={handleNextPage}
-            hasMore={!!boardsLastEvaluatedKey}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
             isLoadingMore={isLoadingMore}
-            privacy={privacy}
-            setPrivacy={setPrivacy}
-            privacyOptions={privacyOptions}
-            owner={owner}
-            setOwner={setOwner}
-            ownerOptions={ownerOptions}
-            smartField={smartField}
-            setSmartField={setSmartField}
-            smartFieldOptions={smartFieldOptions}
-            smartValue={smartValue}
-            setSmartValue={setSmartValue}
-            onResetFilters={handleResetFilters}
           />
         </div>
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Load More Data
+                </>
+              )}
+            </button>
+          </div>
+        )}
+        {/* Load Less Button */}
+        {isFullyLoaded && (
+          <div className="mt-2 flex justify-center">
+            <button
+              onClick={handleLoadLess}
+              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Load Less Data
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

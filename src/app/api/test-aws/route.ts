@@ -27,7 +27,7 @@ export async function GET() {
     console.error('AWS Connection Test Error:', error);
     return NextResponse.json({
       status: 'error',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
       code: error.code,
       region: process.env.AWS_REGION
     }, { status: 500 });

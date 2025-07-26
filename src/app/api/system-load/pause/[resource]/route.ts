@@ -3,7 +3,7 @@ import { redis } from '@/utils/redis';
 
 export async function POST(_req: Request, { params }: { params: { resource: string } }) {
   const { resource } = params;
-  await redis.set(`systemload:paused:${resource}`, '1');
+  // Removed: await redis.set(`systemload:paused:${resource}`, '1');
   return NextResponse.json({ paused: true });
 }
 

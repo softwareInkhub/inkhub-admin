@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTabContext } from "@/components/layout/TabContext";
+import { useSidebar } from "@/components/layout/SidebarContext";
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const sidebarConfig = [
@@ -56,7 +56,7 @@ interface SecondarySidebarProps {
 export default function SecondarySidebar({ section }: SecondarySidebarProps) {
   const pathname = usePathname();
   const { openTab } = useTabContext();
-  const [collapsed, setCollapsed] = useState(false);
+  const { secondarySidebarCollapsed, setSecondarySidebarCollapsed } = useSidebar();
 
   // Only show the selected section
   const filteredConfig = sidebarConfig.filter(s => s.key === section);
@@ -71,14 +71,14 @@ export default function SecondarySidebar({ section }: SecondarySidebarProps) {
         className="absolute z-50 bg-white border border-gray-200 rounded-full shadow-lg p-1 hover:bg-gray-50 transition-colors"
         style={{
           top: '2rem',
-          right: collapsed ? 'auto' : '-16px',
-          left: collapsed ? '-18px' : 'auto',
+          right: secondarySidebarCollapsed ? 'auto' : '-16px',
+          left: secondarySidebarCollapsed ? '-18px' : 'auto',
         }}
-        onClick={() => setCollapsed((c) => !c)}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        onClick={() => setSecondarySidebarCollapsed(!secondarySidebarCollapsed)}
+        aria-label={secondarySidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         type="button"
       >
-        {collapsed ? (
+        {secondarySidebarCollapsed ? (
           <ChevronRightIcon className="h-5 w-5 text-gray-500" />
         ) : (
           <ChevronLeftIcon className="h-5 w-5 text-gray-500" />
@@ -86,14 +86,14 @@ export default function SecondarySidebar({ section }: SecondarySidebarProps) {
       </button>
       <aside
         className={`h-full flex flex-col transition-all duration-300 overflow-hidden ${
-          collapsed
+          secondarySidebarCollapsed
             ? 'w-0 min-w-0 border-none bg-transparent p-0'
             : 'w-64 border-r border-gray-200 bg-white'
         }`}
         style={{ position: 'relative' }}
       >
         {/* Sidebar Content */}
-        {!collapsed && (
+        {!secondarySidebarCollapsed && (
           <>
             {/* Section Title */}
             <div className="sticky top-0 z-10 bg-white pt-6 pb-2 px-6">

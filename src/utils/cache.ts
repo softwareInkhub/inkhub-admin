@@ -1,77 +1,58 @@
-import LRUCache from 'lru-cache';
+import axios from 'axios';
 
-interface CacheOptions {
-  max?: number;
-  ttl?: number; // We'll map this to ttl
+const API_BASE = 'http://localhost:5001/cache/data';
+const STATS_API_BASE = 'http://localhost:5001/cache/stats';
+const PROJECT = 'my-app';
+
+// Fetch all chunk keys for a given table
+export async function fetchOrderChunkKeys(table: string) {
+  const res = await axios.get(API_BASE, {
+    params: { project: PROJECT, table }
+  });
+  return res.data.keys || [];
 }
 
-class Cache {
-  private cache: LRUCache<string, any>;
-  private static instance: Cache;
-
-  private constructor(options: CacheOptions = {}) {
-    this.cache = new LRUCache({
-      max: options.max || 500,
-      ttl: options.ttl || 1000 * 60 * 5, // Default TTL: 5 minutes
-    });
-  }
-
-  public static getInstance(options?: CacheOptions): Cache {
-    if (!Cache.instance) {
-      Cache.instance = new Cache(options);
-    }
-    return Cache.instance;
-  }
-
-  public get<T>(key: string): T | undefined {
-    try {
-      const value = this.cache.get(key) as T;
-      this.logStats('[LRU] Cache get');
-      return value;
-    } catch (error) {
-      console.error(`Cache get error for key ${key}:`, error);
-      return undefined;
-    }
-  }
-
-  public set<T>(key: string, value: T, ttl?: number): void {
-    try {
-      this.cache.set(key, value, ttl ? { ttl: ttl } : undefined);
-      this.logStats('[LRU] Cache set');
-    } catch (error) {
-      console.error(`Cache set error for key ${key}:`, error);
-    }
-  }
-
-  public delete(key: string): void {
-    try {
-      this.cache.del(key);
-      this.logStats('[LRU] Cache delete');
-    } catch (error) {
-      console.error(`Cache delete error for key ${key}:`, error);
-    }
-  }
-
-  public clear(): void {
-    try {
-      this.cache.reset();
-      this.logStats('[LRU] Cache clear');
-    } catch (error) {
-      console.error('Cache clear error:', error);
-    }
-  }
-
-  public getStats(): { size: number; max: number } {
-    return {
-      size: this.cache.size,
-      max: this.cache.max,
-    };
-  }
-
-  public logStats(context: string = '[LRU] Cache stats'): void {
-    const stats = this.getStats();
-    console.log(`${context} | Size: ${stats.size} / ${stats.max}`);
-  }
+// Fetch a single chunk by chunk number
+export async function fetchOrderChunk(table: string, chunkNumber: number) {
+  const res = await axios.get(API_BASE, {
+    params: { project: PROJECT, table, key: `chunk:${chunkNumber}` }
+  });
+  // Support both 'items' and 'data' fields for chunk data
+  return res.data.items || res.data.data || [];
 }
 
-export const cache = Cache.getInstance(); 
+// Robust: Fetch all chunk keys, then fetch each chunk's data, and combine
+export async function fetchAllChunks(table: string) {
+  // 1. Get all chunk keys
+  const keys: string[] = await fetchOrderChunkKeys(table);
+  if (!Array.isArray(keys) || keys.length === 0) return [];
+
+  // 2. Extract chunk numbers from keys (support both formats)
+  const chunkNumbers = keys
+    .map((key: string) => {
+      const match = key.match(/chunk:(\d+)/);
+      return match ? parseInt(match[1], 10) : null;
+    })
+    .filter((n: number | null): n is number => n !== null);
+
+  // 3. Fetch all chunks in parallel
+  const chunkPromises = chunkNumbers.map((chunkNumber: number) => fetchOrderChunk(table, chunkNumber));
+  const chunkResults = await Promise.all(chunkPromises);
+
+  // 4. Combine all items
+  let allItems: any[] = [];
+  for (const chunkData of chunkResults) {
+    if (Array.isArray(chunkData)) {
+      allItems = allItems.concat(chunkData);
+    }
+  }
+  return allItems;
+}
+
+// Fetch cache statistics for a given table
+export async function fetchCacheStats(table: string) {
+  const res = await axios.get(STATS_API_BASE, {
+    params: { project: PROJECT, table }
+  });
+  return res.data.stats || {};
+} 

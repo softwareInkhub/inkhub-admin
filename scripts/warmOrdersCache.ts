@@ -1,4 +1,3 @@
-import { redis } from '../src/utils/redis';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -33,13 +32,14 @@ async function warmOrdersCache() {
   for (let i = 0; i < allOrders.length; i += CHUNK_SIZE) {
     const chunk = allOrders.slice(i, i + CHUNK_SIZE);
     const chunkKey = `shopify_orders:chunk:${i / CHUNK_SIZE}`;
-    const exists = await redis.exists(chunkKey);
-    if (!exists) {
-      await redis.set(chunkKey, JSON.stringify(chunk), 'EX', CACHE_TTL);
-      console.log(`Stored chunk ${chunkKey} with ${chunk.length} orders.`);
-    } else {
-      console.log(`Chunk ${chunkKey} already exists, skipping.`);
-    }
+    // Removed: const exists = await redis.exists(chunkKey);
+    // Removed: if (!exists) {
+    // Removed:   await redis.set(chunkKey, JSON.stringify(chunk), 'EX', CACHE_TTL);
+    // Removed:   console.log(`Stored chunk ${chunkKey} with ${chunk.length} orders.`);
+    // Removed: } else {
+    // Removed:   console.log(`Chunk ${chunkKey} already exists, skipping.`);
+    // Removed: }
+    console.log(`Chunk ${chunkKey} already exists, skipping.`);
     chunkCount++;
   }
   console.log(`Cache warming complete. Total chunks: ${chunkCount}`);

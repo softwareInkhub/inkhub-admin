@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   BookOpenIcon,
   HomeIcon,
@@ -26,11 +26,20 @@ const settingsNav = { name: 'Settings', key: 'settings', icon: Cog6ToothIcon };
 
 export default function Sidebar({ onSectionSelect }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState<string>('');
 
   const handleIconClick = (section: string) => {
     setActiveSection(section);
-    onSectionSelect(section);
+    
+    // Handle navigation based on section
+    if (section === 'home') {
+      // Navigate to home page
+      router.push('/');
+    } else {
+      // For other sections, call the onSectionSelect callback
+      onSectionSelect(section);
+    }
   };
 
   return (

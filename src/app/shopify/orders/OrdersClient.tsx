@@ -1,19 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store/store';
-import { fetchOrders, setInitialOrders, resetOrders } from '@/store/slices/shopifySlice';
+import { fetchOrders } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
-import { format } from 'date-fns';
+import { OrdersAnalyticsOptions } from '../ShopifyAnalyticsBar';
+import lodashGroupBy from 'lodash/groupBy';
 import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
 import UniversalOperationBar from '@/components/common/UniversalOperationBar';
-import { useRef } from 'react';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ViewsBar from '@/components/common/ViewsBar';
+import { fetchAllChunks } from '@/utils/cache';
+import { format } from 'date-fns';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
-import ViewsBar from '@/components/common/ViewsBar';
 import FilterBar from '@/components/common/FilterBar';
+import { fetchOrderChunkKeys, fetchOrderChunk } from '@/utils/cache';
+import type { DataViewColumn } from '@/components/common/DataView';
 
 interface OrdersClientProps {
   initialData: {
@@ -42,32 +47,88 @@ function useShopifyOrdersLoadedCount() {
 }
 
 export default function OrdersClient({ initialData }: OrdersClientProps) {
-  const dispatch = useDispatch<AppDispatch>();
-  const { orders, loading, error, totalOrders, hasMore, currentPage } = useSelector((state: RootState) => state.shopify);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [chunkKeys, setChunkKeys] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(2000); // Each chunk is a page
 
-  // Initialize Redux with server-side data
+  // Load more states
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadedChunks, setLoadedChunks] = useState<any[]>([]);
+  const [allAvailableData, setAllAvailableData] = useState<any[]>([]);
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
+
+  // Fetch chunk keys on mount
   useEffect(() => {
-    dispatch(setInitialOrders({ ...initialData, hasMore: true, page: 1 }));
-  }, [dispatch, initialData]);
+    async function loadChunkKeys() {
+      setLoading(true);
+      setError(null);
+      try {
+        const keys = await fetchOrderChunkKeys('shopify_inkhub_get_orders');
+        setChunkKeys(keys);
+        setTotalOrders(keys.length * pageSize); // Approximate total
+        
+        // Load all available data
+        const allItems = await fetchAllChunks('shopify_inkhub_get_orders');
+        setAllAvailableData(allItems);
+        
+        // Initially load first chunk (first 100 items)
+        const initialChunk = allItems.slice(0, 100);
+        setLoadedChunks(initialChunk);
+        setHasMore(allItems.length > 100);
+        setIsFullyLoaded(false);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch order chunks');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadChunkKeys();
+  }, []);
 
-  // Flatten orders if needed
-  const flatOrders = orders.map(order => order.Item || order.item || order);
+  // Load more functionality
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Load next chunk of data (next 100 items)
+      const currentCount = loadedChunks.length;
+      const nextChunk = allAvailableData.slice(currentCount, currentCount + 100);
+      
+      if (nextChunk.length > 0) {
+        setLoadedChunks(prev => [...prev, ...nextChunk]);
+        const newCount = currentCount + nextChunk.length;
+        setHasMore(newCount < allAvailableData.length);
+        setIsFullyLoaded(newCount >= allAvailableData.length);
+      } else {
+        setHasMore(false);
+        setIsFullyLoaded(true);
+      }
+    } catch (err: any) {
+      console.error('Failed to load more orders:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 2000;
-  const [totalPages, setTotalPages] = useState(1);
+  // Load less functionality
+  const handleLoadLess = () => {
+    // Reset to initial chunk (first 100 items)
+    const initialChunk = allAvailableData.slice(0, 100);
+    setLoadedChunks(initialChunk);
+    setHasMore(allAvailableData.length > 100);
+    setIsFullyLoaded(false);
+  };
 
-  useEffect(() => {
-    setTotalPages(Math.ceil((initialData.total || 0) / PAGE_SIZE));
-  }, [initialData.total]);
-
-  useEffect(() => {
-    dispatch(fetchOrders({ page }));
-  }, [dispatch, page]);
+  // Flatten orders if needed - add null check
+  const flatOrders = loadedChunks || [];
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'order_number', 'customer', 'email', 'phone', 'total_price', 'financial_status', 'fulfillment_status', 'line_items', 'created_at', 'updated_at'
@@ -88,8 +149,6 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const [smartValue, setSmartValue] = useState('');
   // Debounced value for search
   const [debouncedSmartValue, setDebouncedSmartValue] = useState('');
-
-  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const [sortOption, setSortOption] = useState('date_latest');
 
@@ -122,17 +181,21 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
 
   const [algoliaTotalRecords, setAlgoliaTotalRecords] = useState<number | null>(null);
   useEffect(() => {
+    console.log('Algolia env:', ALGOLIA_APP_ID, ALGOLIA_SEARCH_KEY, ALGOLIA_INDEX);
+    console.log('algoliaClient:', algoliaClient);
     if (!algoliaClient) return;
     async function fetchAlgoliaTotal() {
       try {
         const res = await algoliaClient.search([
           { indexName: ALGOLIA_INDEX, query: '', params: { hitsPerPage: 0 } }
         ]);
+        console.log('Algolia API response:', res);
         const nbHits = res.results[0]?.nbHits || 0;
+        console.log('Algolia nbHits used for count:', nbHits);
         setAlgoliaTotalRecords(nbHits);
       } catch (err) {
+        console.error('Algolia fetch error:', err);
         setAlgoliaTotalRecords(null);
-        console.error('Error fetching Algolia total records:', err);
       }
     }
     fetchAlgoliaTotal();
@@ -153,20 +216,49 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   }, []);
 
   const handleApplySavedFilter = (filter: any) => {
-    setActiveSavedFilter(filter);
-    if (filter.filteredData) {
-      setDataOverride(filter.filteredData);
+    if (!filter) {
+      setActiveSavedFilter(null);
+      setDataOverride(null);
+      setStatus('All');
+      setFulfillment('All');
+      setDateRange({ startDate: null, endDate: null, key: 'selection' });
+      setSmartField('order_number');
+      setSmartValue('');
+      return;
+    }
+    if (activeSavedFilter && activeSavedFilter.id === filter.id) {
+      setActiveSavedFilter(null);
+      setDataOverride(null);
+    } else {
+      setActiveSavedFilter(filter);
+      if (filter.filteredData) {
+        setDataOverride(filter.filteredData);
+      }
     }
   };
 
-  const handleNextPage = async () => {
-    if (!hasMore || loading) return;
-    try {
-      await dispatch(fetchOrders({ page: currentPage + 1 })).unwrap();
-    } catch (err) {
-      console.error('Error loading more orders:', err);
+  // Add edit functionality for saved filters
+  const handleEditSavedFilter = (filter: any) => {
+    // For now, we'll use a simple prompt to edit the filter name
+    // You can replace this with a proper modal/form later
+    const newName = prompt('Edit filter name:', filter.filterName || 'Unnamed');
+    if (newName && newName.trim() !== filter.filterName) {
+      // Update the filter name
+      const updatedFilter = { ...filter, filterName: newName.trim() };
+      
+      // Update the saved filters list
+      setSavedFilters(prev => prev.map(f => f.id === filter.id ? updatedFilter : f));
+      
+      // If this filter is currently active, update the active filter
+      if (activeSavedFilter?.id === filter.id) {
+        setActiveSavedFilter(updatedFilter);
+      }
+      
+      // You could also save this to the backend here
+      // fetch('/api/saved-filters', { method: 'PUT', body: JSON.stringify(updatedFilter) });
     }
   };
+
 
   // Add error boundary for failed data fetches
   useEffect(() => {
@@ -200,10 +292,10 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     { label: 'Updated', value: 'updated_at' },
   ];
 
-  const columns = [
+  const columns: DataViewColumn<any>[] = [
     { 
       header: 'Order #', 
-      accessor: 'order_number',
+      accessor: 'order_number' as keyof any,
       render: (value: any, row: any) => value?.toString() ?? row.order_number?.toString() ?? ''
     },
     { 
@@ -260,7 +352,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
   // Multi-filter logic
-  let filteredOrders = flatOrders.filter((row: any) =>
+  let filteredOrders = loadedChunks.filter((row: any) =>
     (status === 'All' || row.financial_status === status) &&
     (fulfillment === 'All' || row.fulfillment_status === fulfillment)
   );
@@ -310,6 +402,14 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     filteredOrders = filteredOrders.slice().sort((a, b) => (parseFloat(a.total_price) || 0) - (parseFloat(b.total_price) || 0));
   }
 
+  // Pagination logic - use chunk-based pagination
+  const totalPages = chunkKeys.length;
+
+  // Reset current page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [status, fulfillment, dateRange, debouncedSmartValue, sortOption]);
+
   // Reset all filters
   const handleResetFilters = () => {
     setStatus('All');
@@ -319,13 +419,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     setSmartValue('');
   };
 
-  useEffect(() => {
-    if (!initialLoaded) {
-      dispatch(resetOrders());
-      dispatch(fetchOrders({ page: 1 }));
-      setInitialLoaded(true);
-    }
-  }, [dispatch, initialLoaded]);
+
 
   // Remove debounce effect and trigger search only on button click
   const handleSearch = async (e?: React.FormEvent) => {
@@ -402,7 +496,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
       <div className="flex flex-col items-center justify-center h-full">
         <div className="text-red-500 mb-2">{error}</div>
         <button 
-          onClick={() => dispatch(fetchOrders({ page: 1 }))}
+          onClick={() => window.location.reload()}
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           Retry
@@ -412,93 +506,75 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   }
 
   return (
-    <div className="flex flex-col">
-      <UniversalAnalyticsBar section="shopify" tabKey="orders" total={totalOrders} currentCount={flatOrders.length} />
+    <div className="flex flex-col w-full">
+      <UniversalAnalyticsBar
+        section="shopify"
+        tabKey="orders"
+        total={allAvailableData.length}
+        currentCount={loadedChunks.length}
+        algoliaTotal={algoliaTotalRecords}
+      />
       <ViewsBar
         savedFilters={savedFilters}
         onSelect={handleApplySavedFilter}
+        onEdit={handleEditSavedFilter}
         activeFilterId={activeSavedFilter?.id}
       />
       <UniversalOperationBar 
         section="shopify" 
         tabKey="orders" 
         analytics={analytics} 
-        data={isAlgoliaSearch ? algoliaResults : filteredOrders}
+        data={loadedChunks}
         selectedData={selectedRows}
       />
-      {/* Search & Filter Section */}
-      <FilterBar
-        searchValue={smartValue}
-        onSearchChange={setSmartValue}
-        onSearchSubmit={handleSearch}
-        sortOptions={[
-          { label: 'Date: Latest', value: 'date_latest' },
-          { label: 'Date: Oldest', value: 'date_oldest' },
-        ]}
-        sortValue={sortOption}
-        onSortChange={setSortOption}
-        statusOptions={statusOptions}
-        statusValue={status}
-        onStatusChange={setStatus}
-        showStatus={true}
-        showFulfillment={true}
-        fulfillmentOptions={fulfillmentOptions}
-        fulfillmentValue={fulfillment}
-        onFulfillmentChange={setFulfillment}
-        showDateRange={true}
-        dateRangeValue={dateRange}
-        onDateRangeChange={setDateRange}
-        onResetFilters={handleResetFilters}
-      />
-      <div>
-        <div style={{ maxHeight: '52vh', overflow: 'visible' }}>
+      {/* Remove FilterBar search bar above DataView */}
+      <div className="flex-1 min-h-0 w-full">
+        <div className="bg-white rounded-lg shadow h-full overflow-auto w-full relative" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           <DataView
-            data={dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders)}
+            data={dataOverride || filteredOrders}
             columns={filteredColumns}
-            page={page}
-            pageSize={PAGE_SIZE}
             section="shopify"
             tabKey="orders"
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
-        </div>
-        {/* Pagination Bar */}
-        <div className="flex justify-center items-center mt-4">
-          {isAlgoliaSearch ? (
-            <>
+          {/* Load More Button - fixed to bottom right */}
+          {hasMore && (
+            <div className="fixed bottom-6 right-8 z-40">
               <button
-                className="px-3 py-1 mx-1 rounded text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                onClick={() => handleAlgoliaPageChange(algoliaPage - 1)}
-                disabled={algoliaPage === 0}
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
               >
-                Previous
+                {isLoadingMore ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Load More Data
+                  </>
+                )}
               </button>
-              <span className="mx-2 text-gray-700">Page {algoliaPage + 1} of {Math.max(1, Math.ceil(algoliaTotal / ALGOLIA_PAGE_SIZE))}</span>
+            </div>
+          )}
+          {isFullyLoaded && (
+            <div className="fixed bottom-6 right-8 z-40">
               <button
-                className="px-3 py-1 mx-1 rounded text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                onClick={() => handleAlgoliaPageChange(algoliaPage + 1)}
-                disabled={algoliaPage + 1 >= Math.ceil(algoliaTotal / ALGOLIA_PAGE_SIZE)}
+                onClick={handleLoadLess}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
               >
-                Next
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Load Less Data
               </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="px-3 py-1 mx-1 rounded text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1}
-              >
-                Previous
-              </button>
-              <span className="mx-2 text-gray-700">Page {page} of {totalPages}</span>
-              <button
-                className="px-3 py-1 mx-1 rounded text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                onClick={() => setPage(page + 1)}
-                disabled={page === totalPages}
-              >
-                Next
-              </button>
-            </>
+            </div>
           )}
         </div>
       </div>

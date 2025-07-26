@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, ScanCommandInput, ScanCommandOutput } from '@aws-sdk/lib-dynamodb';
-import { redis } from '@/utils/redis';
 
 const client = new DynamoDBClient({ 
   region: process.env.AWS_REGION,
@@ -62,14 +61,14 @@ export async function GET(req: Request) {
       const cacheKey = `table_count:${resource.key}`;
       let count: number | null = null;
       if (!refresh) {
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-          count = parseInt(cached, 10);
-        }
+        // Removed: const cached = await redis.get(cacheKey);
+        // Removed: if (cached) {
+        // Removed:   count = parseInt(cached, 10);
+        // Removed: }
       }
       if (count === null || isNaN(count)) {
         count = await getTableCount(resource.table);
-        await redis.set(cacheKey, String(count), 'EX', CACHE_TTL);
+        // Removed: await redis.set(cacheKey, String(count), 'EX', CACHE_TTL);
       }
       result[resource.key] = count;
     } catch (e: any) {

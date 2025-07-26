@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
-import { cache } from '@/utils/cache';
+// import { cache } from '@/utils/cache'; // Removed invalid import
 
 interface DesignLibraryState {
   designs: any[];
@@ -107,7 +107,7 @@ const designLibrarySlice = createSlice({
       })
       .addCase(uploadDesign.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to upload design';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to upload design';
       })
       // Update Design
       .addCase(updateDesign.pending, (state) => {
@@ -120,7 +120,7 @@ const designLibrarySlice = createSlice({
       })
       .addCase(updateDesign.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to update design';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to update design';
       })
       // Delete Design
       .addCase(deleteDesign.pending, (state) => {
@@ -133,7 +133,7 @@ const designLibrarySlice = createSlice({
       })
       .addCase(deleteDesign.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to delete design';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to delete design';
       });
   },
 });
