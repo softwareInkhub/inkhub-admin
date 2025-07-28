@@ -51,43 +51,47 @@ export default function SettingsPage() {
   const [modalResource, setModalResource] = useState<{ key: string; label: string; table: string } | null>(null);
 
   // Fetch cache statistics for all resources
+  const fetchCacheData = async () => {
+    setLoading(true);
+    try {
+      const data: Record<string, any> = {};
+      
+      // Fetch cache stats for each resource
+      for (const resource of RESOURCES) {
+        try {
+          const stats = await fetchCacheStats(resource.table);
+          data[resource.key] = {
+            status: 'Complete',
+            progress: 100,
+            items: [], // We don't need actual items for the dashboard
+            totalKeys: stats.totalKeys || 0,
+            cacheStats: stats
+          };
+        } catch (error) {
+          console.error(`Error fetching cache stats for ${resource.key}:`, error);
+          data[resource.key] = {
+            status: 'Error',
+            progress: 0,
+            items: [],
+            error: 'Failed to fetch cache stats'
+          };
+        }
+      }
+      
+      setResourceData(data);
+    } catch (e) {
+      console.error('Error fetching cache data:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    async function fetchCacheData() {
-      setLoading(true);
-      try {
-        const data: Record<string, any> = {};
-        
-        // Fetch cache stats for each resource
-        for (const resource of RESOURCES) {
-          try {
-            const stats = await fetchCacheStats(resource.table);
-            data[resource.key] = {
-              status: 'Complete',
-              progress: 100,
-              items: [], // We don't need actual items for the dashboard
-              totalKeys: stats.totalKeys || 0,
-              cacheStats: stats
-            };
-          } catch (error) {
-            console.error(`Error fetching cache stats for ${resource.key}:`, error);
-            data[resource.key] = {
-              status: 'Error',
-              progress: 0,
-              items: [],
-              error: 'Failed to fetch cache stats'
-            };
-          }
-        }
-        
-        if (isMounted) setResourceData(data);
-      } catch (e) {
-        console.error('Error fetching cache data:', e);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+    async function fetchData() {
+      await fetchCacheData();
     }
-    fetchCacheData();
+    fetchData();
     return () => { isMounted = false; };
   }, []);
 
@@ -119,25 +123,28 @@ export default function SettingsPage() {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           resource={modalResource}
-            />
+          onSuccess={fetchCacheData}
+        />
       )}
     </div>
   );
 } 
 
 // Modal for cache table form
-function CacheTableModal({ open, onClose, resource }: { open: boolean; onClose: () => void; resource: { key: string; label: string; table: string } }) {
+function CacheTableModal({ open, onClose, resource, onSuccess }: { open: boolean; onClose: () => void; resource: { key: string; label: string; table: string }; onSuccess: () => Promise<void> }) {
   const [project, setProject] = useState('my-app');
   const [table, setTable] = useState(resource.table);
   const [recordsPerKey, setRecordsPerKey] = useState(2000);
   const [ttl, setTtl] = useState(86400);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(false);
     try {
       const res = await fetch('http://localhost:5001/cache/table', {
         method: 'POST',
@@ -145,6 +152,14 @@ function CacheTableModal({ open, onClose, resource }: { open: boolean; onClose: 
         body: JSON.stringify({ project, table, recordsPerKey, ttl }),
       });
       if (!res.ok) throw new Error('Failed to cache table');
+      
+      setSuccess(true);
+      
+      // Add a small delay to allow cache operation to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Call onSuccess to refresh the data after successful submission
+      await onSuccess();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Unknown error');
@@ -176,6 +191,7 @@ function CacheTableModal({ open, onClose, resource }: { open: boolean; onClose: 
             <input type="number" className="w-full border rounded px-3 py-2" value={ttl} onChange={e => setTtl(Number(e.target.value))} min={1} required />
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
+          {success && <div className="text-green-600 text-sm">✅ Cache operation completed successfully! Refreshing data...</div>}
           <div className="flex justify-end gap-2 mt-4">
             <button type="button" className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold" onClick={onClose} disabled={loading}>Cancel</button>
             <button type="submit" className="px-4 py-2 rounded bg-blue-600 text-white font-semibold" disabled={loading}>{loading ? 'Submitting...' : 'Submit'}</button>

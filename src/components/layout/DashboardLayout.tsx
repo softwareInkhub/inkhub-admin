@@ -18,6 +18,8 @@ import { useTabContext } from "@/components/layout/TabContext";
 import Sidebar from './Sidebar';
 import Cookies from 'js-cookie';
 import { SidebarProvider } from './SidebarContext';
+import { NavbarProvider } from '@/contexts/NavbarContext';
+import SimplifiedNavbar from './SimplifiedNavbar';
 import type { Tab } from './TabContext';
 
 interface NavItem {
@@ -131,28 +133,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen h-screen bg-gray-100 flex flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="w-full border-b bg-white shadow sticky top-0 z-50 px-6 flex items-center justify-between h-12">
-          {/* Title on the left */}
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">INKHUB</h1>
-          </div>
-          
-          {/* Logout button on the right */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-x-2 p-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-md"
-            >
-              <ArrowRightOnRectangleIcon
-                className="h-6 w-6 text-gray-500"
-                aria-hidden="true"
-              />
-              <span className="hidden sm:inline">Log out</span>
-            </button>
-          </div>
-        </header>
+        {/* Navbar - Using comprehensive navbar */}
+        <NavbarProvider>
+          <SimplifiedNavbar />
+        </NavbarProvider>
+        
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Main Sidebar */}
           <Sidebar onSectionSelect={setSelectedSection} />
@@ -221,7 +206,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </>
             )}
             {/* Page content */}
-            <div className="flex-1 min-h-0 flex flex-col p-0 m-0 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col p-0 m-0">
               {children}
             </div>
           </main>

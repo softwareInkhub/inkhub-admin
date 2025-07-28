@@ -17,51 +17,52 @@ export default function ViewsBar({ savedFilters = [], onSelect, onEdit, activeFi
   if (!savedFilters.length) return null;
   
   return (
-    <div className="flex flex-row items-center w-full gap-2 px-2 py-1">
+    <div className="bg-[#f5f6fa] border border-[#e5e7eb] rounded-xl px-2 py-2 flex items-center w-full gap-2">
       {/* All tab/button - No edit functionality */}
       <button
         className={`px-4 py-2.5 rounded-lg border font-medium text-sm transition-all duration-200 ${
           !activeFilterId 
             ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
         }`}
         onClick={() => onSelect?.(null)}
       >
         All
       </button>
-      
-      {/* Filter tabs with edit functionality */}
       {savedFilters.map((filter) => (
-        <div key={filter.id} className="relative group">
           <button
-            className={`px-4 py-2.5 rounded-lg border font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
+          key={filter.id}
+          className={`group relative px-4 py-2.5 rounded-lg border font-medium text-sm transition-all duration-200 flex items-center justify-between gap-2 ${
               activeFilterId === filter.id 
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+              ? 'bg-white text-gray-900 border-gray-300 shadow-sm'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
             }`}
             onClick={() => onSelect?.(filter)}
           >
-            <span className="font-medium">{filter.filterName || 'Unnamed'}</span>
-            {/* Edit button - appears on hover */}
-            <button
-              className={`ml-1 p-1 rounded-md transition-all duration-200 ${
-                activeFilterId === filter.id 
-                  ? 'text-white hover:bg-blue-700' 
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'
-              } opacity-0 group-hover:opacity-100`}
+          <span>{filter.filterName || `Filter ${filter.id}`}</span>
+          <div
               onClick={(e) => {
-                e.stopPropagation(); // Prevent triggering the parent button
+              e.stopPropagation(); // Prevent button click from triggering parent button
                 onEdit?.(filter);
               }}
-              title="Edit filter"
+            className={`ml-2 p-1 rounded-full transition-colors ${
+              activeFilterId === filter.id
+                ? 'bg-blue-100 hover:bg-blue-200 text-blue-600'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+            } cursor-pointer`}
+            aria-label={`Edit filter ${filter.filterName || filter.id}`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-4 h-4"
             >
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3L10.58 12.42a4 4 0 01-1.177 1.262l-3.155 1.262a.5.5 0 01-.65-.65z" />
+              <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017.25 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
               </svg>
-            </button>
+          </div>
           </button>
-        </div>
       ))}
     </div>
   );
