@@ -63,7 +63,7 @@ export default function UniversalAnalyticsBar({ section, tabKey, total, currentC
   if (!config) return null;
 
   return (
-    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full mb-4">
+    <div className="flex flex-row items-center bg-white border-b border-gray-200 rounded-t-lg px-4 py-2 shadow-sm w-full">
       <div className="flex flex-col items-center justify-center">
         <div className="border-2 border-blue-100 rounded-xl px-4 py-2 bg-gradient-to-br from-blue-50/40 to-white shadow text-center min-w-[80px] transition-transform duration-150 hover:-translate-y-1 hover:shadow-lg">
           <div className="flex items-center justify-center mb-0.5">

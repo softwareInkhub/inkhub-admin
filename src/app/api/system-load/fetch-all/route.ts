@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { redis } from '@/utils/redis';
 import { getPriorityList, setLastKey, getLastKey, clearProgress, setLiveProgress } from '@/utils/cacheProgress';
+import { redis } from '@/utils/redis';
 
 // --- Helper Functions (copy or adapt from each resource route) ---
 
@@ -94,7 +94,7 @@ async function fetchResourceBatched(resource: any) {
   let page = 1;
   try {
     // Try full cache
-    const cached = await redis.get(resource.cacheKey);
+    const cached = await getLastKey(resource.cacheKey);
     if (cached) {
       const cachedItems = JSON.parse(cached);
       status = 'Complete';
@@ -103,7 +103,7 @@ async function fetchResourceBatched(resource: any) {
       return { status, progress, items: cachedItems, error };
     }
     // Try partial cache
-    const partial = await redis.get(resource.partialKey);
+    const partial = await getLastKey(resource.partialKey);
     if (partial) {
       const partialItems = JSON.parse(partial);
       status = 'Fetching...';
@@ -116,7 +116,7 @@ async function fetchResourceBatched(resource: any) {
     let chunkPage = 1;
     while (!done) {
       // Check for per-resource pause flag before each batch
-      const isPaused = await redis.get(`systemload:paused:${resource.key}`);
+      const isPaused = await getLastKey(`systemload:paused:${resource.key}`);
       if (isPaused) {
         status = 'Paused';
         await setLiveProgress(resource.key, {
@@ -199,13 +199,11 @@ export async function GET(req: Request) {
   if (refresh) {
     // Clear all cache and progress for all resources
     for (const resource of resources) {
-      await redis.del(resource.cacheKey);
-      await redis.del(resource.partialKey);
       await clearProgress(resource.key);
       // Optionally, clear all batch/page keys
       let page = 1;
-      while (await redis.get(`${resource.key}:page:${page}`)) {
-        await redis.del(`${resource.key}:page:${page}`);
+      while (await getLastKey(`${resource.key}:page:${page}`)) {
+        await clearProgress(`${resource.key}:page:${page}`);
         page++;
       }
     }

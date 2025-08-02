@@ -106,8 +106,9 @@ function GridView<T>({ data, columns, itemsPerRow = 6, viewType = 'grid', onItem
                     {col.render
                       ? col.render(value, item, 'grid')
                       : typeof value === 'object'
-                        ? JSON.stringify(value)
-                        : String(value ?? '')}
+                        ? '[Object]'
+                        : String(value)
+                  }
                   </span>
                 </div>
               );

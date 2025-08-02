@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
-import { cache } from '@/utils/cache';
 
 interface DesignLibraryState {
   designs: any[];

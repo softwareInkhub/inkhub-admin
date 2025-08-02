@@ -377,7 +377,7 @@ async function forceStartFetching(): Promise<void> {
 export async function GET(req: Request) {
   // Debug: log all headers and query params
   const { searchParams } = new URL(req.url);
-  const headers = {};
+  const headers: Record<string, string> = {};
   req.headers?.forEach?.((value, key) => { headers[key] = value; });
   console.log('[Debug] Incoming GET /api/shopify/orders');
   console.log('[Debug] Query Params:', Object.fromEntries(searchParams.entries()));
@@ -386,7 +386,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get('limit')) || 50;
-    const lastKey = searchParams.get('lastKey') ? JSON.parse(searchParams.get('lastKey')) : undefined;
+    const lastKeyRaw = searchParams.get('lastKey');
+    const lastKey = lastKeyRaw ? JSON.parse(lastKeyRaw) : undefined;
     const cacheKey = `shopify_orders:chunk:${lastKey ? Buffer.from(JSON.stringify(lastKey)).toString('base64') : 'start'}:limit:${limit}`;
 
     // Request metadata
@@ -411,10 +412,10 @@ export async function GET(req: Request) {
       const allOrders = JSON.parse(allOrdersRaw);
       let startIndex = 0;
       if (lastKey) {
-        startIndex = allOrders.findIndex(order => order.id === lastKey.id) + 1;
+        startIndex = allOrders.findIndex((order: any) => order.id === lastKey.id) + 1;
       }
       const endIndex = startIndex + limit;
-      const paginatedOrders = allOrders.slice(startIndex, endIndex).map(o => o.Item || o);
+      const paginatedOrders = allOrders.slice(startIndex, endIndex).map((o: any) => o.Item || o);
       const hasMore = endIndex < allOrders.length;
       return NextResponse.json({
         items: paginatedOrders,

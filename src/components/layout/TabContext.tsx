@@ -20,7 +20,16 @@ const TabContext = createContext<TabContextType | undefined>(undefined);
 
 export const useTabContext = () => {
   const ctx = useContext(TabContext);
-  if (!ctx) throw new Error("useTabContext must be used within a TabProvider");
+  if (!ctx) {
+    console.warn("useTabContext must be used within a TabProvider");
+    return {
+      openTabs: [],
+      activeTab: "",
+      openTab: () => {},
+      closeTab: () => {},
+      setActiveTab: () => {},
+    };
+  }
   return ctx;
 };
 

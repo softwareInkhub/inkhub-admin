@@ -247,6 +247,7 @@ async function forceStartFetching(): Promise<void> {
 }
 
 export async function GET(req: Request) {
+  console.log('⚠️ Direct API: /api/shopify/products called (this should NOT be called)');
   try {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get('limit')) || 500;

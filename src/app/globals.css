@@ -4,33 +4,403 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Modern Color Palette */
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
+    --primary: 0 123 255;
+    --primary-foreground: 255 255 255;
+    --secondary: 248 249 250;
+    --secondary-foreground: 15 23 42;
+    --muted: 248 249 250;
+    --muted-foreground: 108 117 125;
+    --accent: 248 249 250;
+    --accent-foreground: 15 23 42;
+    --destructive: 220 53 69;
+    --destructive-foreground: 255 255 255;
+    --border: 233 236 239;
+    --input: 233 236 239;
+    --ring: 0 123 255;
+    --radius: 0.75rem;
+    --chart-1: 0 123 255;
+    --chart-2: 40 167 69;
+    --chart-3: 111 66 193;
+    --chart-4: 255 193 7;
+    --chart-5: 220 53 69;
   }
 
-  body {
-    @apply bg-gray-50 text-gray-900;
+  .dark {
+    --background: 15 23 42;
+    --foreground: 248 250 252;
+    --card: 30 41 59;
+    --card-foreground: 248 250 252;
+    --popover: 30 41 59;
+    --popover-foreground: 248 250 252;
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
+    --secondary: 51 65 85;
+    --secondary-foreground: 248 250 252;
+    --muted: 51 65 85;
+    --muted-foreground: 148 163 184;
+    --accent: 51 65 85;
+    --accent-foreground: 248 250 252;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --border: 51 65 85;
+    --input: 51 65 85;
+    --ring: 59 130 246;
   }
 }
 
-@layer components {
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-gray-700;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
   }
 
+  /* Modern Card Styles */
+  .modern-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .modern-card-hover {
+    @apply hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200;
+  }
+
+  /* Modern Button Styles */
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm;
   }
 
-  .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+  .btn-success {
+    @apply bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm;
   }
 
-  .card {
-    @apply bg-white rounded-lg shadow p-6;
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm;
   }
+
+  /* Modern Gradient Backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .gradient-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+
+  .gradient-warning {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  }
+
+  /* Modern Status Badges */
+  .badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* Modern Input Styles */
+  .input-modern {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+  }
+
+  /* Modern Table Styles */
+  .table-modern {
+    @apply min-w-full divide-y divide-gray-200 dark:divide-gray-700;
+  }
+
+  .table-modern thead {
+    @apply bg-gray-50 dark:bg-gray-900;
+  }
+
+  .table-modern th {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider;
+  }
+
+  .table-modern tbody {
+    @apply bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700;
+  }
+
+  .table-modern td {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300;
+  }
+
+  .table-modern tr:hover {
+    @apply bg-gray-50 dark:bg-gray-700;
+  }
+
+  /* Modern Sidebar Styles */
+  .sidebar-modern {
+    @apply bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700;
+  }
+
+  .sidebar-item {
+    @apply flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg transition-colors duration-200;
+  }
+
+  .sidebar-item:hover {
+    @apply bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white;
+  }
+
+  .sidebar-item.active {
+    @apply bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300;
+  }
+
+  /* Modern Progress Bar */
+  .progress-modern {
+    @apply w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2;
+  }
+
+  .progress-modern-fill {
+    @apply bg-blue-600 h-2 rounded-full transition-all duration-300;
+  }
+
+  /* Modern Stats Cards */
+  .stats-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6;
+  }
+
+  .stats-card-hover {
+    @apply hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200;
+  }
+
+  /* Modern Navigation */
+  .nav-modern {
+    @apply bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm;
+  }
+
+  .nav-tab {
+    @apply px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 border-b-2 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200;
+  }
+
+  .nav-tab.active {
+    @apply text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400;
+  }
+
+  /* Modern Dropdown */
+  .dropdown-modern {
+    @apply absolute z-50 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1;
+  }
+
+  .dropdown-item {
+    @apply block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200;
+  }
+
+  /* Modern Modal */
+  .modal-modern {
+    @apply fixed inset-0 z-50 overflow-y-auto;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black bg-opacity-50 transition-opacity;
+  }
+
+  .modal-content {
+    @apply relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg mx-auto mt-20 p-6;
+  }
+
+  /* Modern Loading Spinner */
+  .spinner-modern {
+    @apply animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-blue-600;
+  }
+
+  /* Modern Tooltip */
+  .tooltip-modern {
+    @apply absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-lg opacity-0 invisible transition-all duration-200;
+  }
+
+  .tooltip-modern.show {
+    @apply opacity-100 visible;
+  }
+
+  /* Modern Scrollbar */
+  .scrollbar-modern {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f7fafc;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-track {
+    background: #f7fafc;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+
+  /* Dark mode scrollbar */
+  .dark .scrollbar-modern {
+    scrollbar-color: #4a5568 #2d3748;
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-track {
+    background: #2d3748;
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: #4a5568;
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: #718096;
+  }
+}
+
+/* Secondary Sidebar Styles */
+.secondary-sidebar {
+  transition: all 0.3s ease-in-out;
+}
+
+.secondary-sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.secondary-sidebar.expanded {
+  width: 16rem;
+  opacity: 1;
+}
+
+/* Ensure main content adjusts properly */
+.main-content-with-secondary {
+  margin-left: 0;
+  transition: margin-left 0.3s ease-in-out;
+}
+
+.main-content-with-secondary.has-secondary {
+  margin-left: 16rem;
+}
+
+/* Modern card styles */
+.modern-card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
+}
+
+.stats-card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6;
+}
+
+.stats-card-hover {
+  @apply hover:shadow-md transition-shadow duration-200;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
+}
+
+/* Input styles */
+.input-modern {
+  @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Dropdown styles */
+.dropdown-modern {
+  @apply absolute bg-white dark:bg-gray-800 border border-gray-300 rounded-lg shadow-lg;
+}
+
+.dropdown-item {
+  @apply w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2;
+}
+
+/* Navigation styles */
+.nav-modern {
+  @apply bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm;
+}
+
+.sidebar-modern {
+  @apply bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700;
+}
+
+/* Modern UI Components */
+.modern-card {
+  @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm;
+}
+
+.clickable-card {
+  @apply cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:scale-[1.02];
+}
+
+.stats-card {
+  @apply bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-lg shadow-lg;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition-colors duration-200;
+}
+
+.input-modern {
+  @apply border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.dropdown-modern {
+  @apply bg-white border border-gray-300 rounded-lg shadow-lg;
+}
+
+.dropdown-item {
+  @apply px-4 py-2 hover:bg-gray-100 cursor-pointer;
+}
+
+.nav-modern {
+  @apply bg-white border-b border-gray-200 shadow-sm;
+}
+
+.sidebar-modern {
+  @apply bg-gray-50 border-r border-gray-200;
 }

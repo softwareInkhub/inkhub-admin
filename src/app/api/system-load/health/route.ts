@@ -11,7 +11,7 @@ export async function GET() {
   const memoryUsage = process.memoryUsage().rss / 1024 / 1024;
 
   // DynamoDB check
-  let dynamodb = { status: 'ok' };
+  let dynamodb: { status: string; error?: string } = { status: 'ok' };
   try {
     const client = new DynamoDBClient({
       region: process.env.AWS_REGION,
@@ -22,11 +22,11 @@ export async function GET() {
     });
     await client.send(new ListTablesCommand({ Limit: 1 }));
   } catch (e: any) {
-    dynamodb = { status: 'error', error: e.message };
+    dynamodb = { status: 'error', error : e.message };
   }
 
   // Redis check
-  let redisStatus = { status: 'ok' };
+  let redisStatus: { status: string; error?: string } = { status: 'ok' };
   try {
     if (redis && redis.ping) {
       const pong = await redis.ping();

@@ -301,6 +301,7 @@ async function forceStartFetching(): Promise<void> {
 }
 
 export async function GET(req: Request) {
+  console.log('⚠️ Direct API: /api/pinterest/boards called (this should NOT be called)');
   try {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get('limit')) || 500;

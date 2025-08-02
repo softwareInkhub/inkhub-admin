@@ -1,107 +1,123 @@
 'use client';
-
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
-import {
-  BookOpenIcon,
-  HomeIcon,
-  Cog6ToothIcon,
-  UserGroupIcon,
-} from '@heroicons/react/24/outline';
-import { SiPinterest, SiShopify } from 'react-icons/si';
+import React, { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { 
+  LayoutDashboard, 
+  ShoppingCart, 
+  Palette, 
+  Settings, 
+  Users, 
+  ChevronLeft, 
+  ChevronRight,
+  Home,
+  BarChart3,
+  Bell,
+  MessageSquare,
+  Sun,
+  Moon
+} from 'lucide-react';
+import PinterestLogo from '../icons/PinterestLogo';
+import ShopifyLogo from '../icons/ShopifyLogo';
 
 interface SidebarProps {
-  onSectionSelect: (section: string) => void;
+  activeTab?: string;
+  onNavClick?: (section: string) => void;
 }
 
-const navigation = [
-  { name: 'Home', key: 'home', icon: HomeIcon },
-  { name: 'Shopify', key: 'shopify', icon: SiShopify },
-  { name: 'Pinterest', key: 'pinterest', icon: SiPinterest },
-  { name: 'Design Library', key: 'design-library', icon: BookOpenIcon },
-  { name: 'User Management', key: 'user-management', icon: UserGroupIcon },
-];
-
-const settingsNav = { name: 'Settings', key: 'settings', icon: Cog6ToothIcon };
-
-export default function Sidebar({ onSectionSelect }: SidebarProps) {
+export default function Sidebar({ activeTab, onNavClick }: SidebarProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const router = useRouter();
   const pathname = usePathname();
-  const [activeSection, setActiveSection] = useState<string>('');
 
-  const handleIconClick = (section: string) => {
-    setActiveSection(section);
-    onSectionSelect(section);
+  const mainNavItems = [
+    { name: 'Dashboard', icon: <Home size={20} />, href: '/' },
+    { name: 'Shopify', icon: <ShopifyLogo size={20} />, href: '/shopify' },
+    { name: 'Pinterest', icon: <PinterestLogo size={20} />, href: '/pinterest' },
+    { name: 'Design Library', icon: <Palette size={20} />, href: '/design-library' },
+    { name: 'Settings', icon: <Settings size={20} />, href: '/settings' },
+    { name: 'User Management', icon: <Users size={20} />, href: '/user-management' },
+  ];
+
+  const handleMainNavClick = (item: any) => {
+    const section = item.name.toLowerCase().replace(' ', '-');
+    console.log('Main sidebar item clicked:', item.name, 'section:', section);
+    onNavClick?.(section);
+    router.push(item.href);
   };
 
+  const getActiveSidebarTab = () => {
+    if (pathname === '/') return 'dashboard';
+    if (pathname.startsWith('/shopify')) return 'shopify';
+    if (pathname.startsWith('/pinterest')) return 'pinterest';
+    if (pathname.startsWith('/design-library')) return 'design-library';
+    if (pathname.startsWith('/settings')) return 'settings';
+    if (pathname.startsWith('/user-management')) return 'user-management';
+    return '';
+  };
+
+  const currentActiveTab = getActiveSidebarTab();
+
   return (
-    <aside
-      className="h-screen flex flex-col items-center py-4 bg-[#f8fafc] shadow-lg transition-all duration-300 w-20 justify-between"
-      style={{ minWidth: '5rem', borderRight: '1px solid #e5e7eb' }}
-    >
-      <div className="flex flex-col items-center w-full">
-        {/* Company Logo: White Drop on Black Background (smaller) */}
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-black shadow mb-8 mt-2">
-          <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-            <path
-              d="M16 5C16 5 7 16 7 22C7 26.4183 11.0294 30 16 30C20.9706 30 25 26.4183 25 22C25 16 16 5 16 5Z"
-              fill="white"
-              stroke="white"
-              strokeWidth="1"
-            />
-          </svg>
-        </div>
-        {/* Icon Navigation */}
-        <nav className="flex flex-col gap-4 w-full items-center mt-2">
-          {navigation.map((item) => {
-            const currentPath = pathname.split('/')[1];
-            const isActive =
-              activeSection === item.key ||
-              (activeSection === '' &&
-                (item.key === 'home'
-                  ? pathname === '/'
-                  : currentPath === item.key));
+    <aside className={`sticky left-0 top-0 h-screen z-30 flex flex-col items-center sidebar-modern transition-all duration-300 ease-in-out ${
+      isExpanded ? 'w-64' : 'w-16'
+    } py-4`}>
+      {/* Logo/Brand Section */}
+      <div className="flex items-center justify-center w-full px-4 mb-8">
+        {isExpanded ? (
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <BarChart3 size={20} className="text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">BRMH</span>
+          </div>
+        ) : (
+          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            <BarChart3 size={20} className="text-white" />
+          </div>
+        )}
+      </div>
+
+      {/* Main Navigation */}
+      <nav className="flex-1 w-full px-2">
+        <ul className="space-y-2">
+          {mainNavItems.map((item) => {
+            const isActive = currentActiveTab === item.name.toLowerCase().replace(' ', '-');
+            
             return (
-              <div key={item.key} className="relative group w-full flex justify-center">
+              <li key={item.name}>
                 <button
-                  onClick={() => handleIconClick(item.key)}
-                  className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors border-2 ${
+                  onClick={() => handleMainNavClick(item)}
+                  className={`w-full flex items-center px-3 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                     isActive
-                      ? 'bg-white border-blue-500 text-blue-600 shadow-md'
-                      : 'bg-transparent border-transparent text-gray-400 hover:bg-blue-50 hover:text-blue-500'
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-sm'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
-                  aria-label={item.name}
                 >
-                  <item.icon className="h-6 w-6" />
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  {isExpanded && <span className="ml-3">{item.name}</span>}
                 </button>
-                {/* Tooltip */}
-                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-3 whitespace-nowrap bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-lg">
-                  {item.name}
-                </span>
-              </div>
+              </li>
             );
           })}
-        </nav>
-      </div>
-      {/* Settings Icon at the bottom */}
-      <div className="flex flex-col items-center w-full mb-8">
-        <div className="relative group w-full flex justify-center">
-          <button
-            onClick={() => handleIconClick(settingsNav.key)}
-            className={`flex items-center justify-center w-12 h-12 rounded-full transition-colors border-2 ${
-              activeSection === settingsNav.key ||
-              (activeSection === '' && pathname.startsWith('/settings'))
-                ? 'bg-white border-blue-500 text-blue-600 shadow-md'
-                : 'bg-transparent border-transparent text-gray-400 hover:bg-blue-50 hover:text-blue-500'
-            }`}
-            aria-label={settingsNav.name}
-          >
-            <settingsNav.icon className="h-6 w-6" />
+        </ul>
+      </nav>
+
+      {/* Bottom Section */}
+      <div className="w-full px-2">
+        {/* Theme Toggle */}
+        <div className="flex items-center justify-center mb-4">
+          <button className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <Sun size={16} />
           </button>
-          {/* Tooltip */}
-          <span className="absolute left-full top-1/2 -translate-y-1/2 ml-3 whitespace-nowrap bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-lg">
-            {settingsNav.name}
-          </span>
         </div>
+
+        {/* Collapse/Expand Button */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        >
+          {isExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
       </div>
     </aside>
   );

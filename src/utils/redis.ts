@@ -1,23 +1,19 @@
 import Redis from 'ioredis';
 
-// Create a new Redis instance.
-// The options object directly uses the environment variables.
+// Create Redis client
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
-  // Adding a simple retry strategy is good practice for containerized apps.
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
+  password: process.env.REDIS_PASSWORD,
 });
 
-redis.on('error', (error: any) => {
-  console.error('Redis connection error:', error);
+// Handle connection events
+redis.on('error', (err) => {
+  console.error('Redis Client Error:', err);
 });
 
 redis.on('connect', () => {
-  console.log('Successfully connected to Redis');
+  console.log('Redis Client Connected');
 });
 
 export { redis }; 
