@@ -1,0 +1,19 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/(admin)/apps/shopify/orders/page": "app/(admin)/apps/shopify/orders/page.js",
+  "/(admin)/apps/pinterest/dashboard/page": "app/(admin)/apps/pinterest/dashboard/page.js",
+  "/(admin)/apps/pinterest/pins/page": "app/(admin)/apps/pinterest/pins/page.js",
+  "/(admin)/design-library/designs/page": "app/(admin)/design-library/designs/page.js",
+  "/(admin)/dashboard/page": "app/(admin)/dashboard/page.js",
+  "/(admin)/settings/caching/page": "app/(admin)/settings/caching/page.js",
+  "/(admin)/new-tab/page": "app/(admin)/new-tab/page.js",
+  "/(admin)/settings/general/page": "app/(admin)/settings/general/page.js",
+  "/(admin)/settings/indexing/page": "app/(admin)/settings/indexing/page.js",
+  "/(admin)/settings/health/page": "app/(admin)/settings/health/page.js",
+  "/(admin)/apps/pinterest/boards/page": "app/(admin)/apps/pinterest/boards/page.js",
+  "/(admin)/apps/shopify/products/page": "app/(admin)/apps/shopify/products/page.js",
+  "/(admin)/user-management/access-control/page": "app/(admin)/user-management/access-control/page.js",
+  "/(admin)/user-management/registered-users/page": "app/(admin)/user-management/registered-users/page.js",
+  "/(admin)/user-management/register-user/page": "app/(admin)/user-management/register-user/page.js"
+}
