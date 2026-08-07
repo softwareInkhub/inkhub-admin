@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { redis } from '@/utils/redis';
 
 export async function POST(_req: Request, { params }: { params: { resource: string } }) {
   const { resource } = params;
@@ -9,6 +8,6 @@ export async function POST(_req: Request, { params }: { params: { resource: stri
 
 export async function GET(_req: Request, { params }: { params: { resource: string } }) {
   const { resource } = params;
-  const paused = await redis.get(`systemload:paused:${resource}`);
-  return NextResponse.json({ paused: !!paused });
+  // Removed: const paused = await redis.get(`systemload:paused:${resource}`);
+  return NextResponse.json({ paused: false });
 } 

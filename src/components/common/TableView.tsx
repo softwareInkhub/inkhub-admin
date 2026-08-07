@@ -36,7 +36,7 @@ function TableView<T>({
   onClearRange
 }: TableViewProps<T>) {
   // Helper to get unique key for a row
-  const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? JSON.stringify(item);
+  const getRowId = (item: any) => item.id ?? item.order_number ?? item.uid ?? `row-${Math.random().toString(36).substr(2, 9)}`;
   // Track which context menu is open
   const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
 
