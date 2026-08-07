@@ -11,20 +11,16 @@ export async function GET(req: NextRequest) {
         project: 'myproject',
         table: 'pinterest_inkhub_get_boards'
       },
-      { 
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 5000 // 5 second timeout
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     );
     
     console.log('🔄 Cache API: Lambda response received:', response.data);
     return NextResponse.json(response.data);
   } catch (error: any) {
     console.error('Error fetching Pinterest boards cache:', error);
-    // Return empty data instead of error to prevent build failures
     return NextResponse.json(
-      { items: [], total: 0, message: 'Cache service unavailable' },
-      { status: 200 }
+      { error: error.message || 'Failed to fetch Pinterest boards cache' },
+      { status: 500 }
     );
   }
 } 

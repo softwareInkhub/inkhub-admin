@@ -10,9 +10,9 @@ export async function POST(req: NextRequest) {
       { headers: { 'Content-Type': 'application/json' } }
     );
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error.message || 'Failed to trigger cache' },
+      { error: error instanceof Error ? error.message : 'Failed to trigger cache' },
       { status: 500 }
     );
   }

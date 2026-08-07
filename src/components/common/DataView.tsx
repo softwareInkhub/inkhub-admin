@@ -1,965 +1,1108 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Table, 
-  Grid3X3, 
-  List, 
-  LayoutGrid, 
-  Maximize2, 
-  Minimize2,
-  Eye,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  ChevronLeft, ChevronRight, Download, Copy, Filter, Search, X
-} from 'lucide-react';
-import ArrowPagination from './ArrowPagination';
-import ImageCell from './ImageCell';
-import ActionButtons from './ActionButtons';
 
-// Detailed Modal Component
-interface DetailedModalProps {
-  item: any;
-  isOpen: boolean;
-  onClose: () => void;
-  columns: any[];
-}
+import React, { useRef, useEffect, useState } from 'react';
+import ReactDOM from 'react-dom';
+import { saveAs } from 'file-saver';
+import ActionButtonsBar from './ActionButtonsBar';
+import FilterDrawer from './FilterDrawer';
+import ViewModeDropdown from './ViewModeDropdown';
 
-function DetailedModal({ item, isOpen, onClose, columns }: DetailedModalProps) {
-  if (!isOpen) return null;
+export type DataViewColumn<T> = {
+  header: string;
+  accessor: keyof T;
+  render?: (value: any, row: T) => React.ReactNode;
+};
 
-  const getImageUrl = (item: any) => {
-    // Handle different image field names
-    if (item.image) {
-      if (typeof item.image === 'string') {
-        try {
-          const parsedImage = JSON.parse(item.image);
-          return parsedImage.src || parsedImage.url;
-        } catch (e) {
-          return item.image;
-        }
-      } else if (typeof item.image === 'object') {
-        return item.image.src || item.image.url;
-      }
-    }
-    
-    if (item.images && Array.isArray(item.images) && item.images[0]) {
-      if (typeof item.images[0] === 'string') {
-        try {
-          const parsedImage = JSON.parse(item.images[0]);
-          return parsedImage.src || parsedImage.url;
-        } catch (e) {
-          return item.images[0];
-        }
-      } else if (typeof item.images[0] === 'object') {
-        return item.images[0].src || item.images[0].url;
-      } else {
-        return item.images[0];
-      }
-    }
-    
-    if (item.Item?.image) {
-      if (typeof item.Item.image === 'string') {
-        try {
-          const parsedImage = JSON.parse(item.Item.image);
-          return parsedImage.src || parsedImage.url;
-        } catch (e) {
-          return item.Item.image;
-        }
-      } else if (typeof item.Item.image === 'object') {
-        return item.Item.image.src || item.Item.image.url;
-      }
-    }
-    
-    if (item.Item?.images && Array.isArray(item.Item.images) && item.Item.images[0]) {
-      if (typeof item.Item.images[0] === 'string') {
-        try {
-          const parsedImage = JSON.parse(item.Item.images[0]);
-          return parsedImage.src || parsedImage.url;
-        } catch (e) {
-          return item.Item.images[0];
-        }
-      } else if (typeof item.Item.images[0] === 'object') {
-        return item.Item.images[0].src || item.Item.images[0].url;
-      } else {
-        return item.Item.images[0];
-      }
-    }
-    
-    if (item.designImageUrl) return item.designImageUrl;
-    
-    return item.image?.src || item.images?.[0]?.src || item.Item?.image?.src || item.Item?.images?.[0]?.src ||
-           item.src || item.Item?.src || item.featured_image || item.Item?.featured_image;
-  };
-
-  const getTitle = (item: any) => {
-    return item.title || item.name || item.Item?.title || item.Item?.name || item.designName || item.product_title || item.Item?.product_title || 'Untitled';
-  };
-
-  const getDescription = (item: any) => {
-    return item.description || item.Item?.description || item.designDescription || item.body_html || item.Item?.body_html || item.product_description || item.Item?.product_description || 'No description available';
-  };
-
-  const renderCellValue = (value: any): string => {
-    if (value === null || value === undefined) return '—';
-    if (typeof value === 'object') return '[Object]';
-    return String(value);
-  };
-
-  const imageUrl = getImageUrl(item);
-  const title = getTitle(item);
-  const description = getDescription(item);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Item Details</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Image Section */}
-            <div className="space-y-4">
-              {imageUrl ? (
-                <div className="flex justify-center">
-                  <img
-                    src={imageUrl}
-                    alt={title}
-                    className="max-w-full max-h-96 object-contain rounded-lg shadow-lg"
-                  />
-                </div>
-              ) : (
-                <div className="flex justify-center items-center h-64 bg-gray-100 rounded-lg">
-                  <span className="text-gray-400">No Image Available</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Details Section */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{title}</h3>
-                <p className="text-gray-600">{description}</p>
-              </div>
-              
-              <div className="space-y-3">
-                {columns.map((column) => {
-                  if (column.accessor?.includes('image') || 
-                      column.accessor?.includes('Image') ||
-                      column.header?.toLowerCase().includes('image')) {
-                    return null;
-                  }
-                  
-                  const value = item[column.accessor];
-                  if (value === null || value === undefined) return null;
-                  
-                  return (
-                    <div key={column.accessor} className="flex justify-between items-start">
-                      <span className="font-medium text-gray-700 min-w-[120px]">{column.header}:</span>
-                      <span className="text-gray-600 text-right flex-1 ml-4">
-                        {renderCellValue(value)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface DataViewProps {
-  data: any[];
-  columns: any[];
-  viewType?: 'table' | 'grid' | 'card' | 'list';
-  onViewTypeChange?: (viewType: 'table' | 'grid' | 'card' | 'list') => void;
-  enablePagination?: boolean;
-  totalItems?: number;
-  currentPage?: number;
-  pageSize?: number;
-  onPageChange?: (page: number) => void;
-  onPageSizeChange?: (pageSize: number) => void;
-  selectedRows?: string[];
-  onRowSelect?: (rowId: string, selected: boolean) => void;
-  onSelectAll?: (selected: boolean) => void;
-  className?: string;
-  renderCard?: (row: any) => React.ReactNode;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (columns: string[]) => void;
-  // Action handlers
-  onViewItem?: (item: any) => void;
-  onEditItem?: (item: any) => void;
-  onDeleteItem?: (item: any) => void;
-  showActions?: boolean;
-  // Card click handler
-  onCardClick?: (item: any) => void;
-  // Infinite scroll props
-  enableInfiniteScroll?: boolean;
-  hasMoreData?: boolean;
-  isLoadingMore?: boolean;
+export type DataViewProps<T> = {
+  data: T[];
+  columns: DataViewColumn<T>[];
   onLoadMore?: () => void;
-}
-
-// Helper function to safely render cell values
-const renderCellValue = (value: any): string => {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'object') {
-    // Check if it's DynamoDB marshalled format
-    if (value.S !== undefined) {
-      return String(value.S);
-    }
-    if (value.N !== undefined) {
-      return String(value.N);
-    }
-    if (value.BOOL !== undefined) {
-      return String(value.BOOL);
-    }
-    // Don't display other JSON objects - just show a placeholder
-    return '[Object]';
-  }
-  return String(value);
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  viewType?: 'table' | 'grid' | 'card';
+  scrollBuffer?: number; // px from bottom to trigger load more
+  page?: number;
+  pageSize?: number;
+  section: string;
+  tabKey: string;
 };
 
-// Helper function to check if a value is an image URL
-const isImageUrl = (value: any): boolean => {
-  if (typeof value !== 'string') return false;
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  const url = value.toLowerCase();
-  return imageExtensions.some(ext => url.includes(ext)) || url.includes('cdn.shopify.com');
-};
-
-// Helper function to render cell content
-const renderCellContent = (value: any, column: any, row: any, viewType?: string): React.ReactNode => {
-  // If column has a custom render function, use it
-  if (column.render) {
-    return column.render(value, row, viewType);
-  }
-  
-  // If column has a custom Cell component, use it
-  if (column.Cell) {
-    return column.Cell({ value });
-  }
-  
-  // Check if it's an image URL
-  if (isImageUrl(value)) {
-    return <ImageCell src={value} alt={column.header || 'Image'} viewType={viewType as 'table' | 'grid' | 'card' | 'list'} />;
-  }
-  
-  // For object values, check if it's DynamoDB marshalled format first
-  if (typeof value === 'object' && value !== null) {
-    // Check if it's DynamoDB marshalled format
-    if (value.S !== undefined) {
-      return (
-        <div className="truncate" title={String(value.S)}>
-          {String(value.S)}
-        </div>
-      );
-    }
-    if (value.N !== undefined) {
-      return (
-        <div className="truncate" title={String(value.N)}>
-          {String(value.N)}
-        </div>
-      );
-    }
-    if (value.BOOL !== undefined) {
-      return (
-        <div className="truncate" title={String(value.BOOL)}>
-          {String(value.BOOL)}
-        </div>
-      );
-    }
-    
-    // If it's a small object, show key-value pairs in a compact format
-    const keys = Object.keys(value);
-    if (keys.length <= 2) {
-      return (
-        <div className="text-xs">
-          {keys.map(key => (
-            <div key={key} className="flex justify-between gap-1">
-              <span className="font-medium text-gray-600 truncate">{key}:</span>
-              <span className="text-gray-800 truncate">{String(value[key])}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    // For larger objects, don't display them at all - just show a placeholder
-    return (
-      <div className="text-xs text-gray-400">
-        [Object]
-      </div>
-    );
-  }
-  
-  // For regular values, render as string with truncation
-  const stringValue = renderCellValue(value);
-  return (
-    <div className="truncate" title={stringValue}>
-      {stringValue}
-    </div>
-  );
-};
-
-export default function DataView({
+function DataView<T>({
   data,
   columns,
-  viewType = 'table',
-  onViewTypeChange,
-  enablePagination = false,
-  totalItems,
-  currentPage = 1,
-  pageSize = 10,
-  onPageChange,
-  onPageSizeChange,
-  selectedRows = [],
-  onRowSelect,
-  onSelectAll,
-  className = '',
-  renderCard,
-  visibleColumns: propVisibleColumns,
-  onVisibleColumnsChange,
-  onViewItem,
-  onEditItem,
-  onDeleteItem,
-  showActions = true,
-  onCardClick,
-  enableInfiniteScroll = false,
-  hasMoreData = false,
-  isLoadingMore = false,
   onLoadMore,
-}: DataViewProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(
-    propVisibleColumns || columns.map(col => String(col.accessor))
-  );
-  const [isDetailedModalOpen, setIsDetailedModalOpen] = useState(false);
-  const [selectedItemForModal, setSelectedItemForModal] = useState<any>(null);
+  hasMore = false,
+  isLoadingMore = false,
+  viewType = 'table',
+  scrollBuffer = 100,
+  page,
+  pageSize,
+  section,
+  tabKey,
+}: DataViewProps<T>) {
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Infinite scroll functionality
-  useEffect(() => {
-    if (!enableInfiniteScroll || !hasMoreData || isLoadingMore) return;
+  // Checkbox selection state
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const allChecked = data.length > 0 && selectedRows.length === data.length;
+  const isIndeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
 
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      
-      // Load more when user is near the bottom (within 100px)
-      if (scrollTop + windowHeight >= documentHeight - 100) {
-        onLoadMore?.();
+  // Modal state for row details
+  const [selectedItem, setSelectedItem] = useState<T | null>(null);
+  const [showRowModal, setShowRowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'image' | 'json' | 'form'>('image');
+
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(columns.map(col => String(col.accessor)));
+
+  // Grid field selector state (for grid view only)
+  const allGridFields = columns.filter(col => !/image/i.test(col.header) && !/name|title/i.test(col.header));
+  const nameCol = columns.find(col => /name|title/i.test(col.header));
+  const [gridFields, setGridFields] = useState<string[]>([]); // stores accessors of visible fields below image
+  const [showGridFieldDropdown, setShowGridFieldDropdown] = useState<number | null>(null); // index of open dropdown
+
+  // For dropdown positioning
+  const [dropdownPos, setDropdownPos] = useState<{top: number, left: number} | null>(null);
+
+  // Download dropdown state
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+  const [selectedDownloadFields, setSelectedDownloadFields] = useState<string[]>([]);
+
+  // Date sorting state
+  const [dateSortOrder, setDateSortOrder] = useState<'latest' | 'oldest' | null>(null);
+  const [showDateSortDropdown, setShowDateSortDropdown] = useState(false);
+
+  // Add state for total sort order and dropdown
+  const [totalSortOrder, setTotalSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [showTotalSortDropdown, setShowTotalSortDropdown] = useState(false);
+
+  // Add state for name sort order and dropdown
+  const [nameSortOrder, setNameSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [showNameSortDropdown, setShowNameSortDropdown] = useState(false);
+
+  // Add state for title and customer sort order and dropdown
+  const [titleSortOrder, setTitleSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [showTitleSortDropdown, setShowTitleSortDropdown] = useState(false);
+  const [customerSortOrder, setCustomerSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [showCustomerSortDropdown, setShowCustomerSortDropdown] = useState(false);
+
+  // Tree node type for field selection
+  type FieldTreeNode = {
+    key: string;
+    path: string;
+    children?: FieldTreeNode[];
+  };
+
+  // Recursively build a tree from the first data row
+  function buildFieldTree(obj: any, prefix = ""): FieldTreeNode[] {
+    if (typeof obj !== "object" || obj === null) return [];
+    return Object.keys(obj).map(key => {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (typeof obj[key] === "object" && obj[key] !== null && !Array.isArray(obj[key])) {
+        return {
+          key,
+          path,
+          children: buildFieldTree(obj[key], path),
+        };
+      } else {
+        return { key, path };
       }
-    };
+    });
+  }
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [enableInfiniteScroll, hasMoreData, isLoadingMore, onLoadMore]);
+  // Tree for download fields
+  const fieldTree = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return buildFieldTree(data[0]);
+  }, [data]);
 
-  // Use prop if provided, otherwise use internal state
-  const effectiveVisibleColumns = propVisibleColumns || visibleColumns;
-  const effectiveSetVisibleColumns = onVisibleColumnsChange || setVisibleColumns;
-
-  const filteredColumns = columns.filter(col => 
-    effectiveVisibleColumns.includes(String(col.accessor))
-  );
-
-  const handleViewTypeChange = (newViewType: 'table' | 'grid' | 'card' | 'list') => {
-    onViewTypeChange?.(newViewType);
+  // Expanded state for tree nodes
+  const [expandedNodes, setExpandedNodes] = useState<{ [path: string]: boolean }>({});
+  const toggleNode = (path: string) => {
+    setExpandedNodes(prev => ({ ...prev, [path]: !prev[path] }));
   };
 
-  const handleRowSelect = (rowId: string) => {
-    const isSelected = selectedRows.includes(rowId);
-    onRowSelect?.(rowId, !isSelected);
+  // Helper: get all leaf paths under a node
+  function getAllLeafPaths(node: FieldTreeNode): string[] {
+    if (!node.children) return [node.path];
+    return node.children.flatMap(getAllLeafPaths);
+  }
+
+  // Selection logic for tree
+  function isNodeChecked(node: FieldTreeNode): boolean {
+    if (!node.children) return selectedDownloadFields.includes(node.path);
+    return node.children.every(isNodeChecked);
+  }
+  function isNodeIndeterminate(node: FieldTreeNode): boolean {
+    if (!node.children) return false;
+    const checked = node.children.map(isNodeChecked);
+    return checked.some(Boolean) && !checked.every(Boolean);
+  }
+  function handleNodeCheck(node: FieldTreeNode, checked: boolean) {
+    const leafPaths = getAllLeafPaths(node);
+    if (checked) {
+      setSelectedDownloadFields(prev => Array.from(new Set([...prev, ...leafPaths])));
+    } else {
+      setSelectedDownloadFields(prev => prev.filter(p => !leafPaths.includes(p)));
+    }
+  }
+
+  // Recursive tree rendering with improved UI
+  function renderFieldTree(nodes: FieldTreeNode[], level = 0, parentLast: boolean[] = []) {
+    return nodes.map((node, idx) => {
+      const isLast = idx === nodes.length - 1;
+      const hasChildren = !!node.children;
+      return (
+        <div key={node.path} style={{ position: 'relative', marginLeft: level ? 24 : 0 }} className="flex items-start mb-1 group">
+          {/* Connector lines */}
+          {level > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                left: -16,
+                top: 0,
+                bottom: 0,
+                width: 16,
+                borderLeft: parentLast.slice(0, -1).some(v => !v) ? '1px solid #d1d5db' : 'none',
+                borderBottom: isLast ? 'none' : '1px solid #d1d5db',
+                height: hasChildren && expandedNodes[node.path] ? '100%' : 24,
+                zIndex: 0,
+              }}
+            />
+          )}
+          {/* Expand/Collapse Icon */}
+          {hasChildren && (
+            <button
+              type="button"
+              onClick={() => toggleNode(node.path)}
+              className="mr-1 text-xs text-gray-500 focus:outline-none flex-shrink-0"
+              style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              tabIndex={-1}
+              aria-label={expandedNodes[node.path] ? 'Collapse' : 'Expand'}
+            >
+              {expandedNodes[node.path] ? (
+                <svg width="12" height="12" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4" stroke="#555" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24"><path d="M10 8l4 4-4 4" stroke="#555" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
+              )}
+            </button>
+          )}
+          {/* Checkbox */}
+          <input
+            type="checkbox"
+            checked={isNodeChecked(node)}
+            ref={el => { if (el) el.indeterminate = isNodeIndeterminate(node); }}
+            onChange={e => handleNodeCheck(node, e.target.checked)}
+            className="accent-blue-600 mr-2 mt-0.5 focus:ring-2 focus:ring-blue-400"
+            id={`download-field-toggle-${node.path}`}
+            style={{ zIndex: 1 }}
+          />
+          {/* Label */}
+          <label
+            htmlFor={`download-field-toggle-${node.path}`}
+            className={`select-none cursor-pointer ${hasChildren ? 'font-semibold text-gray-800' : 'text-gray-700'} group-hover:text-blue-700`}
+            style={{ zIndex: 1 }}
+          >
+            {node.key}
+          </label>
+          {/* Children */}
+          {hasChildren && expandedNodes[node.path] && (
+            <div className="w-full" style={{ marginLeft: 0 }}>
+              {renderFieldTree(node.children ?? [], level + 1, [...parentLast, isLast])}
+            </div>
+          )}
+        </div>
+      );
+    });
+  }
+
+  // Helper: get value by dot path (move above handleDownload to fix linter error)
+  function getValueByPath(obj: any, path: string): any {
+    return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+  }
+
+  // Download handler (nested support)
+  const handleDownload = () => {
+    if (!selectedDownloadFields.length) return;
+    const filtered = data.map(row => {
+      const obj: any = {};
+      selectedDownloadFields.forEach(path => {
+        obj[path] = getValueByPath(row, path);
+      });
+      return obj;
+    });
+    const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
+    saveAs(blob, `selected_fields_data.json`);
+    setShowDownloadDropdown(false);
   };
 
-  const handleSelectAll = () => {
-    const allSelected = selectedRows.length === data.length;
-    onSelectAll?.(!allSelected);
-  };
+  // Close dropdown on outside click - removed since column dropdown is now in ActionButtonsBar
 
-  const getViewIcon = (type: 'table' | 'grid' | 'card' | 'list') => {
-    switch (type) {
-      case 'table':
-        return <Table size={16} />;
-      case 'grid':
-        return <Grid3X3 size={16} />;
-      case 'card':
-        return <LayoutGrid size={16} />;
-      case 'list':
-        return <List size={16} />;
-      default:
-        return <Table size={16} />;
+  // Close date sort dropdown on outside click
+  useEffect(() => {
+    if (!showDateSortDropdown) return;
+    function handleClick(e: MouseEvent) {
+      const dropdown = document.querySelector('[data-date-sort-dropdown]');
+      if (dropdown && !dropdown.contains(e.target as Node)) {
+        setShowDateSortDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showDateSortDropdown]);
+
+  const handleMasterCheckbox = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedRows(data.map((_, i) => i));
+    } else {
+      setSelectedRows([]);
     }
   };
 
-  const renderTableView = () => (
-    <div className="relative overflow-x-auto shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
-      <table className="w-full text-sm text-left table-fixed">
-        <thead className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
-          <tr>
-            {onRowSelect && (
-              <th className="sticky left-0 bg-white dark:bg-gray-800 px-3 py-2 text-left font-medium text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 z-20 w-12">
-                <input
-                  type="checkbox"
-                  checked={selectedRows.length === data.length && data.length > 0}
-                  onChange={handleSelectAll}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-              </th>
-            )}
-            {filteredColumns.map((column, index) => {
-              // Define column widths based on content type
-              let columnWidth = 'w-24'; // Default width
-              
-              if (column.accessor?.includes('email')) {
-                columnWidth = 'w-48'; // Email columns need more space
-              } else if (column.accessor?.includes('phone')) {
-                columnWidth = 'w-32'; // Phone columns
-              } else if (column.accessor?.includes('total') || column.accessor?.includes('price')) {
-                columnWidth = 'w-20'; // Price columns
-              } else if (column.accessor?.includes('status')) {
-                columnWidth = 'w-16'; // Status columns
-              } else if (column.accessor?.includes('order') || column.accessor?.includes('id')) {
-                columnWidth = 'w-20'; // ID columns
-              } else if (column.accessor?.includes('customer') || column.accessor?.includes('name')) {
-                columnWidth = 'w-32'; // Name columns
-              } else if (column.accessor?.includes('created') || column.accessor?.includes('updated')) {
-                columnWidth = 'w-28'; // Date columns
-              }
+  const handleRowCheckbox = (idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedRows(prev => [...prev, idx]);
+    } else {
+      setSelectedRows(prev => prev.filter(i => i !== idx));
+    }
+  };
+
+  const handleRowClick = (item: T) => {
+    setSelectedItem(item);
+    setShowRowModal(true);
+    setModalTab('image');
+  };
+
+  useEffect(() => {
+    // If data changes, reset selection
+    setSelectedRows([]);
+  }, [data]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const container = scrollRef.current;
+      if (!container || !onLoadMore || isLoadingMore || !hasMore) return;
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < scrollBuffer) {
+        onLoadMore();
+      }
+    };
+    const container = scrollRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [onLoadMore, isLoadingMore, hasMore, scrollBuffer]);
+
+  const [viewTypeState, setViewTypeState] = useState<'table' | 'grid' | 'card'>(viewType);
+
+  // On mount, default gridFields to [] (only name/title shown)
+  useEffect(() => {
+    setGridFields([]);
+  }, [columns]);
+
+  // Helper to find image URL in an object
+  function getImageSrc(obj: any): string | null {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'string' && v.match(/https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)/i)) {
+        return v;
+      }
+      if (typeof v === 'object' && v !== null) {
+        const nested = getImageSrc(v);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  }
+
+  // Filter columns based on visibleColumns
+  const filteredColumns = columns.filter(col => visibleColumns.includes(String(col.accessor)));
+
+  // Close dropdown on scroll or grid view change
+  useEffect(() => {
+    if (!showGridFieldDropdown) return;
+    const close = () => setShowGridFieldDropdown(null);
+    window.addEventListener('scroll', close, true);
+    return () => window.removeEventListener('scroll', close, true);
+  }, [showGridFieldDropdown]);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ESC key to exit fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFullscreen]);
+
+  // Add at the top, after other useState hooks
+  const [showSaveFilterModal, setShowSaveFilterModal] = useState(false);
+  const [filterName, setFilterName] = useState('');
+
+  // Add this function inside DataView
+  const handleSaveFilter = async () => {
+    if (!filterName) return;
+    const filterConfig = {
+      visibleColumns,
+      // Add other filter/sort state here as needed
+    };
+    const filteredData = data;
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `${section}#${tabKey}`;
+    const payload = {
+      userId,
+      section,
+      tabKey,
+      'section#tabkey': sectionTabKey,
+      filterName,
+      filterConfig,
+      filteredData,
+      createdAt: new Date().toISOString(),
+      lastAccessed: new Date().toISOString()
+    };
+    await fetch('/api/saved-filters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    setShowSaveFilterModal(false);
+    setFilterName('');
+  };
+
+  // Add state for saved filters and filtered data override
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
+  const [dataOverride, setDataOverride] = useState<T[] | null>(null);
+
+  // Fetch saved filters for this user and page
+  useEffect(() => {
+    const userId = (window as any).currentUserId || 'demo-user';
+    const sectionTabKey = `${section}#${tabKey}`;
+    fetch(`/api/saved-filters?userId=${encodeURIComponent(userId)}&sectionTabKey=${encodeURIComponent(sectionTabKey)}`)
+      .then(res => res.json())
+      .then(data => setSavedFilters(data.filters || []));
+  }, [section, tabKey]);
+
+  // Handler to apply a saved filter
+  const handleApplySavedFilter = (filter: any) => {
+    setActiveSavedFilter(filter);
+    if (filter.filterConfig?.visibleColumns) {
+      setVisibleColumns(filter.filterConfig.visibleColumns);
+    }
+    if (filter.filteredData) {
+      setDataOverride(filter.filteredData);
+    }
+  };
+
+  // When rendering the table/grid/card, use dataOverride if set
+  const tableData = dataOverride || data;
+
+  // Helper function to safely get date value from any object
+  const getDateValue = (obj: any): number => {
+    // Try common date field patterns
+    const dateValue = obj?.created_at || 
+                     obj?.createdAt || 
+                     obj?.date ||
+                     obj?.designCreatedAt ||
+                     obj?.designUpdateAt ||
+                     obj?.Item?.created_at ||
+                     obj?.Item?.createdAt ||
+                     obj?.Item?.date;
+    
+    return dateValue ? new Date(dateValue).getTime() : 0;
+  };
+
+  // Filter drawer state
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  // Example filter state
+  const [filterStatus, setFilterStatus] = useState('All');
+
+  // Use a single filteredTableData declaration and apply all filters here
+  let filteredTableData = tableData;
+  // Apply status filter from filter drawer
+  if (filterStatus !== 'All') {
+    filteredTableData = filteredTableData.filter((row: any) => {
+      const status = (
+        row.status ||
+        row.Status ||
+        row.orderStatus ||
+        row.paymentStatus ||
+        row.financial_status ||
+        row.fulfillment_status ||
+        ''
+      ).toLowerCase().trim();
+      return status === filterStatus.toLowerCase();
+    });
+  }
+  if (dateSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      const aDate = getDateValue(a);
+      const bDate = getDateValue(b);
+      if (dateSortOrder === 'latest') {
+        return bDate - aDate; // Latest first
+      } else {
+        return aDate - bDate; // Oldest first
+      }
+    });
+  }
+  // Add total sort logic
+  if (totalSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      const aTotal = parseFloat(a.total ?? a.Total ?? a.total_price ?? 0);
+      const bTotal = parseFloat(b.total ?? b.Total ?? b.total_price ?? 0);
+      if (totalSortOrder === 'asc') return aTotal - bTotal;
+      return bTotal - aTotal;
+    });
+  }
+  // Add name sort logic
+  if (nameSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      const aName = (a.name ?? a.Name ?? a.designName ?? '').toLowerCase();
+      const bName = (b.name ?? b.Name ?? b.designName ?? '').toLowerCase();
+      if (nameSortOrder === 'asc') return aName.localeCompare(bName);
+      return bName.localeCompare(aName);
+    });
+  }
+  // Add customer, title, and name sort logic (priority: Customer > Title > Name)
+  if (customerSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      // Handle Shopify Orders: customer can be object or string
+      function getCustomerName(row: any) {
+        const val = row.customer ?? row.Customer ?? '';
+        if (typeof val === 'object' && val !== null) {
+          // Try first_name + last_name
+          const first = val.first_name ?? '';
+          const last = val.last_name ?? '';
+          return `${first} ${last}`.trim();
+        }
+        return String(val);
+      }
+      const aCustomer = getCustomerName(a).toLowerCase();
+      const bCustomer = getCustomerName(b).toLowerCase();
+      if (customerSortOrder === 'asc') return aCustomer.localeCompare(bCustomer);
+      return bCustomer.localeCompare(aCustomer);
+    });
+  } else if (titleSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      const aTitle = String(a.title ?? a.Title ?? '');
+      const bTitle = String(b.title ?? b.Title ?? '');
+      const aTitleLower = aTitle.toLowerCase();
+      const bTitleLower = bTitle.toLowerCase();
+      if (titleSortOrder === 'asc') return aTitleLower.localeCompare(bTitleLower);
+      return bTitleLower.localeCompare(aTitleLower);
+    });
+  } else if (nameSortOrder && filteredTableData.length) {
+    filteredTableData = [...filteredTableData].sort((a: any, b: any) => {
+      const aName = String(a.name ?? a.Name ?? a.designName ?? '');
+      const bName = String(b.name ?? b.Name ?? b.designName ?? '');
+      const aNameLower = aName.toLowerCase();
+      const bNameLower = bName.toLowerCase();
+      if (nameSortOrder === 'asc') return aNameLower.localeCompare(bNameLower);
+      return bNameLower.localeCompare(aNameLower);
+    });
+  }
+
+  console.log("SAVED FILTERS", savedFilters);
+
+  // Get selected data for download
+  const selectedData = selectedRows.map(index => filteredTableData[index]).filter(Boolean);
 
   return (
-                <th 
-                  key={column.accessor} 
-                  className={`px-3 py-2 text-left font-medium text-gray-900 dark:text-white ${columnWidth} ${
-                    index === 0 && !onRowSelect ? 'sticky left-0 bg-white dark:bg-gray-800 z-20' : ''
-                  }`}
-                >
-                  <div className="truncate" title={column.header}>
-                    {column.header}
-                </div>
-                </th>
-              );
-            })}
-            {showActions && (
-              <th className="sticky right-0 bg-white dark:bg-gray-800 px-3 py-2 text-left font-medium text-gray-900 dark:text-white border-l border-gray-200 dark:border-gray-700 z-20 w-24">
-                Actions
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody className="bg-white dark:bg-gray-900">
-          {data.map((row, index) => (
-            <tr 
-              key={index} 
-              className="hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 cursor-pointer"
-              onClick={(e) => {
-                // Don't trigger modal if clicking on checkbox or action buttons
-                const target = e.target as HTMLElement;
-                if (target.closest('input[type="checkbox"]') || target.closest('button')) {
-                  return;
-                }
-                onCardClick?.(row);
-                setSelectedItemForModal(row);
-                setIsDetailedModalOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onCardClick?.(row);
-                  setSelectedItemForModal(row);
-                  setIsDetailedModalOpen(true);
-                }
-              }}
-              tabIndex={0}
-              role="button"
-              aria-label={`View details for ${row[filteredColumns[0]?.accessor] || `item ${index + 1}`}`}
-            >
-              {onRowSelect && (
-                <td className="sticky left-0 bg-white dark:bg-gray-900 px-3 py-2 border-r border-gray-200 dark:border-gray-700 z-20 w-12">
-                    <input
-                      type="checkbox"
-                    checked={selectedRows.includes(String(row.id || index))}
-                    onChange={() => handleRowSelect(String(row.id || index))}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                </td>
-              )}
-              {filteredColumns.map((column, colIndex) => {
-                // Define column widths based on content type (same as header)
-                let columnWidth = 'w-24'; // Default width
-                
-                if (column.accessor?.includes('email')) {
-                  columnWidth = 'w-48'; // Email columns need more space
-                } else if (column.accessor?.includes('phone')) {
-                  columnWidth = 'w-32'; // Phone columns
-                } else if (column.accessor?.includes('total') || column.accessor?.includes('price')) {
-                  columnWidth = 'w-20'; // Price columns
-                } else if (column.accessor?.includes('status')) {
-                  columnWidth = 'w-16'; // Status columns
-                } else if (column.accessor?.includes('order') || column.accessor?.includes('id')) {
-                  columnWidth = 'w-20'; // ID columns
-                } else if (column.accessor?.includes('customer') || column.accessor?.includes('name')) {
-                  columnWidth = 'w-32'; // Name columns
-                } else if (column.accessor?.includes('created') || column.accessor?.includes('updated')) {
-                  columnWidth = 'w-28'; // Date columns
-                }
-                
-                return (
-                  <td 
-                    key={column.accessor} 
-                    className={`px-3 py-2 text-gray-900 dark:text-white ${columnWidth} ${
-                      colIndex === 0 && !onRowSelect ? 'sticky left-0 bg-white dark:bg-gray-900 z-20' : ''
-                    }`}
-                  >
-                    <div className="truncate" title={renderCellValue(row[column.accessor])}>
-                      {renderCellContent(row[column.accessor], column, row, viewType)}
-                            </div>
-                  </td>
-                );
-              })}
-              {showActions && (
-                <td className="sticky right-0 bg-white dark:bg-gray-900 px-3 py-2 border-l border-gray-200 dark:border-gray-700 z-20 w-24">
-                  <ActionButtons
-                    item={row}
-                    onView={onViewItem}
-                    onEdit={onEditItem}
-                    onDelete={onDeleteItem}
-                    showView={true}
-                    showEdit={true}
-                    showDelete={true}
-                  />
-                </td>
-              )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-                    </div>
-                  );
+    <div
+      ref={scrollRef}
+      className={`w-full h-[calc(100vh-200px)] overflow-y-auto bg-white border rounded shadow${isFullscreen ? ' fixed inset-0 z-[1000] h-screen w-screen rounded-none border-0' : ''}`}
+      style={isFullscreen ? { minHeight: '100vh', minWidth: '100vw', background: 'white' } : { minHeight: 400 }}
+    >
+      {/* Action Buttons Bar - Separate Container Above */}
+      <ActionButtonsBar
+        selectedRows={selectedRows}
+        totalRows={filteredTableData.length}
+        visibleColumns={visibleColumns}
+        allColumns={columns}
+        onVisibleColumnsChange={setVisibleColumns}
+        onSaveFilter={handleSaveFilter}
+        section={section}
+        tabKey={tabKey}
+        selectedData={selectedData}
+        showSaveFilter={true}
+      />
 
-  const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {data.map((row, index) => (
-        <div 
-          key={index} 
-          className="modern-card p-4 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          onClick={() => {
-            onCardClick?.(row);
-            setSelectedItemForModal(row);
-            setIsDetailedModalOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onCardClick?.(row);
-              setSelectedItemForModal(row);
-              setIsDetailedModalOpen(true);
-            }
-          }}
-          tabIndex={0}
-          role="button"
-          aria-label={`View details for ${row[filteredColumns[0]?.accessor] || `item ${index + 1}`}`}
-        >
-          {/* Image Section - Show image prominently at the top */}
-          {(() => {
-            const imageColumn = filteredColumns.find(col => 
-              col.accessor?.includes('image') || 
-              col.accessor?.includes('Image') ||
-              col.header?.toLowerCase().includes('image')
-            );
-            if (imageColumn) {
-              // Use the same comprehensive image extraction logic as the column render function
-              let imageSrc = null;
-              
-              // First, check if the image field is a JSON string that needs to be parsed
-              if (row.image && typeof row.image === 'string') {
-                try {
-                  const parsedImage = JSON.parse(row.image);
-                  imageSrc = parsedImage.src || parsedImage.url;
-                } catch (e) {
-                  // If it's not valid JSON, treat it as a direct URL
-                  imageSrc = row.image;
-                }
-              } else if (row.image && typeof row.image === 'object') {
-                imageSrc = row.image.src || row.image.url;
-              } else if (row.images && Array.isArray(row.images) && row.images[0]) {
-                if (typeof row.images[0] === 'string') {
-                  try {
-                    const parsedImage = JSON.parse(row.images[0]);
-                    imageSrc = parsedImage.src || parsedImage.url;
-                  } catch (e) {
-                    imageSrc = row.images[0];
-                  }
-                } else if (typeof row.images[0] === 'object') {
-                  imageSrc = row.images[0].src || row.images[0].url;
-      } else {
-                  imageSrc = row.images[0];
-                }
-              } else if (row.Item?.image && typeof row.Item.image === 'string') {
-                try {
-                  const parsedImage = JSON.parse(row.Item.image);
-                  imageSrc = parsedImage.src || parsedImage.url;
-                } catch (e) {
-                  imageSrc = row.Item.image;
-                }
-              } else if (row.Item?.image && typeof row.Item.image === 'object') {
-                imageSrc = row.Item.image.src || row.Item.image.url;
-              } else if (row.Item?.images && Array.isArray(row.Item.images) && row.Item.images[0]) {
-                if (typeof row.Item.images[0] === 'string') {
-                  try {
-                    const parsedImage = JSON.parse(row.Item.images[0]);
-                    imageSrc = parsedImage.src || parsedImage.url;
-                  } catch (e) {
-                    imageSrc = row.Item.images[0];
-                  }
-                } else if (typeof row.Item.images[0] === 'object') {
-                  imageSrc = row.Item.images[0].src || row.Item.images[0].url;
-                } else {
-                  imageSrc = row.Item.images[0];
-                }
-              } else if (row.designImageUrl && typeof row.designImageUrl === 'string') {
-                // Design Library specific field
-                imageSrc = row.designImageUrl;
-              } else {
-                // Fallback to direct properties
-                imageSrc = row.image?.src || row.images?.[0]?.src || row.Item?.image?.src || row.Item?.images?.[0]?.src ||
-                          row.src || row.Item?.src || row.featured_image || row.Item?.featured_image || row.designImageUrl;
-              }
-              
-              if (imageSrc && (imageSrc.includes('.jpg') || imageSrc.includes('.png') || imageSrc.includes('cdn.shopify.com') || imageSrc.includes('s3.amazonaws.com'))) {
-                return (
-                  <div className="flex justify-center mb-3">
-                    <ImageCell src={imageSrc} alt={imageColumn.header || 'Image'} viewType="grid" />
-                  </div>
-                );
-              }
-            }
-            return null;
-          })()}
-          
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              {renderCellValue(row[filteredColumns[0]?.accessor]) || `Item ${index + 1}`}
-            </h3>
-            <button className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-              <MoreHorizontal size={16} />
+      {/* Search and Filter Section - moved above the table */}
+      <div className="w-full px-4 py-3 bg-white border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 flex-1"
+            // Add your search logic here
+          />
+          <button className="bg-gray-800 text-white p-2 rounded-lg hover:bg-gray-700 transition-all duration-200 shadow-sm">
+            {/* Search icon SVG */}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+              <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </button>
-                </div>
-          <div className="space-y-2">
-            {filteredColumns.slice(1).map((column) => {
-              // Skip image column since we already displayed it at the top
-              if (column.accessor?.includes('image') || 
-                  column.accessor?.includes('Image') ||
-                  column.header?.toLowerCase().includes('image')) {
-                return null;
-              }
-                  return (
-                <div key={column.accessor} className="flex justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">{column.header}:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {renderCellContent(row[column.accessor], column, row, viewType)}
-                  </span>
-                </div>
-                  );
-                })}
-              </div>
-                  </div>
-                ))}
-              </div>
-  );
+          {/* Filter Button */}
+          <button
+            className="px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-sm text-sm font-medium"
+            onClick={() => setFilterDrawerOpen(true)}
+            title="Filter"
+          >
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Filter
+          </button>
+        </div>
+      </div>
 
-  const renderCardView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {data.map((row, index) => (
-        <div 
-          key={index} 
-          className="modern-card p-6 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          onClick={() => onCardClick?.(row)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onCardClick?.(row);
-            }
-          }}
-          tabIndex={0}
-          role="button"
-          aria-label={`View details for ${row[filteredColumns[0]?.accessor] || `item ${index + 1}`}`}
-        >
-          {renderCard ? renderCard(row) : (
-            <div className="text-xs text-gray-400">
-              No card renderer provided
+      {/* Filter Drawer */}
+      <FilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        onApply={() => setFilterDrawerOpen(false)}
+        onReset={() => setFilterStatus('All')}
+        title="Filters"
+      >
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Status</label>
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="w-full border rounded px-3 py-2"
+          >
+            <option value="All">All</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="fulfilled">Fulfilled</option>
+            <option value="restocked">Restocked</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </FilterDrawer>
+
+      {/* Header: Unified Toolbar with Controls */}
+      <div className="flex flex-wrap gap-3 items-center sticky top-0 bg-white z-30 p-3 border-b justify-between">
+        {/* Left side: Fullscreen button and selection info */}
+        <div className="flex items-center gap-3 min-h-[24px]">
+          {/* Fullscreen Button */}
+          <button
+            onClick={() => setIsFullscreen(v => !v)}
+            className={`p-2 rounded-lg border transition-all duration-200 shadow-sm ${
+              isFullscreen 
+                ? 'bg-blue-100 text-blue-700 border-blue-300' 
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Expand to Fullscreen'}
+          >
+            {/* Fullscreen SVG */}
+            {isFullscreen ? (
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 15v2a2 2 0 01-2 2H5m0 0a2 2 0 01-2-2v-2m2 2v-2m10-10h2a2 2 0 012 2v2m0 0V5a2 2 0 00-2-2h-2m2 2h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            ) : (
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h2M4 4l6 6M20 16v2a2 2 0 01-2 2h-2m6-6l-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            )}
+          </button>
+          {/* Selection Info - only show if at least one selected */}
+          <div className="text-sm text-gray-700 font-medium min-h-[24px] flex items-center">
+            {selectedRows.length > 0 && (
+              <span>{selectedRows.length} of {filteredTableData.length} selected</span>
+                  )}
+                </div>
+              </div>
+        {/* Right side: View mode dropdown */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ViewModeDropdown value={viewTypeState} onChange={setViewTypeState} />
+          </div>
+                </div>
+      
+      {/* Table Container with Scroll */}
+      <div className="overflow-auto w-full" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+        {/* Table View */}
+        {viewTypeState === 'table' && (
+          <table className="w-full text-sm text-left table-fixed">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-20 shadow-sm">
+              <tr className="border-b-2 border-gray-200">
+                {/* Checkbox Column */}
+                <th className="w-12 px-3 py-4 font-bold text-gray-900 border-r border-gray-200 bg-white/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    ref={el => {
+                      if (el) el.indeterminate = isIndeterminate;
+                    }}
+                    onChange={handleMasterCheckbox}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2 transition-all duration-200"
+                  />
+                  </div>
+                </th>
+                {/* Serial Number Column */}
+                <th className="w-16 px-3 py-4 font-bold text-gray-900 border-r border-gray-200 bg-white/50 backdrop-blur-sm">
+                  <div className="flex items-center justify-center">
+                    <span className="text-sm font-bold text-gray-900 tracking-wide">S.No</span>
+                  </div>
+                </th>
+                {filteredColumns.map((col) => {
+                  // Determine column width based on content type
+                  let colWidth = 'w-auto';
+                  if (col.header.toLowerCase().includes('image')) {
+                    colWidth = 'w-20';
+                  } else if (col.header.toLowerCase().includes('id')) {
+                    colWidth = 'w-32';
+                  } else if (col.header.toLowerCase().includes('title')) {
+                    colWidth = 'w-48';
+                  } else if (col.header.toLowerCase().includes('vendor')) {
+                    colWidth = 'w-24';
+                  } else if (col.header.toLowerCase().includes('type')) {
+                    colWidth = 'w-28';
+                  } else if (col.header.toLowerCase().includes('status')) {
+                    colWidth = 'w-20';
+                  } else if (col.header.toLowerCase().includes('tags')) {
+                    colWidth = 'w-64';
+                  } else if (col.header.toLowerCase().includes('created') || col.header.toLowerCase().includes('updated')) {
+                    colWidth = 'w-40';
+                  }
+                  
+                  return (
+                    <th key={String(col.accessor)} className={`${colWidth} px-3 py-4 font-semibold text-gray-800 border-r border-gray-200 bg-white/50 backdrop-blur-sm hover:bg-white/70 transition-all duration-200`}>
+                    <div className="flex items-center justify-center group relative">
+                      <div className="flex flex-col items-center min-h-[40px] justify-center">
+                        <span className="text-sm font-bold text-gray-900 tracking-wide group-hover:text-gray-800 transition-colors duration-200 text-center leading-tight">
+                          {col.header}
+                        </span>
+                        {/* Subtle indicator for sortable columns - only show on hover and with better spacing */}
+                        {(col.header.toLowerCase().includes('created') || 
+                          col.header.toLowerCase().includes('date') ||
+                          col.header.toLowerCase().includes('updated') ||
+                          col.header.toLowerCase().includes('title') ||
+                          col.header.toLowerCase().includes('name')) && (
+                          <div className="text-xs text-blue-500 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-medium leading-none">
+                            Sortable
                           </div>
                         )}
                       </div>
-                              ))}
+                      
+                      {/* Interactive Controls - Positioned absolutely to not affect centering */}
+                      <div className="absolute right-1 flex items-center gap-1">
+                      {/* Date sorting dropdown for created_at column */}
+                      {(col.header.toLowerCase().includes('created') || 
+                        col.header.toLowerCase().includes('date') ||
+                        col.header.toLowerCase().includes('updated')) && (
+                          <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowDateSortDropdown(!showDateSortDropdown);
+                            }}
+                              className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all duration-200"
+                            title="Sort by date"
+                          >
+                              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="transition-transform duration-200 hover:scale-110">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                            </svg>
+                          </button>
+                          {showDateSortDropdown && (
+                            <div 
+                                className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[140px] py-1"
+                              data-date-sort-dropdown
+                            >
+                                <div className="px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-100">Sort Options</div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateSortOrder('latest');
+                                    setShowDateSortDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 ${
+                                    dateSortOrder === 'latest' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 font-medium'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4" />
+                                    </svg>
+                                  Latest First
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateSortOrder('oldest');
+                                    setShowDateSortDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 ${
+                                    dateSortOrder === 'oldest' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 font-medium'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                    </svg>
+                                  Oldest First
+                                  </div>
+                                </button>
+                                <div className="border-t border-gray-100 mt-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateSortOrder(null);
+                                    setShowDateSortDropdown(false);
+                                  }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 text-gray-600 font-medium"
+                                >
+                                  Clear Sort
+                                </button>
+                              </div>
                             </div>
-  );
-
-  const renderListView = () => (
-    <div className="space-y-3">
-      {data.map((row, index) => (
-        <div 
-          key={index} 
-          className="modern-card p-4 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          onClick={() => {
-            onCardClick?.(row);
-            setSelectedItemForModal(row);
-            setIsDetailedModalOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onCardClick?.(row);
-              setSelectedItemForModal(row);
-              setIsDetailedModalOpen(true);
-            }
-          }}
-          tabIndex={0}
-          role="button"
-          aria-label={`View details for ${row[filteredColumns[0]?.accessor] || `item ${index + 1}`}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {onRowSelect && (
-                  <input
-                    type="checkbox"
-                  checked={selectedRows.includes(String(row.id || index))}
-                  onChange={() => handleRowSelect(String(row.id || index))}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-              )}
-              
-              {/* Image Section - Show image on the left */}
-              {(() => {
-                const imageColumn = filteredColumns.find(col => 
-                  col.accessor?.includes('image') || 
-                  col.accessor?.includes('Image') ||
-                  col.header?.toLowerCase().includes('image')
+                          )}
+                        </div>
+                      )}
+                        
+                        {/* Title/Name sorting */}
+                        {(col.header.toLowerCase().includes('title') || col.header.toLowerCase().includes('name')) && (
+                          <div className="relative">
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setShowTitleSortDropdown(v => !v);
+                            }}
+                              className="p-1 rounded-md text-gray-500 hover:text-purple-600 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 transition-all duration-200"
+                              title="Sort alphabetically"
+                          >
+                              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="transition-transform duration-200 hover:scale-110">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                            </svg>
+                          </button>
+                          {showTitleSortDropdown && (
+                              <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[140px] py-1">
+                                <div className="px-2 py-1 text-xs font-bold text-gray-700 border-b border-gray-100">Sort Options</div>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setTitleSortOrder('asc');
+                                    setShowTitleSortDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 ${
+                                    titleSortOrder === 'asc' ? 'bg-purple-50 text-purple-600 font-semibold' : 'text-gray-700 font-medium'
+                                  }`}
+                                >
+                                  A → Z
+                                </button>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setTitleSortOrder('desc');
+                                    setShowTitleSortDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 ${
+                                    titleSortOrder === 'desc' ? 'bg-purple-50 text-purple-600 font-semibold' : 'text-gray-700 font-medium'
+                                  }`}
+                                >
+                                  Z → A
+                                </button>
+                                <div className="border-t border-gray-100 mt-1">
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setTitleSortOrder(null);
+                                    setShowTitleSortDropdown(false);
+                                  }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors duration-150 text-gray-600 font-medium"
+                                >
+                                  Clear Sort
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                              </div>
+                    </div>
+                  </th>
                 );
-                if (imageColumn) {
-                  // Use the same comprehensive image extraction logic as the column render function
-                  let imageSrc = null;
-                  
-                  // First, check if the image field is a JSON string that needs to be parsed
-                  if (row.image && typeof row.image === 'string') {
-                    try {
-                      const parsedImage = JSON.parse(row.image);
-                      imageSrc = parsedImage.src || parsedImage.url;
-                    } catch (e) {
-                      // If it's not valid JSON, treat it as a direct URL
-                      imageSrc = row.image;
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTableData.map((row: T, i: number) => (
+                <tr key={i} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors duration-150" onClick={() => handleRowClick(row)}>
+                  {/* Checkbox Cell */}
+                  <td className="w-12 px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.includes(i)}
+                      onChange={handleRowCheckbox(i)}
+                      onClick={e => e.stopPropagation()}
+                      className="rounded border-gray-300"
+                    />
+                  </td>
+                  {/* Serial Number Cell */}
+                  <td className="w-16 px-3 py-3 text-sm font-medium text-gray-700">{(page && pageSize) ? (page - 1) * pageSize + i + 1 : i + 1}</td>
+                  {filteredColumns.map((col) => {
+                    // Determine column width based on content type (same as header)
+                    let colWidth = 'w-auto';
+                    if (col.header.toLowerCase().includes('image')) {
+                      colWidth = 'w-20';
+                    } else if (col.header.toLowerCase().includes('id')) {
+                      colWidth = 'w-32';
+                    } else if (col.header.toLowerCase().includes('title')) {
+                      colWidth = 'w-48';
+                    } else if (col.header.toLowerCase().includes('vendor')) {
+                      colWidth = 'w-24';
+                    } else if (col.header.toLowerCase().includes('type')) {
+                      colWidth = 'w-28';
+                    } else if (col.header.toLowerCase().includes('status')) {
+                      colWidth = 'w-20';
+                    } else if (col.header.toLowerCase().includes('tags')) {
+                      colWidth = 'w-64';
+                    } else if (col.header.toLowerCase().includes('created') || col.header.toLowerCase().includes('updated')) {
+                      colWidth = 'w-40';
                     }
-                  } else if (row.image && typeof row.image === 'object') {
-                    imageSrc = row.image.src || row.image.url;
-                  } else if (row.images && Array.isArray(row.images) && row.images[0]) {
-                    if (typeof row.images[0] === 'string') {
-                      try {
-                        const parsedImage = JSON.parse(row.images[0]);
-                        imageSrc = parsedImage.src || parsedImage.url;
-                      } catch (e) {
-                        imageSrc = row.images[0];
-                      }
-                    } else if (typeof row.images[0] === 'object') {
-                      imageSrc = row.images[0].src || row.images[0].url;
-                    } else {
-                      imageSrc = row.images[0];
-                    }
-                  } else if (row.Item?.image && typeof row.Item.image === 'string') {
-                    try {
-                      const parsedImage = JSON.parse(row.Item.image);
-                      imageSrc = parsedImage.src || parsedImage.url;
-                    } catch (e) {
-                      imageSrc = row.Item.image;
-                    }
-                  } else if (row.Item?.image && typeof row.Item.image === 'object') {
-                    imageSrc = row.Item.image.src || row.Item.image.url;
-                  } else if (row.Item?.images && Array.isArray(row.Item.images) && row.Item.images[0]) {
-                    if (typeof row.Item.images[0] === 'string') {
-                      try {
-                        const parsedImage = JSON.parse(row.Item.images[0]);
-                        imageSrc = parsedImage.src || parsedImage.url;
-                      } catch (e) {
-                        imageSrc = row.Item.images[0];
-                      }
-                    } else if (typeof row.Item.images[0] === 'object') {
-                      imageSrc = row.Item.images[0].src || row.Item.images[0].url;
-                    } else {
-                      imageSrc = row.Item.images[0];
-                    }
-                  } else if (row.designImageUrl && typeof row.designImageUrl === 'string') {
-                    // Design Library specific field
-                    imageSrc = row.designImageUrl;
-                  } else {
-                    // Fallback to direct properties
-                    imageSrc = row.image?.src || row.images?.[0]?.src || row.Item?.image?.src || row.Item?.images?.[0]?.src ||
-                              row.src || row.Item?.src || row.featured_image || row.Item?.featured_image || row.designImageUrl;
-                  }
-                  
-                  if (imageSrc && (imageSrc.includes('.jpg') || imageSrc.includes('.png') || imageSrc.includes('cdn.shopify.com') || imageSrc.includes('s3.amazonaws.com'))) {
-            return (
-                      <div className="flex-shrink-0">
-                        <ImageCell src={imageSrc} alt={imageColumn.header || 'Image'} viewType="list" />
-                </div>
+                    
+                    return (
+                      <td key={String(col.accessor)} className={`${colWidth} px-3 py-3 text-sm text-gray-700 truncate`}>
+                        {col.render ? col.render(row[col.accessor], row) : String(row[col.accessor] ?? '')}
+                      </td>
                     );
-                  }
-                }
-                return null;
-              })()}
-              
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  {renderCellValue(row[filteredColumns[0]?.accessor]) || `Item ${index + 1}`}
-                </h3>
-                <div className="flex items-center space-x-4 mt-1">
-                  {filteredColumns.slice(1).map((column) => {
-                    // Skip image column since we already displayed it on the left
-                    if (column.accessor?.includes('image') || 
-                        column.accessor?.includes('Image') ||
-                        column.header?.toLowerCase().includes('image')) {
-                      return null;
-                    }
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {/* Grid View */}
+      {viewTypeState === 'grid' && (
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+        <div className="grid grid-cols-2 md:grid-cols-8 gap-2 p-2">
+          {filteredTableData.map((row: T, i: number) => {
+            const imgSrc = getImageSrc(row);
+            return (
+              <div
+                key={i}
+                className="relative bg-white border border-blue-200 rounded-lg shadow-sm cursor-pointer overflow-hidden flex flex-col items-stretch justify-end"
+                style={{ width: '100%', aspectRatio: '1/1', minHeight: 0, minWidth: 0 }}
+                onClick={() => handleRowClick(row)}
+              >
+                {/* Image, slightly reduced height */}
+                <div className="w-full" style={{ height: '75%' }}>
+                  {imgSrc ? (
+                    <img
+                      src={imgSrc}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      style={{ display: 'block' }}
+                    />
+                  ) : null}
+                </div>
+                {/* Name/Title (always shown) */}
+                {nameCol && (
+                  <div className="w-full text-center text-xs font-semibold text-gray-800 truncate py-1 bg-white">
+                    {nameCol.render ? nameCol.render(row[nameCol.accessor], row) : String(row[nameCol.accessor] ?? '')}
+                  </div>
+                )}
+                {/* Additional grid fields (selected by user) */}
+                {gridFields.map(accessor => {
+                  const col = columns.find(c => String(c.accessor) === accessor);
+                  if (!col) return null;
                   return (
-                      <span key={column.accessor} className="text-sm text-gray-500 dark:text-gray-400">
-                        {column.header}: {renderCellContent(row[column.accessor], column, row, viewType)}
-                      </span>
+                    <div key={accessor} className="w-full text-center text-xs text-gray-600 truncate pb-1 bg-white">
+                      {col.render ? col.render(row[col.accessor], row) : String(row[col.accessor] ?? '')}
+                    </div>
                   );
                 })}
               </div>
+            );
+          })}
+          </div>
         </div>
+      )}
+      {/* Card View */}
+      {viewTypeState === 'card' && (
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
+          {filteredTableData.map((row: T, i: number) => {
+            const rowAny = row as any;
+            // Extract fields for card
+            const imgSrc = getImageSrc(rowAny);
+            const name = rowAny['name'] ?? rowAny['designName'] ?? rowAny['title'] ?? rowAny['Title'] ?? '';
+            const oldPrice = rowAny['oldPrice'] ?? rowAny['originalPrice'] ?? rowAny['price_before'] ?? rowAny['priceBefore'] ?? rowAny['strikePrice'] ?? rowAny['strikethroughPrice'] ?? rowAny['mrp'] ?? rowAny['MRP'] ?? rowAny['listPrice'] ?? rowAny['ListPrice'] ?? rowAny['old_price'] ?? rowAny['old'] ?? rowAny['price_old'] ?? rowAny['priceOld'] ?? '';
+            const newPrice = rowAny['price'] ?? rowAny['Price'] ?? rowAny['newPrice'] ?? rowAny['currentPrice'] ?? rowAny['salePrice'] ?? rowAny['sale_price'] ?? rowAny['price_new'] ?? rowAny['priceNew'] ?? rowAny['priceAfter'] ?? rowAny['price_after'] ?? rowAny['priceAfterDiscount'] ?? rowAny['discountedPrice'] ?? rowAny['discount_price'] ?? rowAny['discountPrice'] ?? '';
+            // Optional: badge/icon
+            const badge = rowAny['badge'] ?? rowAny['icon'] ?? null;
+            // Show up to 3 extra details (excluding main fields)
+            const mainFields = ['name','designName','title','Title','oldPrice','originalPrice','price_before','priceBefore','strikePrice','strikethroughPrice','mrp','MRP','listPrice','ListPrice','old_price','old','price_old','priceOld','price','Price','newPrice','currentPrice','salePrice','sale_price','price_new','priceNew','priceAfter','price_after','priceAfterDiscount','discountedPrice','discount_price','discountPrice','badge','icon','designImageUrl','image','img','imgUrl','imageUrl','description','desc','DesignDescription'];
+            const extraDetails = filteredColumns.filter(col => !mainFields.includes(String(col.accessor))).slice(0, 3);
+            return (
+                <div 
+                  key={i} 
+                  className="flex flex-row items-center bg-white border rounded-xl shadow p-2 gap-2 min-h-[80px] relative cursor-pointer hover:shadow-md transition-all duration-200 hover:border-blue-300"
+                  onClick={() => handleRowClick(row)}
+                >
+                {/* Badge/Icon */}
+                {badge && (
+                  <div className="absolute top-2 left-2">
+                    <span className="inline-block w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">{badge}</span>
                   </div>
-            <div className="flex items-center space-x-2">
-              <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
-                <Eye size={16} />
-              </button>
-              <button className="p-2 text-gray-500 hover:text-green-600 transition-colors">
-                <Edit size={16} />
-              </button>
-              <button className="p-2 text-gray-500 hover:text-red-600 transition-colors">
-                <Trash2 size={16} />
-              </button>
+                )}
+                {/* Image */}
+                {imgSrc && (
+                  <img src={imgSrc} alt={name} className="w-12 h-12 object-contain rounded border bg-gray-50 mr-2" />
+                )}
+                {/* Card Content */}
+                <div className="flex-1 flex flex-col justify-center min-w-0">
+                  {/* Name/Title */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-base font-bold text-gray-900 truncate">{name}</span>
                   </div>
+                  {/* Price Row */}
+                  <div className="flex items-center gap-2 mt-0.5 mb-0.5">
+                    {oldPrice && (
+                      <span className="text-gray-400 line-through text-xs">{typeof oldPrice === 'number' ? `$${oldPrice.toFixed(2)}` : oldPrice}</span>
+                    )}
+                    {newPrice && (
+                      <span className="text-red-500 font-bold text-sm">{typeof newPrice === 'number' ? `$${newPrice.toFixed(2)}` : newPrice}</span>
+                    )}
                   </div>
+                  {/* Up to 3 extra details */}
+                  {extraDetails.length > 0 && (
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      {extraDetails.map((col, idx) => (
+                        <div key={idx} className="flex text-xs text-gray-700">
+                          <span className="font-semibold mr-1">{col.header}:</span>
+                          {col.render ? col.render(rowAny[col.accessor], rowAny) : String(rowAny[col.accessor] ?? '')}
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
-
-  const renderContent = () => {
-    switch (viewType) {
-      case 'table':
-        return renderTableView();
-      case 'grid':
-        return renderGridView();
-      case 'card':
-        return renderCardView();
-      case 'list':
-        return renderListView();
-      default:
-        return renderTableView();
-    }
-  };
-
-  return (
-    <div className={`modern-card ${className} ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        {/* Selected Data Counter - Left Side */}
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {selectedRows.length > 0 ? `${selectedRows.length}/${data.length}` : `${data.length} items`}
-          </span>
+          })}
+          </div>
         </div>
-        
-        {/* View Mode Toggle Buttons - Right Side */}
-        <div className="flex gap-2 items-center">
-          {/* Fullscreen Button */}
+      )}
+      {/* Load more trigger */}
+        {hasMore && (
+        <div className="w-full flex justify-center py-4">
+            {isLoadingMore ? (
+              <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span className="text-sm text-gray-500">Loading more...</span>
+              </div>
+            ) : (
+              <span className="text-sm text-gray-500">Scroll to load more</span>
+            )}
+          </div>
+        )}
+      {/* Row Details Modal */}
+      {showRowModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 relative w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <button
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-        </button>
-
-          {/* View Type Buttons */}
-          {(['table', 'grid', 'card', 'list'] as const).map((type) => (
+              className="absolute top-2 right-2 text-2xl"
+              onClick={() => setShowRowModal(false)}
+            >×</button>
+            {/* Tabs */}
+            <div className="flex border-b mb-4">
               <button
-              key={type}
-              onClick={() => handleViewTypeChange(type)}
-              className={`p-2 rounded-lg transition-all duration-200 ${
-                viewType === type
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-              title={`${type.charAt(0).toUpperCase() + type.slice(1)} View`}
-            >
-              {getViewIcon(type)}
+                className={`px-4 py-2 font-medium ${modalTab === 'image' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+                onClick={() => setModalTab('image')}
+              >Image & Details</button>
+              <button
+                className={`px-4 py-2 font-medium ${modalTab === 'json' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+                onClick={() => setModalTab('json')}
+              >JSON</button>
+              <button
+                className={`px-4 py-2 font-medium ${modalTab === 'form' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+                onClick={() => setModalTab('form')}
+              >Form</button>
+            </div>
+            {/* Tab Content */}
+            {modalTab === 'image' && (
+              <div className="flex flex-col items-center justify-center min-h-[300px]">
+                {/* Try to find an image field */}
+                {(() => {
+                  const imgSrc = getImageSrc(selectedItem);
+                  return imgSrc ? (
+                    <img src={imgSrc} alt="" className="max-h-80 max-w-full mb-4 rounded shadow" />
+                  ) : (
+                    <div className="text-gray-400 mb-4">No image found</div>
+                  );
+                })()}
+                {/* Show some details */}
+                <div className="w-full flex flex-col items-center">
+                  {Object.entries(selectedItem).map(([key, value]) => (
+                    typeof value !== 'object' && (
+                      <div key={key} className="mb-1">
+                        <span className="font-semibold">{key}:</span> <span>{String(value)}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+            {modalTab === 'json' && (
+              <div className="bg-gray-50 rounded p-2 text-xs overflow-x-auto h-80">
+                <pre>{JSON.stringify(selectedItem, null, 2)}</pre>
+              </div>
+            )}
+            {modalTab === 'form' && (
+              <form className="space-y-2">
+                {Object.entries(selectedItem).map(([key, value]) => (
+                  <div key={key}>
+                    <label className="block font-semibold">{key}</label>
+                    <input
+                      className="w-full border rounded px-2 py-1"
+                      value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      readOnly
+                    />
+                  </div>
+                ))}
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+      {showSaveFilterModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+          <div className="bg-white p-6 rounded shadow-lg">
+            <h2 className="text-lg font-bold mb-2">Save Filter</h2>
+            <input
+              className="border p-2 rounded w-full mb-4"
+              placeholder="Enter filter name"
+              value={filterName}
+              onChange={e => setFilterName(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded"
+                onClick={handleSaveFilter}
+              >
+                Save
               </button>
-          ))}
+              <button
+                className="bg-gray-300 px-4 py-2 rounded"
+                onClick={() => setShowSaveFilterModal(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
-
-      {/* Content */}
-      <div className="p-4">
-        {renderContent()}
-      </div>
-
-      {/* Load More Button for Infinite Scroll */}
-      {enableInfiniteScroll && hasMoreData && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex justify-center">
-            <button
-              onClick={onLoadMore}
-              disabled={isLoadingMore}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoadingMore ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Loading...</span>
-                </div>
-              ) : (
-                'Load More'
-              )}
-            </button>
           </div>
-        </div>
-      )}
-
-      {/* Arrow Pagination - Only show if infinite scroll is disabled */}
-      {enablePagination && !enableInfiniteScroll && totalItems && totalItems > 0 && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <ArrowPagination
-            currentPage={currentPage || 1}
-            totalPages={Math.ceil((totalItems || data.length) / (pageSize || 10))}
-            onPageChange={onPageChange || (() => {})}
-            disabled={false}
-          />
-        </div>
-      )}
-
-      {/* Detailed Modal */}
-      <DetailedModal
-        item={selectedItemForModal}
-        isOpen={isDetailedModalOpen}
-        onClose={() => {
-          setIsDetailedModalOpen(false);
-          setSelectedItemForModal(null);
-        }}
-        columns={filteredColumns}
-      />
+        )}
     </div>
   );
 } 
+
+export default DataView; 

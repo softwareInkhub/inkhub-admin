@@ -142,7 +142,7 @@ async function fetchResourceBatched(resource: any) {
         while (chunkBuffer.length >= resource.limit) {
           const chunk = chunkBuffer.slice(0, resource.limit);
           const chunkKey = `${resource.key}:page:${chunkPage}`;
-          await redis.set(chunkKey, JSON.stringify(chunk), 'EX', resource.ttl);
+          await setLastKey(chunkKey, JSON.stringify(chunk));
           console.log(`[SystemLoad] Buffered chunk: Stored ${chunk.length} items in Redis at key: ${chunkKey}`);
           chunkBuffer = chunkBuffer.slice(resource.limit);
           chunkPage++;
@@ -170,7 +170,7 @@ async function fetchResourceBatched(resource: any) {
         // Write any remaining orders in the buffer as the final chunk
         if (chunkBuffer.length > 0) {
           const chunkKey = `${resource.key}:page:${chunkPage}`;
-          await redis.set(chunkKey, JSON.stringify(chunkBuffer), 'EX', resource.ttl);
+          await setLastKey(chunkKey, JSON.stringify(chunkBuffer));
           console.log(`[SystemLoad] Final buffered chunk: Stored ${chunkBuffer.length} items in Redis at key: ${chunkKey}`);
         }
         // Optionally, you can store just the total count or a summary, but do not store all items in memory

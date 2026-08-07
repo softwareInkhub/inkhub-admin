@@ -9,19 +9,15 @@ export async function GET(req: NextRequest) {
         project: 'myproject',
         table: 'admin-design-image'
       },
-      { 
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 5000 // 5 second timeout
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     );
     
     return NextResponse.json(response.data);
   } catch (error: any) {
     console.error('Error fetching design library cache:', error);
-    // Return empty data instead of error to prevent build failures
     return NextResponse.json(
-      { items: [], total: 0, message: 'Cache service unavailable' },
-      { status: 200 }
+      { error: error.message || 'Failed to fetch design library cache' },
+      { status: 500 }
     );
   }
 } 

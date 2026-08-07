@@ -1,8 +1,9 @@
 import {
   CognitoUserPool,
-  CognitoUserAttribute,
+  ICognitoUserAttributeData,
   AuthenticationDetails,
   CognitoUser,
+  CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,18 +16,17 @@ const userPool = new CognitoUserPool(poolData);
 
 export const registerUser = (username: string, email: string, password: string, role: string): Promise<any> => {
   return new Promise((resolve, reject) => {
-    const attributeList: CognitoUserAttribute[] = [
-      new CognitoUserAttribute({
+    const attributeData: ICognitoUserAttributeData[] = [
+      {
         Name: 'email',
         Value: email,
-      }),
-      // IMPORTANT: You must create a "custom attribute" in your Cognito User Pool
-      // called "role" for this to work.
-      new CognitoUserAttribute({
+      },
+      {
         Name: 'custom:role',
         Value: role,
-      }),
+      },
     ];
+    const attributeList = attributeData.map(attr => new CognitoUserAttribute(attr));
 
     userPool.signUp(username, password, attributeList, [], (err, result) => {
       if (err) {

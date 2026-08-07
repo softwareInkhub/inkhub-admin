@@ -32,19 +32,19 @@ function convertDynamoDBItem(dynamoItem: any): any {
   for (const [key, value] of Object.entries(dynamoItem)) {
     if (value && typeof value === 'object') {
       if ('S' in value) {
-        converted[key] = value.S;
+        converted[key] = value.S as string;
       } else if ('N' in value) {
         converted[key] = parseFloat(value.N as string);
       } else if ('BOOL' in value) {
-        converted[key] = value.BOOL;
+        converted[key] = value.BOOL as boolean;
       } else if ('NULL' in value) {
         converted[key] = null;
       } else if ('L' in value) {
         converted[key] = (value.L as any[]).map((item: any) => convertDynamoDBItem(item));
       } else if ('M' in value) {
-        converted[key] = convertDynamoDBItem(value.M);
+        converted[key] = convertDynamoDBItem(value.M as any);
       } else if ('SS' in value) {
-        converted[key] = value.SS;
+        converted[key] = value.SS as string[];
       } else if ('NS' in value) {
         converted[key] = (value.NS as string[]).map((n: string) => parseFloat(n));
       }

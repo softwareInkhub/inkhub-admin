@@ -24,7 +24,7 @@ const resourceIcons: Record<string, React.ReactNode> = {
 };
 
 const tableMap: Record<string, string> = {
-  orders: "shopify-inkhub-get-orders",
+  orders: "shopify_inkhub_get_orders",
   products: "shopify-inkhub-get-products",
   pins: "pinterest_inkhub_get_pins",
   boards: "pinterest_inkhub_get_boards",
@@ -65,13 +65,13 @@ export default function SystemLoadStatus({ resources, onRefresh, onStart }: Syst
         if (table) {
           try {
             // Fetch cache keys
-            const res = await axios.get('http://localhost:5001/cache/data', {
+            const res = await axios.get('/api/cache/data', {
               params: { project: 'my-app', table }
             });
             const keys = res.data.keys || [];
             counts[resource.key] = Array.isArray(keys) ? keys.length : 0;
             // Fetch cache stats
-            const statsRes = await axios.get('http://localhost:5001/cache/stats', {
+            const statsRes = await axios.get('/api/cache/stats', {
               params: { project: 'my-app', table }
             });
             stats[resource.key] = statsRes.data.stats || {};

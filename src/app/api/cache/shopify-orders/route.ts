@@ -7,21 +7,17 @@ export async function GET(req: NextRequest) {
       'https://8jo83n4y51.execute-api.us-east-1.amazonaws.com/default/fetchCachedTableData',
       {
         project: 'myproject',
-        table: 'shopify-inkhub-get-orders'
+        table: 'shopify_inkhub_get_orders'
       },
-      { 
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 5000 // 5 second timeout
-      }
+      { headers: { 'Content-Type': 'application/json' } }
     );
     
     return NextResponse.json(response.data);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching Shopify orders cache:', error);
-    // Return empty data instead of error to prevent build failures
     return NextResponse.json(
-      { items: [], total: 0, message: 'Cache service unavailable' },
-      { status: 200 }
+      { error: error instanceof Error ? error.message : 'Failed to fetch Shopify orders cache' },
+      { status: 500 }
     );
   }
 } 

@@ -1,18 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '@/store/store';
+import { fetchOrders } from '@/store/slices/shopifySlice';
 import DataView from '@/components/common/DataView';
+import { OrdersAnalyticsOptions } from '../ShopifyAnalyticsBar';
+import lodashGroupBy from 'lodash/groupBy';
+import UniversalAnalyticsBar from '@/components/common/UniversalAnalyticsBar';
+import UniversalOperationBar from '@/components/common/UniversalOperationBar';
+import DecoupledHeader from '@/components/common/DecoupledHeader';
+import ViewsBar from '@/components/common/ViewsBar';
+import { fetchAllChunks } from '@/utils/cache';
 import { format } from 'date-fns';
-import UnifiedDataHeader from '@/components/common/UnifiedDataHeader';
-import { useRef } from 'react';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import FilterBar from '@/components/common/FilterBar';
 import { fetchOrderChunkKeys, fetchOrderChunk } from '@/utils/cache';
-import Pagination from '@/components/common/Pagination';
-import OrderCard from '@/components/cards/OrderCard';
-import OrderImageCard from '@/components/cards/OrderImageCard';
-import CreateFilterModal from '@/components/common/CreateFilterModal';
+import type { DataViewColumn } from '@/components/common/DataView';
 
 interface OrdersClientProps {
   initialData: {
@@ -48,22 +54,13 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const [chunkKeys, setChunkKeys] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(2000); // Each chunk is a page
-  
-  // View type state
-  const [viewType, setViewType] = useState<'table' | 'grid' | 'card' | 'list'>('table');
-  
-  // Button dropdown states
-  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
-  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
-  const [selectedDownloadFields, setSelectedDownloadFields] = useState<string[]>([]);
-  const [selectedDownloadFormat, setSelectedDownloadFormat] = useState<string>('JSON');
-  
-  // Filter tags state
-  const [activeFilters, setActiveFilters] = useState<Array<{ key: string; value: string; label?: string }>>([]);
-  
-  // Search filter state
-  const [selectedSearchFilter, setSelectedSearchFilter] = useState<string>('');
-  const [showSearchFilterDropdown, setShowSearchFilterDropdown] = useState(false);
+
+  // Load more states
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadedChunks, setLoadedChunks] = useState<any[]>([]);
+  const [allAvailableData, setAllAvailableData] = useState<any[]>([]);
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
 
   // Fetch chunk keys on mount
   useEffect(() => {
@@ -71,16 +68,19 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
       setLoading(true);
       setError(null);
       try {
-        const keys = await fetchOrderChunkKeys('shopify-inkhub-get-orders');
+        const keys = await fetchOrderChunkKeys('shopify_inkhub_get_orders');
         setChunkKeys(keys);
         setTotalOrders(keys.length * pageSize); // Approximate total
-        // Load first chunk
-        if (keys.length > 0) {
-          const match = keys[0].match(/chunk:(\d+)/);
-          const chunkNumber = match ? parseInt(match[1], 10) : 0;
-          const items = await fetchOrderChunk('shopify-inkhub-get-orders', chunkNumber);
-          setOrders(items);
-        }
+        
+        // Load all available data
+        const allItems = await fetchAllChunks('shopify_inkhub_get_orders');
+        setAllAvailableData(allItems);
+        
+        // Initially load first chunk (first 100 items)
+        const initialChunk = allItems.slice(0, 100);
+        setLoadedChunks(initialChunk);
+        setHasMore(allItems.length > 100);
+        setIsFullyLoaded(false);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch order chunks');
       } finally {
@@ -90,29 +90,43 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     loadChunkKeys();
   }, []);
 
-  // Load chunk when page changes
-  useEffect(() => {
-    async function loadChunk() {
-      if (!chunkKeys.length) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const key = chunkKeys[currentPage - 1];
-        const match = key.match(/chunk:(\d+)/);
-        const chunkNumber = match ? parseInt(match[1], 10) : 0;
-        const items = await fetchOrderChunk('shopify-inkhub-get-orders', chunkNumber);
-        setOrders(items);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch order chunk');
-      } finally {
-        setLoading(false);
+  // Load more functionality
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Load next chunk of data (next 100 items)
+      const currentCount = loadedChunks.length;
+      const nextChunk = allAvailableData.slice(currentCount, currentCount + 100);
+      
+      if (nextChunk.length > 0) {
+        setLoadedChunks(prev => [...prev, ...nextChunk]);
+        const newCount = currentCount + nextChunk.length;
+        setHasMore(newCount < allAvailableData.length);
+        setIsFullyLoaded(newCount >= allAvailableData.length);
+      } else {
+        setHasMore(false);
+        setIsFullyLoaded(true);
       }
+    } catch (err: any) {
+      console.error('Failed to load more orders:', err);
+    } finally {
+      setIsLoadingMore(false);
     }
-    if (chunkKeys.length) loadChunk();
-  }, [currentPage, chunkKeys]);
+  };
+
+  // Load less functionality
+  const handleLoadLess = () => {
+    // Reset to initial chunk (first 100 items)
+    const initialChunk = allAvailableData.slice(0, 100);
+    setLoadedChunks(initialChunk);
+    setHasMore(allAvailableData.length > 100);
+    setIsFullyLoaded(false);
+  };
 
   // Flatten orders if needed - add null check
-  const flatOrders = orders?.map(order => order.Item || order.item || order) || [];
+  const flatOrders = loadedChunks || [];
 
   const [analytics, setAnalytics] = useState({ filter: 'All', groupBy: 'None', aggregate: 'Count' });
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -191,7 +205,6 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const [savedFilters, setSavedFilters] = useState<any[]>([]);
   const [activeSavedFilter, setActiveSavedFilter] = useState<any | null>(null);
   const [dataOverride, setDataOverride] = useState<any[] | null>(null);
-  const [showCreateFilterModal, setShowCreateFilterModal] = useState(false);
 
   // Fetch saved filters for this user and page
   useEffect(() => {
@@ -203,6 +216,16 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   }, []);
 
   const handleApplySavedFilter = (filter: any) => {
+    if (!filter) {
+      setActiveSavedFilter(null);
+      setDataOverride(null);
+      setStatus('All');
+      setFulfillment('All');
+      setDateRange({ startDate: null, endDate: null, key: 'selection' });
+      setSmartField('order_number');
+      setSmartValue('');
+      return;
+    }
     if (activeSavedFilter && activeSavedFilter.id === filter.id) {
       setActiveSavedFilter(null);
       setDataOverride(null);
@@ -214,6 +237,27 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     }
   };
 
+  // Add edit functionality for saved filters
+  const handleEditSavedFilter = (filter: any) => {
+    // For now, we'll use a simple prompt to edit the filter name
+    // You can replace this with a proper modal/form later
+    const newName = prompt('Edit filter name:', filter.filterName || 'Unnamed');
+    if (newName && newName.trim() !== filter.filterName) {
+      // Update the filter name
+      const updatedFilter = { ...filter, filterName: newName.trim() };
+      
+      // Update the saved filters list
+      setSavedFilters(prev => prev.map(f => f.id === filter.id ? updatedFilter : f));
+      
+      // If this filter is currently active, update the active filter
+      if (activeSavedFilter?.id === filter.id) {
+        setActiveSavedFilter(updatedFilter);
+      }
+      
+      // You could also save this to the backend here
+      // fetch('/api/saved-filters', { method: 'PUT', body: JSON.stringify(updatedFilter) });
+    }
+  };
 
 
   // Add error boundary for failed data fetches
@@ -232,45 +276,6 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     }
   }, [loading]);
 
-  // Real-time search functionality
-  useEffect(() => {
-    if (smartValue.trim()) {
-      const searchTerm = smartValue.toLowerCase();
-      const searchResults = flatOrders.filter((order: any) => {
-        // Search across multiple fields
-        const searchableFields = [
-          order.order_number?.toString() || '',
-          order.customer?.first_name || '',
-          order.customer?.last_name || '',
-          order.customer?.email || '',
-          order.email || '',
-          order.phone || '',
-          order.customer?.phone || '',
-          order.total_price?.toString() || '',
-          order.financial_status || '',
-          order.fulfillment_status || '',
-          order.created_at || '',
-          order.updated_at || '',
-          // Search in line items
-          ...(Array.isArray(order.line_items) ? order.line_items.map((item: any) => item.title || '').join(' ') : []),
-          // Search in customer name combinations
-          `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim(),
-          order.full_name || ''
-        ];
-        
-        return searchableFields.some(field => 
-          field.toLowerCase().includes(searchTerm)
-        );
-      });
-      
-      setDataOverride(searchResults);
-      console.log(`Found ${searchResults.length} orders matching "${smartValue}"`);
-    } else {
-      // Clear search - show all data
-      setDataOverride(null);
-    }
-  }, [smartValue, flatOrders]);
-
   // Build filter options from data
   const statusOptions = ['All', ...Array.from(new Set(flatOrders.map((d: any) => d.financial_status).filter(Boolean)))];
   const fulfillmentOptions = ['All', ...Array.from(new Set(flatOrders.map((d: any) => d.fulfillment_status).filter(Boolean)))];
@@ -287,10 +292,10 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     { label: 'Updated', value: 'updated_at' },
   ];
 
-  const columns = [
+  const columns: DataViewColumn<any>[] = [
     { 
       header: 'Order #', 
-      accessor: 'order_number',
+      accessor: 'order_number' as keyof any,
       render: (value: any, row: any) => value?.toString() ?? row.order_number?.toString() ?? ''
     },
     { 
@@ -347,7 +352,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   const filteredColumns = columns.filter(col => visibleColumns.includes(col.accessor as string));
 
   // Multi-filter logic
-  let filteredOrders = flatOrders.filter((row: any) =>
+  let filteredOrders = loadedChunks.filter((row: any) =>
     (status === 'All' || row.financial_status === status) &&
     (fulfillment === 'All' || row.fulfillment_status === fulfillment)
   );
@@ -380,7 +385,7 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
         } else {
           value = row[col.accessor];
         }
-        if (typeof value === 'object') value = '[Object]';
+        if (typeof value === 'object') value = JSON.stringify(value);
         return String(value ?? '').toLowerCase().includes(debouncedSmartValue.toLowerCase());
       });
     });
@@ -416,67 +421,28 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
 
 
 
-  // Enhanced search functionality that works with local data
+  // Remove debounce effect and trigger search only on button click
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setDebouncedSmartValue(smartValue);
-    
-    if (smartValue.trim()) {
-      // Search through local data first
-      const searchTerm = smartValue.toLowerCase();
-      const searchResults = flatOrders.filter((order: any) => {
-        // Search across multiple fields
-        const searchableFields = [
-          order.order_number?.toString() || '',
-          order.customer?.first_name || '',
-          order.customer?.last_name || '',
-          order.customer?.email || '',
-          order.email || '',
-          order.phone || '',
-          order.customer?.phone || '',
-          order.total_price?.toString() || '',
-          order.financial_status || '',
-          order.fulfillment_status || '',
-          order.created_at || '',
-          order.updated_at || '',
-          // Search in line items
-          ...(Array.isArray(order.line_items) ? order.line_items.map((item: any) => item.title || '').join(' ') : []),
-          // Search in customer name combinations
-          `${order.customer?.first_name || ''} ${order.customer?.last_name || ''}`.trim(),
-          order.full_name || ''
-        ];
-        
-        return searchableFields.some(field => 
-          field.toLowerCase().includes(searchTerm)
-        );
-      });
-      
-      // Set local search results
-      setDataOverride(searchResults);
-      console.log(`Found ${searchResults.length} orders matching "${smartValue}"`);
-      
-      // Also try Algolia search if available
-      if (algoliaClient) {
-        setIsAlgoliaSearch(true);
-        setAlgoliaPage(0);
-        try {
-          const { results } = await algoliaClient.search([
-            { indexName: ALGOLIA_INDEX, query: smartValue, params: { page: 0, hitsPerPage: ALGOLIA_PAGE_SIZE } }
-          ]);
-          const hits = results[0]?.hits || [];
-          const nbHits = results[0]?.nbHits || 0;
-          setAlgoliaResults(hits);
-          setAlgoliaTotal(nbHits);
-          console.log('Total records in Algolia index', ALGOLIA_INDEX, ':', nbHits);
-        } catch (err) {
-          setAlgoliaResults([]);
-          setAlgoliaTotal(0);
-          console.error('Algolia search error:', err);
-        }
+    if (smartValue.trim() && algoliaClient) {
+      setIsAlgoliaSearch(true);
+      setAlgoliaPage(0); // reset to first page
+      try {
+        const { results } = await algoliaClient.search([
+          { indexName: ALGOLIA_INDEX, query: smartValue, params: { page: 0, hitsPerPage: ALGOLIA_PAGE_SIZE } }
+        ]);
+        const hits = results[0]?.hits || [];
+        const nbHits = results[0]?.nbHits || 0;
+        setAlgoliaResults(hits);
+        setAlgoliaTotal(nbHits);
+        console.log('Total records in Algolia index', ALGOLIA_INDEX, ':', nbHits);
+      } catch (err) {
+        setAlgoliaResults([]);
+        setAlgoliaTotal(0);
+        console.error('Algolia search error:', err);
       }
     } else {
-      // Clear search - show all data
-      setDataOverride(null);
       setIsAlgoliaSearch(false);
       setAlgoliaResults([]);
       setAlgoliaTotal(0);
@@ -504,194 +470,6 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
   };
 
   const shopifyOrdersLoadedCount = useShopifyOrdersLoadedCount();
-
-  // Button handlers
-  const handleDownloadClick = () => {
-    setShowDownloadDropdown(!showDownloadDropdown);
-    setShowColumnDropdown(false);
-  };
-
-  const handleColumnsClick = () => {
-    setShowColumnDropdown(!showColumnDropdown);
-    setShowDownloadDropdown(false);
-  };
-
-  const handleSaveFilterClick = () => {
-    // This will be handled by the DataView component
-    console.log('Save filter clicked');
-  };
-
-  const handleCopyClick = () => {
-    // Copy filtered data to clipboard
-    const dataToCopy = dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders);
-    
-    // If no download fields are selected, copy all visible columns
-    const fieldsToCopy = selectedDownloadFields.length > 0 
-      ? selectedDownloadFields 
-      : visibleColumns;
-    
-    const filtered = dataToCopy.map(row => {
-      const obj: any = {};
-      fieldsToCopy.forEach(field => {
-        // Handle nested object access (e.g., 'customer.first_name')
-        const fieldParts = field.split('.');
-        let value = row;
-        for (const part of fieldParts) {
-          value = value?.[part];
-        }
-        obj[field] = value;
-      });
-      return obj;
-    });
-    
-    const jsonString = JSON.stringify(filtered, null, 2);
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(jsonString).then(() => {
-      console.log('Data copied to clipboard');
-      // Show success feedback
-      alert('Data copied to clipboard successfully!');
-    }).catch(err => {
-      console.error('Failed to copy to clipboard:', err);
-      // Show error feedback
-      alert('Failed to copy data to clipboard. Please try again.');
-    });
-  };
-
-  const handleRemoveFilter = (key: string) => {
-    setActiveFilters(prev => prev.filter(filter => filter.key !== key));
-    // You can add additional logic here to reset the specific filter
-    console.log('Removed filter:', key);
-  };
-
-  const handleSearchFilterDropdownToggle = () => {
-    setShowSearchFilterDropdown(!showSearchFilterDropdown);
-  };
-
-  const handleSearchFilterChange = (filter: string) => {
-    setSelectedSearchFilter(filter);
-    setSmartField(filter);
-    setShowSearchFilterDropdown(false);
-    // If there's a current search value, re-run the search with the new field
-    if (smartValue.trim()) {
-      handleSearch();
-    }
-  };
-
-  // Row selection handler
-  const handleRowSelect = (rowId: string, selected: boolean) => {
-    if (selected) {
-      setSelectedRows(prev => [...prev, rowId]);
-    } else {
-      setSelectedRows(prev => prev.filter(id => id !== rowId));
-    }
-  };
-
-  // Select all handler
-  const handleSelectAll = (selected: boolean) => {
-    if (selected) {
-      const allRowIds = (dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders)).map((row, index) => String(row.id || index));
-      setSelectedRows(allRowIds);
-    } else {
-      setSelectedRows([]);
-    }
-  };
-
-  // View type change handler
-  const handleViewTypeChange = (newViewType: 'table' | 'grid' | 'card' | 'list') => {
-    setViewType(newViewType);
-  };
-
-  // Example function to add filters (you can call this from your filter logic)
-  const addSampleFilters = () => {
-    setActiveFilters([
-      { key: 'status', value: 'paid', label: 'Status: Paid' },
-      { key: 'customer', value: 'john', label: 'Customer: John' }
-    ]);
-  };
-
-  // Search filter options
-  const searchFilterOptions = [
-    { value: 'order_number', label: 'Order Number' },
-    { value: 'customer', label: 'Customer Name' },
-    { value: 'customer_email', label: 'Email' },
-    { value: 'phone', label: 'Phone' },
-    { value: 'total_price', label: 'Total Price' },
-    { value: 'financial_status', label: 'Status' },
-    { value: 'fulfillment_status', label: 'Fulfillment' }
-  ];
-
-  const handleDownload = () => {
-    if (!selectedDownloadFields.length || !selectedDownloadFormat) return;
-    
-    const dataToDownload = dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders);
-    const filtered = dataToDownload.map(row => {
-      const obj: any = {};
-      selectedDownloadFields.forEach(field => {
-        obj[field] = row[field];
-      });
-      return obj;
-    });
-
-    if (selectedDownloadFormat === 'JSON') {
-      const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'orders_data.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } else if (selectedDownloadFormat === 'CSV') {
-      const csvData = convertToCSV(filtered, selectedDownloadFields);
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'orders_data.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } else if (selectedDownloadFormat === 'PDF') {
-      // PDF download placeholder
-      console.log('PDF download not implemented yet');
-      alert('PDF download feature coming soon!');
-    }
-    
-    setShowDownloadDropdown(false);
-  };
-
-  // Helper function to convert data to CSV
-  const convertToCSV = (data: any[], fields: string[]) => {
-    if (!data.length) return '';
-    
-    const headers = fields.map(field => {
-      const column = columns.find(col => col.accessor === field);
-      return column ? column.header : field;
-    });
-    
-    const rows = data.map(row => {
-      return fields.map(field => {
-        const value = row[field];
-        // Handle nested objects and arrays
-        if (typeof value === 'object' && value !== null) {
-          // Don't include object values in CSV - just show empty string
-          return '';
-        }
-        return value || '';
-      });
-    });
-    
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    
-    return csvContent;
-  };
-
-
 
   // Add effect to clear Algolia search when search box is cleared
   useEffect(() => {
@@ -727,182 +505,79 @@ export default function OrdersClient({ initialData }: OrdersClientProps) {
     );
   }
 
-  const handleDeleteItem = (item: any) => {
-    // Remove the item from the orders array
-    setOrders(prevOrders => prevOrders.filter(order => order.id !== item.id));
-    console.log('Deleted order:', item);
-    alert('Order deleted successfully!');
-  };
-
-  const handleViewItem = (item: any) => {
-    console.log('Viewing order:', item);
-  };
-
-  const handleEditItem = (item: any) => {
-    console.log('Editing order:', item);
-  };
-
-  const handleCreateFilter = (newFilter: any) => {
-    console.log('Creating new filter:', newFilter);
-    // Add the new filter to saved filters
-    setSavedFilters(prev => [...prev, newFilter]);
-    // You could also save to localStorage or API here
-  };
-
   return (
-    <div className="flex flex-col h-full">
-      <UnifiedDataHeader
-        // Analytics cards
-        analyticsCards={[
-          {
-            label: "Total Data",
-            value: totalOrders.toLocaleString(),
-            color: "blue",
-            icon: <div className="w-6 h-6 bg-blue-500 rounded"></div>
-          },
-          {
-            label: smartValue.trim() ? "Search Results" : "Loaded Data",
-            value: (dataOverride || flatOrders).length.toLocaleString(),
-            color: "green",
-            icon: <div className="w-6 h-6 bg-green-500 rounded"></div>
-          },
-          {
-            label: "Algolia Count",
-            value: algoliaTotalRecords?.toLocaleString() || "0",
-            color: "purple",
-            gradient: true
-          },
-          ...Array.from({ length: 8 }, (_, i) => ({
-            label: `Box ${i + 4}`,
-            value: "--",
-            color: "gray" as const
-          }))
-        ]}
-        
-        // Filter tabs
-        filterTabs={savedFilters.map((filter) => ({
-          id: filter.id,
-          name: filter.filterName || 'Unnamed',
-          type: 'filter' as const,
-          active: activeSavedFilter?.id === filter.id,
-          count: filter.count || 0
-        }))}
-        activeTabId={activeSavedFilter?.id}
-        onTabChange={(tabId) => {
-          if (tabId === 'all') {
-            setActiveSavedFilter(null);
-            setDataOverride(null);
-          } else {
-            const filter = savedFilters.find(f => f.id === tabId);
-            if (filter) {
-              handleApplySavedFilter(filter);
-            }
-          }
-        }}
-        showCreateFilterButton={true}
-        onCreateFilter={() => setShowCreateFilterModal(true)}
-        
-        // Search functionality
-        searchValue={smartValue}
-        onSearchChange={setSmartValue}
-        onSearchSubmit={handleSearch}
-        searchPlaceholder="Search orders by number, customer, email, phone, total, status..."
-        
-        // Search filter
-        showSearchFilter={true}
-        searchFilterOptions={searchFilterOptions}
-        selectedSearchFilter={selectedSearchFilter}
-        onSearchFilterChange={handleSearchFilterChange}
-        showSearchFilterDropdown={showSearchFilterDropdown}
-        onSearchFilterDropdownToggle={handleSearchFilterDropdownToggle}
-        
-        // Action buttons
-        onDownload={handleDownloadClick}
-        onCopy={handleCopyClick}
-        onColumns={handleColumnsClick}
-        onSaveFilter={handleSaveFilterClick}
-        showDownload={true}
-        showCopy={true}
-        showColumns={true}
-        showSaveFilter={true}
-        downloadDisabled={false}
-        copyDisabled={false}
-        columnsDisabled={false}
-        saveFilterDisabled={false}
-        
-        // Filter tags
-        showFilterTags={true}
-        activeFilters={activeFilters}
-        onRemoveFilter={handleRemoveFilter}
-        
-        // Download dropdown
-        showDownloadDropdown={showDownloadDropdown}
-        selectedDownloadFormat={selectedDownloadFormat}
-        onDownloadFormatChange={setSelectedDownloadFormat}
-        
-        // Additional dropdown props
-        showColumnDropdown={showColumnDropdown}
-        selectedDownloadFields={selectedDownloadFields}
-        visibleColumns={visibleColumns}
-        onVisibleColumnsChange={setVisibleColumns}
-        columns={columns}
-        onDownloadFieldsChange={setSelectedDownloadFields}
-        onDownloadExecute={handleDownload}
+    <div className="flex flex-col w-full">
+      <UniversalAnalyticsBar
+        section="shopify"
+        tabKey="orders"
+        total={allAvailableData.length}
+        currentCount={loadedChunks.length}
+        algoliaTotal={algoliaTotalRecords}
       />
-      
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-auto">
+      <ViewsBar
+        savedFilters={savedFilters}
+        onSelect={handleApplySavedFilter}
+        onEdit={handleEditSavedFilter}
+        activeFilterId={activeSavedFilter?.id}
+      />
+      <UniversalOperationBar 
+        section="shopify" 
+        tabKey="orders" 
+        analytics={analytics} 
+        data={loadedChunks}
+        selectedData={selectedRows}
+      />
+      {/* Remove FilterBar search bar above DataView */}
+      <div className="flex-1 min-h-0 w-full">
+        <div className="bg-white rounded-lg shadow h-full overflow-auto w-full relative" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           <DataView
-            data={dataOverride || (isAlgoliaSearch ? algoliaResults : filteredOrders)}
+            data={dataOverride || filteredOrders}
             columns={filteredColumns}
-            viewType={viewType}
-            onViewTypeChange={handleViewTypeChange}
-            onRowSelect={handleRowSelect}
-            selectedRows={selectedRows}
-            onSelectAll={handleSelectAll}
-            // Pagination props
-            enablePagination={true}
-            totalItems={totalOrders}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(newPageSize) => {
-              // For now, we'll keep the existing pageSize logic
-              // This could be enhanced to actually change the page size
-            }}
-            renderCard={order => <OrderImageCard order={order} />}
-            // Action handlers
-            onViewItem={handleViewItem}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
-            showActions={viewType !== 'card'}
-            // Column filtering
-            visibleColumns={visibleColumns}
-            onVisibleColumnsChange={setVisibleColumns}
-            // Card click handler
-            onCardClick={handleViewItem}
+            section="shopify"
+            tabKey="orders"
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
+          {/* Load More Button - fixed to bottom right */}
+          {hasMore && (
+            <div className="fixed bottom-6 right-8 z-40">
+              <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Load More Data
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {isFullyLoaded && (
+            <div className="fixed bottom-6 right-8 z-40">
+              <button
+                onClick={handleLoadLess}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Load Less Data
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Create Filter Modal */}
-      <CreateFilterModal
-        isOpen={showCreateFilterModal}
-        onClose={() => setShowCreateFilterModal(false)}
-        onCreateFilter={handleCreateFilter}
-        availableFields={[
-          { value: 'order_number', label: 'Order Number' },
-          { value: 'customer', label: 'Customer' },
-          { value: 'customer_email', label: 'Email' },
-          { value: 'phone', label: 'Phone' },
-          { value: 'total_price', label: 'Total' },
-          { value: 'financial_status', label: 'Status' },
-          { value: 'fulfillment_status', label: 'Fulfillment' },
-          { value: 'line_items', label: 'Items' },
-          { value: 'created_at', label: 'Created At' },
-          { value: 'updated_at', label: 'Updated At' }
-        ]}
-      />
     </div>
   );
 } 

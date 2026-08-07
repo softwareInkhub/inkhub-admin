@@ -1,123 +1,114 @@
 'use client';
-import React, { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Palette, 
-  Settings, 
-  Users, 
-  ChevronLeft, 
-  ChevronRight,
-  Home,
-  BarChart3,
-  Bell,
-  MessageSquare,
-  Sun,
-  Moon
-} from 'lucide-react';
-import PinterestLogo from '../icons/PinterestLogo';
-import ShopifyLogo from '../icons/ShopifyLogo';
+
+import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  BookOpenIcon,
+  HomeIcon,
+  Cog6ToothIcon,
+  UserGroupIcon,
+} from '@heroicons/react/24/outline';
+import { SiPinterest, SiShopify } from 'react-icons/si';
 
 interface SidebarProps {
-  activeTab?: string;
-  onNavClick?: (section: string) => void;
+  onSectionSelect: (section: string) => void;
 }
 
-export default function Sidebar({ activeTab, onNavClick }: SidebarProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const router = useRouter();
+const navigation = [
+  { name: 'Home', key: 'home', icon: HomeIcon },
+  { name: 'Shopify', key: 'shopify', icon: SiShopify },
+  { name: 'Pinterest', key: 'pinterest', icon: SiPinterest },
+  { name: 'Design Library', key: 'design-library', icon: BookOpenIcon },
+  { name: 'User Management', key: 'user-management', icon: UserGroupIcon },
+];
+
+const settingsNav = { name: 'Settings', key: 'settings', icon: Cog6ToothIcon };
+
+export default function Sidebar({ onSectionSelect }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [activeSection, setActiveSection] = useState<string>('');
 
-  const mainNavItems = [
-    { name: 'Dashboard', icon: <Home size={20} />, href: '/' },
-    { name: 'Shopify', icon: <ShopifyLogo size={20} />, href: '/shopify' },
-    { name: 'Pinterest', icon: <PinterestLogo size={20} />, href: '/pinterest' },
-    { name: 'Design Library', icon: <Palette size={20} />, href: '/design-library' },
-    { name: 'Settings', icon: <Settings size={20} />, href: '/settings' },
-    { name: 'User Management', icon: <Users size={20} />, href: '/user-management' },
-  ];
-
-  const handleMainNavClick = (item: any) => {
-    const section = item.name.toLowerCase().replace(' ', '-');
-    console.log('Main sidebar item clicked:', item.name, 'section:', section);
-    onNavClick?.(section);
-    router.push(item.href);
+  const handleIconClick = (section: string) => {
+    setActiveSection(section);
+    
+    // Handle navigation based on section
+    if (section === 'home') {
+      // Navigate to home page
+      router.push('/');
+    } else {
+      // For other sections, call the onSectionSelect callback
+      onSectionSelect(section);
+    }
   };
-
-  const getActiveSidebarTab = () => {
-    if (pathname === '/') return 'dashboard';
-    if (pathname.startsWith('/shopify')) return 'shopify';
-    if (pathname.startsWith('/pinterest')) return 'pinterest';
-    if (pathname.startsWith('/design-library')) return 'design-library';
-    if (pathname.startsWith('/settings')) return 'settings';
-    if (pathname.startsWith('/user-management')) return 'user-management';
-    return '';
-  };
-
-  const currentActiveTab = getActiveSidebarTab();
 
   return (
-    <aside className={`sticky left-0 top-0 h-screen z-30 flex flex-col items-center sidebar-modern transition-all duration-300 ease-in-out ${
-      isExpanded ? 'w-64' : 'w-16'
-    } py-4`}>
-      {/* Logo/Brand Section */}
-      <div className="flex items-center justify-center w-full px-4 mb-8">
-        {isExpanded ? (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <BarChart3 size={20} className="text-white" />
-            </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white">BRMH</span>
-          </div>
-        ) : (
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <BarChart3 size={20} className="text-white" />
-          </div>
-        )}
-      </div>
-
-      {/* Main Navigation */}
-      <nav className="flex-1 w-full px-2">
-        <ul className="space-y-2">
-          {mainNavItems.map((item) => {
-            const isActive = currentActiveTab === item.name.toLowerCase().replace(' ', '-');
-            
+    <aside
+      className="h-screen flex flex-col items-center py-6 bg-gradient-to-b from-blue-50 via-indigo-50 to-purple-50 shadow-xl transition-all duration-300 w-20 justify-between border-r border-blue-200/50"
+      style={{ minWidth: '5rem' }}
+    >
+      <div className="flex flex-col items-center w-full">
+        {/* Company Logo: Enhanced with gradient */}
+        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 shadow-lg mb-8 mt-2 hover:shadow-xl transition-all duration-300">
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+            <path
+              d="M16 5C16 5 7 16 7 22C7 26.4183 11.0294 30 16 30C20.9706 30 25 26.4183 25 22C25 16 16 5 16 5Z"
+              fill="white"
+              stroke="white"
+              strokeWidth="1"
+            />
+          </svg>
+        </div>
+        {/* Icon Navigation */}
+        <nav className="flex flex-col gap-5 w-full items-center mt-2">
+          {navigation.map((item, idx) => {
+            const currentPath = pathname.split('/')[1];
+            const isActive =
+              activeSection === item.key ||
+              (activeSection === '' &&
+                (item.key === 'home'
+                  ? pathname === '/'
+                  : currentPath === item.key));
             return (
-              <li key={item.name}>
+              <div key={item.key} className="relative group w-full flex justify-center">
                 <button
-                  onClick={() => handleMainNavClick(item)}
-                  className={`w-full flex items-center px-3 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  onClick={() => handleIconClick(item.key)}
+                  className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 border-2 ${
                     isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-sm'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-gradient-to-br from-blue-500 to-purple-600 border-blue-400 text-white shadow-lg scale-110'
+                      : 'bg-white/70 border-transparent text-gray-600 hover:bg-gradient-to-br hover:from-blue-100 hover:to-purple-100 hover:text-blue-600 hover:shadow-md hover:scale-105'
                   }`}
+                  aria-label={item.name}
                 >
-                  <span className="flex-shrink-0">{item.icon}</span>
-                  {isExpanded && <span className="ml-3">{item.name}</span>}
+                  <item.icon className="h-6 w-6" />
                 </button>
-              </li>
+                {/* Enhanced Tooltip */}
+                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-4 whitespace-nowrap bg-gradient-to-r from-gray-900 to-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-2xl transition-all duration-300">
+                  {item.name}
+                </span>
+              </div>
             );
           })}
-        </ul>
-      </nav>
-
-      {/* Bottom Section */}
-      <div className="w-full px-2">
-        {/* Theme Toggle */}
-        <div className="flex items-center justify-center mb-4">
-          <button className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-            <Sun size={16} />
+          {/* Settings Icon directly below User Management */}
+          <div className="relative group w-full flex justify-center mt-2">
+          <button
+            onClick={() => handleIconClick(settingsNav.key)}
+              className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 border-2 ${
+              activeSection === settingsNav.key ||
+                pathname.startsWith('/settings')
+                  ? 'bg-gradient-to-br from-orange-500 to-red-500 border-orange-400 text-white shadow-lg scale-110'
+                  : 'bg-white/70 border-transparent text-gray-600 hover:bg-gradient-to-br hover:from-orange-100 hover:to-red-100 hover:text-orange-600 hover:shadow-md hover:scale-105'
+            }`}
+            aria-label={settingsNav.name}
+          >
+            <settingsNav.icon className="h-6 w-6" />
           </button>
+            {/* Enhanced Tooltip */}
+            <span className="absolute left-full top-1/2 -translate-y-1/2 ml-4 whitespace-nowrap bg-gradient-to-r from-gray-900 to-gray-800 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-2xl transition-all duration-300">
+            {settingsNav.name}
+          </span>
         </div>
-
-        {/* Collapse/Expand Button */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-        >
-          {isExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-        </button>
+        </nav>
       </div>
     </aside>
   );

@@ -1,410 +1,786 @@
 'use client';
-import React from 'react';
-import { 
-  TrendingUp, 
-  ShoppingCart, 
-  Users, 
-  DollarSign, 
-  Activity, 
-  Calendar,
-  ArrowUpRight,
-  ArrowDownRight,
-  Eye,
-  MessageSquare,
-  Heart,
-  Settings
-} from 'lucide-react';
 
-export default function DashboardPage() {
-  const stats = [
-    {
-      title: 'Total Orders',
-      value: '2,847',
-      change: '+12.5%',
-      changeType: 'positive',
-      icon: <ShoppingCart className="w-6 h-6 text-blue-600" />,
-      color: 'blue'
-    },
-    {
-      title: 'Total Revenue',
-      value: '$45,231',
-      change: '+8.2%',
-      changeType: 'positive',
-      icon: <DollarSign className="w-6 h-6 text-green-600" />,
-      color: 'green'
-    },
-    {
-      title: 'Active Users',
-      value: '1,234',
-      change: '+3.1%',
-      changeType: 'positive',
-      icon: <Users className="w-6 h-6 text-purple-600" />,
-      color: 'purple'
-    },
-    {
-      title: 'Conversion Rate',
-      value: '3.24%',
-      change: '-1.2%',
-      changeType: 'negative',
-      icon: <TrendingUp className="w-6 h-6 text-orange-600" />,
-      color: 'orange'
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { fetchDashboardData, generateActivityFeed, DashboardData } from '@/utils/analytics';
+import {
+  ShoppingBagIcon,
+  PhotoIcon,
+  BookOpenIcon,
+  ChartBarIcon,
+  UsersIcon,
+  CogIcon,
+  CloudIcon,
+  BoltIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  EyeIcon,
+  PlusIcon,
+  ServerIcon,
+  GlobeAltIcon,
+  CubeIcon,
+  ShieldCheckIcon,
+  KeyIcon,
+  BellIcon,
+  WifiIcon,
+  CpuChipIcon,
+  ArchiveBoxIcon,
+  CommandLineIcon,
+  SparklesIcon,
+  RocketLaunchIcon,
+  ChartPieIcon,
+  CurrencyDollarIcon,
+  ShoppingCartIcon,
+  TagIcon,
+  FolderIcon,
+  DocumentIcon,
+  Cog6ToothIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+  CubeTransparentIcon,
+  SwatchIcon,
+  PaintBrushIcon,
+  FilmIcon,
+  MusicalNoteIcon,
+  CameraIcon,
+  VideoCameraIcon,
+  MicrophoneIcon,
+  SpeakerWaveIcon,
+  DevicePhoneMobileIcon,
+  ComputerDesktopIcon,
+  TvIcon,
+  HeartIcon,
+  StarIcon,
+  FireIcon,
+  SunIcon,
+  MoonIcon,
+  CloudArrowUpIcon,
+  CloudArrowDownIcon,
+  ArrowPathIcon,
+  PlayIcon,
+  PauseIcon,
+  StopIcon,
+  ForwardIcon,
+  BackwardIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  AdjustmentsHorizontalIcon,
+  ViewColumnsIcon,
+  Squares2X2Icon,
+  SquaresPlusIcon,
+  TrashIcon,
+  PencilIcon,
+  DocumentDuplicateIcon,
+  ClipboardDocumentIcon,
+  ClipboardDocumentListIcon,
+  ClipboardIcon,
+  CheckIcon,
+  XMarkIcon,
+  MinusIcon,
+  QuestionMarkCircleIcon,
+  InformationCircleIcon,
+  ExclamationCircleIcon,
+  XCircleIcon,
+  NoSymbolIcon,
+  HandRaisedIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  FaceSmileIcon,
+  FaceFrownIcon,
+  FlagIcon,
+  BookmarkIcon,
+  BookmarkSlashIcon,
+  ShareIcon,
+  LinkIcon,
+  PaperAirplaneIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  ChatBubbleLeftIcon,
+  ChatBubbleLeftRightIcon,
+  ChatBubbleOvalLeftIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+  ChatBubbleBottomCenterTextIcon,
+  ChatBubbleBottomCenterIcon,
+  ChatBubbleLeftEllipsisIcon,
+} from '@heroicons/react/24/outline';
+
+// Default data structure
+const defaultData: DashboardData = {
+  platform: {
+    totalUsers: 1250,
+    activeUsers: 180,
+    totalNamespaces: 24,
+    activeNamespaces: 18,
+    totalExecutions: 1289,
+    activeExecutions: 12,
+    totalWebhooks: 45,
+    activeWebhooks: 38,
+    systemHealth: 'excellent',
+    uptime: 99.98,
+    responseTime: 245,
+  },
+  aws: {
+    lambda: { count: 12, status: 'healthy', errors: 0 },
+    dynamodb: { count: 8, status: 'healthy', errors: 0 },
+    s3: { count: 15, status: 'healthy', errors: 0 },
+    sns: { count: 5, status: 'healthy', errors: 0 },
+    apigateway: { count: 3, status: 'healthy', errors: 0 },
+    stepfunctions: { count: 7, status: 'healthy', errors: 0 },
+    cloudwatch: { status: 'healthy', errors: 0 },
+    iam: { count: 25, status: 'healthy', errors: 0 },
+  },
+  shopify: {
+    orders: { total: 0, pending: 0, completed: 0, revenue: 0 },
+    products: { total: 0, active: 0, draft: 0 },
+    customers: { total: 0, active: 0, new: 0 },
+  },
+  pinterest: {
+    pins: { total: 0, saved: 0, created: 0 },
+    boards: { total: 0, public: 0, private: 0 },
+    followers: { total: 0, new: 0 },
+  },
+  designLibrary: {
+    designs: { total: 0, active: 0, archived: 0 },
+    categories: { total: 0 },
+    storage: { used: '0 MB', total: '1 GB' },
+  },
+  performance: {
+    cpu: 45,
+    memory: 62,
+    disk: 28,
+    network: 78,
+    cache: { hitRate: 94.5, size: '2.3 GB' },
+  },
+  recentActivity: [
+    { id: 1, type: 'execution', message: 'Lambda function deployed successfully', time: '2 minutes ago', status: 'success' },
+    { id: 2, type: 'user', message: 'New user registered: john.doe@example.com', time: '5 minutes ago', status: 'info' },
+    { id: 3, type: 'webhook', message: 'Webhook triggered: order.created', time: '8 minutes ago', status: 'success' },
+    { id: 4, type: 'error', message: 'API Gateway timeout detected', time: '12 minutes ago', status: 'warning' },
+    { id: 5, type: 'deployment', message: 'New namespace created: ecommerce-v2', time: '15 minutes ago', status: 'success' },
+  ],
+  quickStats: {
+    todayExecutions: 156,
+    todayUsers: 23,
+    todayErrors: 2,
+    todayRevenue: 0,
+  }
+};
+
+export default function Home() {
+  const [data, setData] = useState<DashboardData>(defaultData);
+  const [loading, setLoading] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showSystemDetails, setShowSystemDetails] = useState(false);
+  const pathname = usePathname();
+
+  // Refresh data with loading state and timestamp
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const newData = await fetchDashboardData();
+      setData(newData);
+      setLastRefresh(new Date());
+      
+      // Simulate system health check
+      const healthCheck = Math.random();
+      if (healthCheck > 0.8) {
+        setSystemStatus('warning');
+      } else if (healthCheck > 0.95) {
+        setSystemStatus('error');
+      } else {
+        setSystemStatus('healthy');
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setSystemStatus('error');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const recentOrders = [
-    {
-      id: '#ORD-001',
-      customer: 'John Doe',
-      amount: '$299.00',
-      status: 'completed',
-      date: '2024-01-15'
-    },
-    {
-      id: '#ORD-002',
-      customer: 'Sarah Smith',
-      amount: '$199.00',
-      status: 'pending',
-      date: '2024-01-14'
-    },
-    {
-      id: '#ORD-003',
-      customer: 'Mike Johnson',
-      amount: '$599.00',
-      status: 'processing',
-      date: '2024-01-13'
-    },
-    {
-      id: '#ORD-004',
-      customer: 'Emily Davis',
-      amount: '$399.00',
-      status: 'completed',
-      date: '2024-01-12'
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    refreshData();
+    
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Click outside handler for system details popup
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showSystemDetails && !(event.target as Element).closest('.system-details-popup')) {
+        setShowSystemDetails(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSystemDetails]);
+
+  // Get status color and text
+  const getSystemStatusInfo = () => {
+    switch (systemStatus) {
+      case 'healthy':
+        return {
+          color: 'bg-green-50 border-green-200',
+          textColor: 'text-green-700',
+          dotColor: 'bg-green-500',
+          text: 'System Healthy'
+        };
+      case 'warning':
+        return {
+          color: 'bg-yellow-50 border-yellow-200',
+          textColor: 'text-yellow-700',
+          dotColor: 'bg-yellow-500',
+          text: 'System Warning'
+        };
+      case 'error':
+        return {
+          color: 'bg-red-50 border-red-200',
+          textColor: 'text-red-700',
+          dotColor: 'bg-red-500',
+          text: 'System Error'
+        };
+      default:
+        return {
+          color: 'bg-green-50 border-green-200',
+          textColor: 'text-green-700',
+          dotColor: 'bg-green-500',
+          text: 'System Healthy'
+        };
     }
-  ];
+  };
 
-  const recentActivity = [
-    {
-      user: 'Sarah Johnson',
-      action: 'placed a new order',
-      time: '2 minutes ago',
-      avatar: 'SJ'
-    },
-    {
-      user: 'Mike Chen',
-      action: 'updated product inventory',
-      time: '1 hour ago',
-      avatar: 'MC'
-    },
-    {
-      user: 'Alex Rodriguez',
-      action: 'completed a task',
-      time: '3 hours ago',
-      avatar: 'AR'
-    },
-    {
-      user: 'Lisa Wang',
-      action: 'added new customer',
-      time: '5 hours ago',
-      avatar: 'LW'
+  // Format last refresh time
+  const formatLastRefresh = () => {
+    const now = new Date();
+    const diff = now.getTime() - lastRefresh.getTime();
+    const seconds = Math.floor(diff / 1000);
+    
+    if (seconds < 60) {
+      return `${seconds}s ago`;
+    } else if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}m ago`;
+    } else {
+      const hours = Math.floor(seconds / 3600);
+      return `${hours}h ago`;
     }
-  ];
+  };
 
+  // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'processing':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      case 'success': return 'text-green-600 bg-green-50';
+      case 'warning': return 'text-yellow-600 bg-yellow-50';
+      case 'error': return 'text-red-600 bg-red-50';
+      case 'info': return 'text-blue-600 bg-blue-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  // Get status icon
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success': return CheckCircleIcon;
+      case 'warning': return ExclamationTriangleIcon;
+      case 'error': return ExclamationTriangleIcon;
+      case 'info': return InformationCircleIcon;
+      default: return ClockIcon;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 overflow-y-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome back! 👋
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Here's what's happening with your business today.
-          </p>
-        </div>
-        <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-          <button className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <Calendar size={16} />
-            <span>Today</span>
-          </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <TrendingUp size={16} />
-            <span>View Reports</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => (
-          <div key={index} className="stats-card stats-card-hover">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <main className="w-full">
+        <div className="w-full px-8 py-8">
+          {/* Header Section */}
+          <div className="mb-10 relative">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {stat.title}
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 bg-clip-text text-transparent mb-3">
+                  INKHUB Admin Dashboard
+                </h1>
+                <p className="text-gray-600 text-lg mb-2">
+                  Comprehensive analytics and management for your entire platform
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                  {stat.value}
+                <p className="text-sm text-gray-500">
+                  Last updated: {formatLastRefresh()}
                 </p>
               </div>
-              <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                {stat.icon}
-              </div>
-            </div>
-            <div className="flex items-center mt-4">
-              <span className={`text-sm font-medium ${
-                stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.changeType === 'positive' ? (
-                  <ArrowUpRight size={16} className="inline mr-1" />
-                ) : (
-                  <ArrowDownRight size={16} className="inline mr-1" />
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={refreshData}
+                  disabled={loading}
+                  className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                  title={loading ? 'Refreshing...' : 'Refresh dashboard data'}
+                >
+                  <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+                
+                <button
+                  onClick={() => setShowSystemDetails(!showSystemDetails)}
+                  className={`flex items-center gap-3 px-4 py-3 border-2 rounded-xl transition-all duration-300 cursor-pointer hover:shadow-lg ${getSystemStatusInfo().color}`}
+                  title="Click for system details"
+                >
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${getSystemStatusInfo().dotColor}`}></div>
+                  <span className={`text-sm font-medium ${getSystemStatusInfo().textColor}`}>
+                    {getSystemStatusInfo().text}
+                  </span>
+                </button>
+                
+                {/* System Details Popup */}
+                {showSystemDetails && (
+                  <div className="absolute right-0 top-20 mt-2 w-80 bg-white/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl z-50 p-6 system-details-popup">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">System Status</h3>
+                      <button
+                        onClick={() => setShowSystemDetails(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <XMarkIcon className="w-6 h-6" />
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Status:</span>
+                        <span className={`text-sm font-medium ${getSystemStatusInfo().textColor}`}>
+                          {getSystemStatusInfo().text}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Uptime:</span>
+                        <span className="text-sm font-medium text-gray-900">{data.platform.uptime}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Response Time:</span>
+                        <span className="text-sm font-medium text-gray-900">{data.platform.responseTime}ms</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Last Refresh:</span>
+                        <span className="text-sm font-medium text-gray-900">{formatLastRefresh()}</span>
+                      </div>
+                      <div className="pt-4 border-t border-gray-200">
+                        <button
+                          onClick={refreshData}
+                          disabled={loading}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50"
+                        >
+                          <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                          {loading ? 'Refreshing...' : 'Refresh Now'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {stat.change}
-              </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                from last month
-              </span>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Recent Orders */}
-        <div className="lg:col-span-2">
-          <div className="modern-card">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Recent Orders
-              </h2>
-              <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
-                View all
-              </button>
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Total Users - Blue/Purple */}
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <UsersIcon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-white bg-white/20 px-2 py-1 rounded-full">
+                  +80%
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">{data.platform.totalUsers.toLocaleString()}</h3>
+              <p className="text-blue-100 text-sm mb-3">TOTAL USERS</p>
+              <div className="w-full bg-white/20 rounded-full h-2 mb-2">
+                <div className="bg-white h-2 rounded-full transition-all duration-500" style={{ width: '80%' }}></div>
+              </div>
+              <p className="text-xs text-blue-200">80% Increase in 20 Days</p>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {recentOrders.map((order, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                        <ShoppingCart size={20} className="text-white" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {order.id}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {order.customer}
-                        </p>
-                      </div>
+
+            {/* Total Executions - Orange */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <BoltIcon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-white bg-white/20 px-2 py-1 rounded-full">
+                  +50%
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">{data.platform.totalExecutions.toLocaleString()}</h3>
+              <p className="text-orange-100 text-sm mb-3">NEW EXECUTIONS</p>
+              <div className="w-full bg-white/20 rounded-full h-2 mb-2">
+                <div className="bg-white h-2 rounded-full transition-all duration-500" style={{ width: '50%' }}></div>
+              </div>
+              <p className="text-xs text-orange-200">50% Increase in 20 Days</p>
+            </div>
+
+            {/* Namespaces - Purple */}
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <CubeIcon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-white bg-white/20 px-2 py-1 rounded-full">
+                  +60%
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">{data.platform.totalNamespaces}</h3>
+              <p className="text-purple-100 text-sm mb-3">TOTAL NAMESPACES</p>
+              <div className="w-full bg-white/20 rounded-full h-2 mb-2">
+                <div className="bg-white h-2 rounded-full transition-all duration-500" style={{ width: '60%' }}></div>
+              </div>
+              <p className="text-xs text-purple-200">60% Increase in 20 Days</p>
+            </div>
+
+            {/* Webhooks - Red */}
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <BellIcon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-medium text-white bg-white/20 px-2 py-1 rounded-full">
+                  +35%
+                </span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">{data.platform.totalWebhooks}</h3>
+              <p className="text-red-100 text-sm mb-3">FEES COLLECTION</p>
+              <div className="w-full bg-white/20 rounded-full h-2 mb-2">
+                <div className="bg-white h-2 rounded-full transition-all duration-500" style={{ width: '35%' }}></div>
+              </div>
+              <p className="text-xs text-red-200">35% Increase in 20 Days</p>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* AWS Services Overview */}
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">AWS Services Status</h2>
+                <a
+                  href="/aws-services"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  View All →
+                </a>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {Object.entries(data.aws).map(([service, info]: [string, any]) => (
+                  <div key={service} className="text-center">
+                    <div className={`p-3 rounded-lg mb-2 ${
+                      info.status === 'healthy' ? 'bg-green-50' : 'bg-red-50'
+                    }`}>
+                      {service === 'lambda' && <BoltIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'dynamodb' && <ServerIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 's3' && <ArchiveBoxIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'sns' && <BellIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'apigateway' && <GlobeAltIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'stepfunctions' && <CogIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'cloudwatch' && <ChartBarIcon className="w-6 h-6 mx-auto text-green-600" />}
+                      {service === 'iam' && <ShieldCheckIcon className="w-6 h-6 mx-auto text-green-600" />}
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {order.amount}
-                      </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {order.date}
-                      </span>
-                    </div>
+                    <h3 className="text-sm font-medium text-gray-900 capitalize">{service}</h3>
+                    <p className="text-xs text-gray-500">{info.count || 'N/A'}</p>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-1">
-          <div className="modern-card">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Recent Activity
-              </h2>
-              <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
-                View all
-              </button>
-            </div>
-            <div className="p-6">
+            {/* Performance Metrics */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">System Performance</h2>
               <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-xs font-medium">
-                        {activity.avatar}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {activity.user}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {activity.action}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {activity.time}
-                      </p>
-                    </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">CPU Usage</span>
+                    <span className="font-medium">{data.performance.cpu}%</span>
                   </div>
-                ))}
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: `${data.performance.cpu}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Memory</span>
+                    <span className="font-medium">{data.performance.memory}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-green-600 h-2 rounded-full transition-all duration-500" style={{ width: `${data.performance.memory}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Disk</span>
+                    <span className="font-medium">{data.performance.disk}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-yellow-600 h-2 rounded-full transition-all duration-500" style={{ width: `${data.performance.disk}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Network</span>
+                    <span className="font-medium">{data.performance.network}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: `${data.performance.network}%` }}></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Cache Hit Rate</span>
+                  <span className="font-medium">{data.performance.cache.hitRate}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Business Data & Quick Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Business Data */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Shopify */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-green-50 rounded-lg mr-3">
+                    <ShoppingBagIcon className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Shopify</h3>
+                    <p className="text-sm text-gray-500">E-commerce Platform</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Orders</span>
+                    <span className="font-medium">{data.shopify.orders.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Products</span>
+                    <span className="font-medium">{data.shopify.products.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Revenue</span>
+                    <span className="font-medium">${data.shopify.orders.revenue.toLocaleString()}</span>
+                  </div>
+                </div>
+                <a
+                  href="/shopify"
+                  className="w-full mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Manage Shopify →
+                </a>
+              </div>
+
+              {/* Pinterest */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-red-50 rounded-lg mr-3">
+                    <PhotoIcon className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Pinterest</h3>
+                    <p className="text-sm text-gray-500">Visual Discovery</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Pins</span>
+                    <span className="font-medium">{data.pinterest.pins.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Boards</span>
+                    <span className="font-medium">{data.pinterest.boards.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Followers</span>
+                    <span className="font-medium">{data.pinterest.followers.total}</span>
+                  </div>
+                </div>
+                <a
+                  href="/pinterest"
+                  className="w-full mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Manage Pinterest →
+                </a>
+              </div>
+
+              {/* Design Library */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-purple-50 rounded-lg mr-3">
+                    <SwatchIcon className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Design Library</h3>
+                    <p className="text-sm text-gray-500">Asset Management</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Designs</span>
+                    <span className="font-medium">{data.designLibrary.designs.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Categories</span>
+                    <span className="font-medium">{data.designLibrary.categories.total}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Storage</span>
+                    <span className="font-medium">{data.designLibrary.storage.used}</span>
+                  </div>
+                </div>
+                <a
+                  href="/design-library"
+                  className="w-full mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Manage Designs →
+                </a>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
+              <div className="space-y-3">
+                <a
+                  href="/user-management"
+                  className="w-full flex items-center gap-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <UsersIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">User Management</p>
+                    <p className="text-sm text-gray-500">Manage users & permissions</p>
+                  </div>
+                </a>
+                
+                <a
+                  href="/aws-services"
+                  className="w-full flex items-center gap-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="p-2 bg-green-50 rounded-lg">
+                    <CloudIcon className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">AWS Services</p>
+                    <p className="text-sm text-gray-500">Monitor cloud resources</p>
+                  </div>
+                </a>
+                
+                <a
+                  href="/settings"
+                  className="w-full flex items-center gap-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="p-2 bg-purple-50 rounded-lg">
+                    <CogIcon className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Settings</p>
+                    <p className="text-sm text-gray-500">Configure system settings</p>
+                  </div>
+                </a>
+                
+                <a
+                  href="/system-load"
+                  className="w-full flex items-center gap-3 p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="p-2 bg-orange-50 rounded-lg">
+                    <ServerIcon className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">System Load</p>
+                    <p className="text-sm text-gray-500">Monitor system health</p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity & Today's Stats */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recent Activity */}
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Recent Activity</h2>
+                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  View All →
+                </button>
+              </div>
+              <div className="space-y-4">
+                {data.recentActivity.map((activity: any) => {
+                  const StatusIcon = getStatusIcon(activity.status);
+                  return (
+                    <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className={`p-2 rounded-lg ${getStatusColor(activity.status)}`}>
+                        <StatusIcon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                        <p className="text-xs text-gray-500">{activity.time}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Today's Stats */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Today's Overview</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <BoltIcon className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-gray-900">Executions</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">{data.quickStats.todayExecutions}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <UsersIcon className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-900">New Users</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">{data.quickStats.todayUsers}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600" />
+                    <span className="text-sm font-medium text-gray-900">Errors</span>
+                  </div>
+                  <span className="text-lg font-bold text-yellow-600">{data.quickStats.todayErrors}</span>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <CurrencyDollarIcon className="w-5 h-5 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-900">Revenue</span>
+                  </div>
+                  <span className="text-lg font-bold text-purple-600">${data.quickStats.todayRevenue.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="modern-card p-6 mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="flex flex-col items-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-            <ShoppingCart className="w-8 h-8 text-blue-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">New Order</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-            <Users className="w-8 h-8 text-green-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Add Customer</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
-            <TrendingUp className="w-8 h-8 text-purple-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">View Reports</span>
-          </button>
-          <button className="flex flex-col items-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">
-            <Settings className="w-8 h-8 text-orange-600 mb-2" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Settings</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Additional Content Sections for Scrolling Test */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Analytics Overview */}
-        <div className="modern-card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Analytics Overview
-          </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Page Views</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">12,847</p>
-              </div>
-              <div className="text-green-600">
-                <ArrowUpRight size={20} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Conversion Rate</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">3.24%</p>
-              </div>
-              <div className="text-red-600">
-                <ArrowDownRight size={20} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Avg. Order Value</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">$156.78</p>
-              </div>
-              <div className="text-green-600">
-                <ArrowUpRight size={20} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Notifications */}
-        <div className="modern-card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Recent Notifications
-          </h2>
-          <div className="space-y-3">
-            <div className="flex items-start space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Low Inventory Alert</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Product "Premium Widget" is running low on stock</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">2 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Order Completed</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Order #ORD-001 has been successfully delivered</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">1 hour ago</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">New Customer</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Sarah Johnson has created a new account</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">3 hours ago</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Performance Metrics */}
-      <div className="modern-card p-6 mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Performance Metrics
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Eye className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Page Views</h3>
-            <p className="text-3xl font-bold text-blue-600">12,847</p>
-            <p className="text-sm text-green-600">+12.5% from last month</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Heart className="w-8 h-8 text-green-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Customer Satisfaction</h3>
-            <p className="text-3xl font-bold text-green-600">4.8/5</p>
-            <p className="text-sm text-green-600">+0.2 from last month</p>
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <MessageSquare className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Support Tickets</h3>
-            <p className="text-3xl font-bold text-purple-600">23</p>
-            <p className="text-sm text-red-600">+5 from last week</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Section */}
-      <div className="text-center py-8 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-gray-500 dark:text-gray-400">
-          © 2024 BRMH Dashboard. All rights reserved.
-        </p>
-      </div>
+      </main>
     </div>
   );
 }

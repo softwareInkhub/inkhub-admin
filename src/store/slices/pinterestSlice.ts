@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+// import { cache } from '@/utils/cache'; // Removed invalid import
 
 interface PinterestState {
   pins: any[];
@@ -81,7 +82,7 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchPins.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch pins';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to fetch pins';
       })
       // Boards
       .addCase(fetchBoards.pending, (state) => {
@@ -103,7 +104,7 @@ const pinterestSlice = createSlice({
       })
       .addCase(fetchBoards.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch boards';
+        state.error = action.error instanceof Error ? action.error.message : 'Failed to fetch boards';
       });
   },
 });

@@ -32,9 +32,9 @@ const docClient = DynamoDBDocumentClient.from(client);
 // Recursively flatten DynamoDB AttributeValue objects
 function fromDynamo(item: any): any {
   if (item == null) return item;
-  if (item.S !== undefined) return item.S;
-  if (item.N !== undefined) return Number(item.N);
-  if (item.BOOL !== undefined) return item.BOOL;
+  if (item.S !== undefined) return item.S as string;
+  if (item.N !== undefined) return Number(item.N as string);
+  if (item.BOOL !== undefined) return item.BOOL as boolean;
   if (item.NULL) return null;
   if (item.L) return item.L.map(fromDynamo);
   if (item.M) {
@@ -470,10 +470,10 @@ export async function GET(req: Request) {
     console.log(`[Debug] Returning chunk: items=${items.length}, lastEvaluatedKey=${result.lastEvaluatedKey ? JSON.stringify(result.lastEvaluatedKey) : 'null'}`);
     console.log(`[Debug] --- Request complete (DynamoDB+cache) in ${Date.now() - requestStart}ms ---`);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Debug] Error in GET /api/shopify/orders:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch orders' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch orders' },
       { status: 500 }
     );
   }
