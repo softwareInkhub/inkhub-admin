@@ -209,8 +209,7 @@ export default function GlobalLayout({ children }: GlobalLayoutProps) {
   return (
     <div className={`flex h-screen overflow-hidden ${isDarkMode ? 'dark' : ''}`}>
       <Sidebar 
-        activeTab={getActiveSidebarTab()}
-        onNavClick={handleSidebarNavClick}
+        onSectionSelect={handleSidebarNavClick}
       />
       
       {/* Secondary Sidebar */}
@@ -218,17 +217,12 @@ export default function GlobalLayout({ children }: GlobalLayoutProps) {
         <SecondarySidebar 
           section={activeSecondarySection}
           onCollapseChange={setSecondarySidebarCollapsed}
-          onItemClick={handleSecondarySidebarItemClick}
         />
       )}
       
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Navbar */}
-        <Navbar 
-          title="BRMH Dashboard"
-          isDarkMode={isDarkMode}
-          onThemeToggle={setTheme}
-        />
+        <Navbar />
         
         {/* Special Tab Bar Container - Always Visible */}
         <div className="relative bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b border-neutral-200 dark:border-gray-700 shadow-sm z-10">
